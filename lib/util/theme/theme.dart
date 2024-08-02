@@ -1,7 +1,4 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart';
-import 'package:system_theme/system_theme.dart';
-
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../config/common.dart';
@@ -9,29 +6,57 @@ import '../../config/common.dart';
 enum NavigationIndicators { sticky, end }
 
 class AppTheme extends ChangeNotifier {
-  AccentColor? _color;
-  AccentColor get color => _color ?? systemAccentColor;
-  set color(AccentColor color) {
-    _color = color;
-    notifyListeners();
-  }
-
-  Color _commandBarColor = Common.lightCommandBarColor;
+  Color _color = Colors.white;
+  Color get color => _color;
+  Color _unColor = Colors.black;
+  Color get unColor => _unColor;
+  Color _commandBarColor = Common.darkCommandBarColor;
   Color get commandBarColor => _commandBarColor;
-  commandBarColorRefresh(ThemeMode mode) {
+  colorRefresh(ThemeMode mode) {
     if (mode == ThemeMode.light) {
+      _color = Colors.black;
+      _unColor = Colors.white;
       _commandBarColor = Common.lightCommandBarColor;
     } else {
+      _color = Colors.white;
+      _unColor = Colors.black;
       _commandBarColor = Common.darkCommandBarColor;
     }
     notifyListeners();
   }
 
-  ThemeMode _mode = ThemeMode.light;
+  Color _exchangeTextColor = Common.exchangeTextColor;
+  Color get exchangeTextColor => _exchangeTextColor;
+  Color _exchangeBgColor = Common.exchangeBgColor;
+  Color get exchangeBgColor => _exchangeBgColor;
+  set exchangeTextColor(Color exchangeTextColor) {
+    _exchangeTextColor = exchangeTextColor;
+    notifyListeners();
+  }
+
+  set exchangeBgColor(Color exchangeBgColor) {
+    _exchangeBgColor = exchangeBgColor;
+    notifyListeners();
+  }
+
+  ThemeMode _mode = ThemeMode.dark;
   ThemeMode get mode => _mode;
   set mode(ThemeMode mode) {
     _mode = mode;
-    commandBarColorRefresh(mode);
+    colorRefresh(mode);
+    notifyListeners();
+  }
+
+  int _tradeIndex = 0;
+  int get tradeIndex => _tradeIndex;
+  set tradeIndex(int tradeIndex) {
+    _tradeIndex = tradeIndex;
+    notifyListeners();
+  }
+  int _tradeDetailIndex = 0;
+  int get tradeDetailIndex => _tradeDetailIndex;
+  set tradeDetailIndex(int tradeDetailIndex) {
+    _tradeDetailIndex = tradeDetailIndex;
     notifyListeners();
   }
 
@@ -83,25 +108,25 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  Locale? _locale;
-  Locale? get locale => _locale;
-  set locale(Locale? locale) {
+  Locale _locale=const Locale('zh', 'CN');
+  Locale get locale => _locale;
+  set locale(Locale locale) {
     _locale = locale;
     notifyListeners();
   }
 }
 
-AccentColor get systemAccentColor {
-  if ((defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android) && !kIsWeb) {
-    return AccentColor.swatch({
-      'darkest': SystemTheme.accentColor.darkest,
-      'darker': SystemTheme.accentColor.darker,
-      'dark': SystemTheme.accentColor.dark,
-      'normal': SystemTheme.accentColor.accent,
-      'light': SystemTheme.accentColor.light,
-      'lighter': SystemTheme.accentColor.lighter,
-      'lightest': SystemTheme.accentColor.lightest,
-    });
-  }
-  return Colors.blue;
-}
+// AccentColor get systemAccentColor {
+//   if ((defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android) && !kIsWeb) {
+//     return AccentColor.swatch({
+//       'darkest': SystemTheme.accentColor.darkest,
+//       'darker': SystemTheme.accentColor.darker,
+//       'dark': SystemTheme.accentColor.dark,
+//       'normal': SystemTheme.accentColor.accent,
+//       'light': SystemTheme.accentColor.light,
+//       'lighter': SystemTheme.accentColor.lighter,
+//       'lightest': SystemTheme.accentColor.lightest,
+//     });
+//   }
+//   return Colors.yellow;
+// }

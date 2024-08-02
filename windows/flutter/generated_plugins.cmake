@@ -4,7 +4,9 @@
 
 list(APPEND FLUTTER_PLUGIN_LIST
   flutter_acrylic
+  irondash_engine_context
   screen_retriever
+  super_native_extensions
   system_theme
   window_manager
 )
