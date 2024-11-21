@@ -13,11 +13,14 @@ class SpKey {
   static String account = "account";
   static String password = "password";
   static String currentUser = "currentUser";
+  static String baseUrl = "baseUrl";
 
   ///交易
   static String quoteSub = "quoteSub";
+  static String varietyMap = "varietyMap";
   static String codeUpdateTime = "codeUpdateTime";
   static String exchange = "exchange";
+  static String allContract = "allContract";
   static String option = "option";
   static String contract = "contract";
   static String commodity = "commodity";

@@ -100,7 +100,7 @@ class MarketServer {
         data = await SignData().signData("", Config.queryAllContractUrl);
       }
       Response response = await MdHttpUtils.getInstance().post(Config.queryAllContractUrl, data: data);
-      // logger.w(response);
+      // logger.i(response);
       if (response.data["code"] == 0) {
         List<Commodity> commodityList = [];
         List<dynamic> list = response.data["data"] ?? [];

@@ -97,18 +97,18 @@ class WebSocketServer {
             GZipDecoder gzip = GZipDecoder();
             List<int> decodeBody = gzip.decodeBytes(c.data);
             KlineData sk = KlineData.fromBuffer(decodeBody);
-            // CorrKlineEvent corr = CorrKlineEvent(
-            //     key: sk.key,
-            //     data: DataBean(
-            //       amount: sk.data.amount,
-            //       close: sk.data.close,
-            //       high: sk.data.high,
-            //       low: sk.data.low,
-            //       open: sk.data.open,
-            //       uxTime: sk.data.uxTime.toInt(),
-            //       volume: sk.data.volume,
-            //     ));
-            // EventBusUtil.getInstance().fire(corr);
+            CorrKlineEvent corr = CorrKlineEvent(
+                key: sk.key,
+                data: DataBean(
+                  amount: sk.data.amount,
+                  close: sk.data.close,
+                  high: sk.data.high,
+                  low: sk.data.low,
+                  open: sk.data.open,
+                  uxTime: sk.data.uxTime.toInt(),
+                  volume: sk.data.volume,
+                ));
+            EventBusUtil.getInstance().fire(corr);
           } catch (e) {
             logger.i("K线周期变化通知解析失败:$e");
           }
@@ -144,6 +144,7 @@ class WebSocketServer {
       int comType = ascii.encode(response.contract.commodity.commodityType).single;
       scode1 = scode1.length > 4 ? scode1.substring(scode1.length - 4, scode1.length) : scode1;
       Contract? contract = MarketUtils.getVariety(excd, comcode + scode1, comType);
+      if (contract == null) logger.e("MarketUtils.getVariety null");
       if (contract == null) return;
       if (response.contract.callOrPutFlag1 != "") contract.changeFlag = response.contract.callOrPutFlag1;
       if (response.currencyNo != "") contract.currency = response.currencyNo;
@@ -189,8 +190,11 @@ class WebSocketServer {
       contract.change = response.qChangeValue;
       contract.amplitude = response.qSwing;
       contract.delegateBuy = response.qTotalBidQty;
+
+      ///Todo无数据
       contract.delegateSale = response.qTotalAskQty;
 
+      ///Todo无数据
       for (var element in response.appleBuy) {
         Level2 level = Level2();
         level.price = element.price;
@@ -198,6 +202,7 @@ class WebSocketServer {
         contract.setLevel2(level, response.appleBuy.indexOf(element));
         if (response.appleBuy.indexOf(element) == 0) {
           contract.buyPrice = element.price;
+          contract.delegateBuy = element.volume;
         }
       }
 
@@ -208,6 +213,7 @@ class WebSocketServer {
         contract.setLevel2(level, response.appleSell.indexOf(element) + 20);
         if (response.appleSell.indexOf(element) == 0) {
           contract.salePrice = element.price;
+          contract.delegateSale = element.volume;
         }
       }
 
@@ -219,7 +225,7 @@ class WebSocketServer {
       //   logger.i("成交逐笔推送：$fill");
       // } catch (error) {
       //   logger.e("成交逐笔解析异常:$e");
-        // logger.e("成交逐笔解析异常:$e,$error");
+      // logger.e("成交逐笔解析异常:$e,$error");
       // }
     }
   }

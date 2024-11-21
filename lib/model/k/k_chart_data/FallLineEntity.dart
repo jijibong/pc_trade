@@ -41,7 +41,7 @@ class FallLineEntity {
   /**
    * 默认字体大小
    **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**
    * 增加数据类
    */
@@ -315,6 +315,7 @@ class FallLineEntity {
       double mMinPrice,
       int CANDLE_INTERVAL,
       double MARGINLEFT,
+      double leftMarginSpace,
       double MARGINTOP,
       double uperChartHeight,
       int FallPeriod1,
@@ -337,19 +338,18 @@ class FallLineEntity {
     fourPaint.strokeWidth = Port.fallWidth[3];
     fivePaint.strokeWidth = Port.fallWidth[4];
     sixPaint.strokeWidth = Port.fallWidth[5];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
-    double textXStart = MARGINLEFT;
+    double textXStart = MARGINLEFT + Port.defult_icon_width+ leftMarginSpace;
+    double textMarginTop = MARGINTOP - (Port.text_check / 3);
 
     //绘制瀑布线
 //		Log.i("", "PBX2集合大小："+PBX2.length);
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth;
-      double nextX = MARGINLEFT + mCandleWidth * (number) + mCandleWidth;
+      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = MARGINLEFT + mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
 
       //从周期1开始才绘制瀑布线1
       if (i >= (FallPeriod1 * 4 - 1)) {
@@ -416,12 +416,6 @@ class FallLineEntity {
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), sixPaint);
         }
       }
-//		Log.i("", "位置："+(i - (FallPeriod1*4-1)) +" "+"pb1数据："+PBX1[i - (FallPeriod1*4-1)));
-//		Log.i("", "位置："+(i - (FallPeriod2*4-1)) +" "+"pb2数据："+PBX2[i - (FallPeriod2*4-1)));
-//		Log.i("", "位置："+(i - (FallPeriod3*4-1)) +" "+"pb3数据："+PBX3[i - (FallPeriod3*4-1)));
-//		Log.i("", "位置："+(i - (FallPeriod4*4-1)) +" "+"pb4数据："+PBX4[i - (FallPeriod4*4-1)));
-//		Log.i("", "位置："+(i - (FallPeriod5*4-1)) +" "+"pb5数据："+PBX5[i - (FallPeriod5*4-1)));
-//		Log.i("", "位置："+(i - (FallPeriod6*4-1)) +" "+"pb6数据："+PBX6[i - (FallPeriod6*4-1)));
 
       //绘制当前周期，最新一根数据的up,down,middle
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
@@ -468,68 +462,52 @@ class FallLineEntity {
           pbx6 = "0.000";
         }
         String text = "PB$FallPeriod1:$pbx1";
-        // textPaint.setColor(Port.fall1Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "PB$FallPeriod2:$pbx2";
-        // textPaint.setColor(Port.fall2Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "PB$FallPeriod3:$pbx3";
-        // text = "PB" + FallPeriod3 + ":" + pbx3;
-        // textPaint.setColor(Port.fall3Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "PB$FallPeriod4:$pbx4";
-        // text = "PB" + FallPeriod4 + ":" + pbx4;
-        // textPaint.setColor(Port.fall4Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "PB$FallPeriod5:$pbx5";
-        // text = "PB" + FallPeriod5 + ":" + pbx5;
-        // textPaint.setColor(Port.fall5Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "PB$FallPeriod6:$pbx6";
-        // text = "PB" + FallPeriod6 + ":" + pbx6;
-        // textPaint.setColor(Port.fall6Color);
-        // canvas.drawText(text, textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, textMarginTop));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }
   }

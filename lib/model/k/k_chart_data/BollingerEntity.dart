@@ -19,7 +19,7 @@ class BollingerEntity {
   /**Bollinger周期内标准差数据集合*/
   List<double> BollingerSQRT = [];
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
 
@@ -181,7 +181,7 @@ class BollingerEntity {
    * 绘制布林线
    */
   void drawBollinger(Canvas canvas, int mDataStartIndext, int mShowDataNum, double mCandleWidth, double mMaxPrice, double mMinPrice, int CANDLE_INTERVAL,
-      double MARGINLEFT, double MARGINTOP, double uperChartHeight, int BollingerPeriod, double BollingerSD) {
+      double MARGINLEFT, double leftMarginSpace, double MARGINTOP, double uperChartHeight, int BollingerPeriod, double BollingerSD) {
     double rate = 0.0; //每单位像素价格
     Paint midPaint = MethodUntil().getDrawPaint(Port.BollingerMidColor);
     Paint upPaint = MethodUntil().getDrawPaint(Port.BollingerUpColor);
@@ -191,14 +191,9 @@ class BollingerEntity {
     upPaint.strokeWidth = Port.BollingerWidth[0];
     downPaint.strokeWidth = Port.BollingerWidth[2];
 
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-
-    // Paint mPaint =  Paint()..color=Colors.red..isAntiAlias=true;
-
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
-    double textXStart = MARGINLEFT;
+    double textXStart = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
 
     //绘制Bollinger
 //		double lastY = 0;
@@ -206,8 +201,8 @@ class BollingerEntity {
 //		Path areaPath = new Path();
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth;
-      double nextX = MARGINLEFT + mCandleWidth * (number) + mCandleWidth;
+      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = MARGINLEFT + mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
 
       //从周期开始才绘制Bollinger
       if (i >= BollingerPeriod - 1) {
@@ -244,65 +239,37 @@ class BollingerEntity {
           down = "0.000";
         }
         String text = "BLD($BollingerPeriod, $BollingerSD)";
-        // canvas.drawText(text, textXStart, MARGINTOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "TOP:$up";
-        // textPaint.setColor(Port.BollingerUpColor);
-        // canvas.drawText(text, textXStart, MARGINTOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MID:$mid";
-        // textPaint.setColor(Port.BollingerMidColor);
-        // canvas.drawText(text, textXStart, MARGINTOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "BOTTOM:$down";
-        // textPaint.setColor(Port.BollingerDownColor);
-        // canvas.drawText(text, textXStart, MARGINTOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
-
-      // 绘制线条路径
-      // calculate Y
-//		double valueY1 =  ((mMaxPrice - (BollingerAVE[i - (BollingerPeriod-1)] + BollingerSD*BollingerSQRT[i - (BollingerPeriod-1)])) * rate  + MARGINTOP);
-//		double valueY2 =  ((mMaxPrice - (BollingerAVE[i - (BollingerPeriod-1)] - BollingerSD*BollingerSQRT[i - (BollingerPeriod-1)])) * rate  + MARGINTOP);
-//		if (i == mDataStartIndext) {
-//			areaPath.moveTo(startX, valueY1);
-//			areaPath.lineTo(startX, valueY2);
-//			areaPath.moveTo(startX, valueY1);
-//		} else {
-//			areaPath.lineTo(startX, valueY1);
-//			areaPath.lineTo(startX, valueY2);
-//			areaPath.lineTo(lastX, lastY);
-//			areaPath.close();
-//			areaPath.moveTo(startX, valueY1);
-//		}
-//
-//		lastX = startX;
-//		lastY = valueY2;
     }
-//		areaPath.close();
-//		canvas.drawPath(areaPath, mPaint);
   }
 }

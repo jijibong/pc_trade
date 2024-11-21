@@ -1,3 +1,6 @@
+import 'dart:convert';
+
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -8,16 +11,25 @@ import 'package:window_manager/window_manager.dart';
 import '../../config/common.dart';
 import '../../config/config.dart';
 import '../../model/broker/broker.dart';
+import '../../model/k/k_flag.dart';
+import '../../model/k/k_preiod.dart';
+import '../../model/k/k_time.dart';
 import '../../model/user/user.dart';
 import '../../server/login/login.dart';
+import '../../server/socket/trade_webSocket.dart';
 import '../../server/socket/webSocket.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
+import '../../util/log/log.dart';
+import '../../util/multi_windows_manager/common.dart';
+import '../../util/multi_windows_manager/consts.dart';
+import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/theme/theme.dart';
+import '../../util/utils/utils.dart';
 import '../quote/quote.dart';
 import '../quote/quote_logic.dart';
 
@@ -28,12 +40,13 @@ class Homepage extends StatefulWidget {
   State<Homepage> createState() => _HomepageState();
 }
 
-class _HomepageState extends State<Homepage> with WindowListener {
+class _HomepageState extends State<Homepage> with WindowListener, MultiWindowListener {
   final QuoteLogic logic = Get.put(QuoteLogic());
   TextEditingController severController = TextEditingController(text: Common.brokerId);
   TextEditingController accountController = TextEditingController();
   TextEditingController pwdController = TextEditingController();
   TextEditingController vCodeController = TextEditingController();
+  Broker broker = Broker(brokerId: Common.brokerId);
   IpAddress ipAddress = IpAddress();
   List brokerList = [];
   bool savePwd = false;
@@ -47,9 +60,11 @@ class _HomepageState extends State<Homepage> with WindowListener {
   }
 
   refreshBroker() async {
-    await LoginServer.queryBroker(Common.brokerId).then((value) {
+    await LoginServer.queryBroker(broker.brokerId ?? Common.brokerId).then((value) {
       if (value != null) {
+        broker = value;
         Config.URL = "${value.tradeUrl}:${value.tradePort}";
+        SpUtils.set(SpKey.baseUrl, "${value.tradeUrl}:${value.tradePort}");
         HttpUtils();
       }
     });
@@ -65,11 +80,29 @@ class _HomepageState extends State<Homepage> with WindowListener {
       savePwd = true;
       pwdController.text = password;
     }
+
+    EventBusUtil.getInstance().on<LoginEvent>().listen((event) {
+      tradeAccount();
+    });
+
+    rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      if (call.method == kWindowEventHide) {
+        LoginServer.isLogin = false;
+        UserUtils.currentUser = null;
+      }
+    });
   }
 
-  tradeAccount() {
+  tradeAccount() async {
     if (!LoginServer.isLogin) {
       showLogin();
+    } else {
+      if (logic.selectedContract.value.code != null) {
+        String contract = jsonEncode(logic.selectedContract.value);
+        await rustDeskWinManager.newRemoteDesktop("trade", contract: contract);
+      } else {
+        await rustDeskWinManager.newRemoteDesktop("trade");
+      }
     }
   }
 
@@ -80,7 +113,8 @@ class _HomepageState extends State<Homepage> with WindowListener {
       builder: (context) {
         return ContentDialog(
           style: const ContentDialogThemeData(
-              decoration: ShapeDecoration(color: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero)), padding: EdgeInsets.zero),
+              decoration: ShapeDecoration(color: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero)),
+              padding: EdgeInsets.zero),
           content: StatefulBuilder(builder: (context, state) {
             return Column(
               mainAxisSize: MainAxisSize.min,
@@ -128,7 +162,8 @@ class _HomepageState extends State<Homepage> with WindowListener {
                       style: CheckboxThemeData(
                         margin: const EdgeInsets.only(right: 10),
                         checkedDecoration: WidgetStatePropertyAll(BoxDecoration(color: Colors.yellow, borderRadius: BorderRadius.zero)),
-                        uncheckedDecoration: WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.zero, border: Border.all(color: Colors.blue))),
+                        uncheckedDecoration:
+                            WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.zero, border: Border.all(color: Colors.blue))),
                       ),
                       onChanged: (bool? value) {
                         savePwd = value ?? false;
@@ -165,16 +200,23 @@ class _HomepageState extends State<Homepage> with WindowListener {
     } else if (accountController.text.isEmpty || pwdController.text.isEmpty) {
       InfoBarUtils.showWarningBar("账号或密码不能为空");
     } else {
-      await LoginServer.login(accountController.text, pwdController.text, Common.brokerId, "", ipAddress.cip ?? "").then((value) {
+      await LoginServer.login(accountController.text, pwdController.text, Common.brokerId, "", ipAddress.cip ?? "").then((value) async {
         if (value == true) {
           SpUtils.set(SpKey.account, accountController.text);
+          Utils.saveBroker(broker);
           if (savePwd) {
             SpUtils.set(SpKey.password, pwdController.text);
           } else {
             SpUtils.remove(SpKey.password);
           }
-          EventBusUtil.getInstance().fire(LoginEvent(true));
+          EventBusUtil.getInstance().fire(LoginSuccess());
           Get.back();
+          if (logic.selectedContract.value.code != null) {
+            String contract = jsonEncode(logic.selectedContract.value);
+            await rustDeskWinManager.newRemoteDesktop("trade", contract: contract);
+          } else {
+            await rustDeskWinManager.newRemoteDesktop("trade");
+          }
         }
       });
     }
@@ -184,17 +226,21 @@ class _HomepageState extends State<Homepage> with WindowListener {
   void initState() {
     super.initState();
     windowManager.addListener(this);
+    DesktopMultiWindow.addListener(this);
+    rustDeskWinManager.registerActiveWindowListener(onActiveWindowChanged);
     UserUtils.appContext = context;
+    initInfo();
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();
-    initInfo();
   }
 
   @override
   void dispose() {
     super.dispose();
     windowManager.removeListener(this);
+    DesktopMultiWindow.removeListener(this);
+    WebSocketServer().dispose();
   }
 
   @override
@@ -261,18 +307,20 @@ class _HomepageState extends State<Homepage> with WindowListener {
                         icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
                         label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
-                          logic.viewIndex.value = 0;
+                          appTheme.viewIndex = 0;
                         },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.home, color: appTheme.exchangeTextColor),
                         label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          appTheme.viewIndex = 0;
+                        },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.refresh, color: appTheme.exchangeTextColor),
                         label: Text('刷新', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () async {},
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.scale_volume, color: appTheme.exchangeTextColor),
@@ -297,69 +345,114 @@ class _HomepageState extends State<Homepage> with WindowListener {
                       CommandBarButton(
                         icon: Icon(FluentIcons.line_chart, color: appTheme.exchangeTextColor),
                         label: Text('分时图', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('日', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('周', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('月', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('年', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          ///Todo period
+                          KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('X', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                          // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('1', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('3', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('5', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('10', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('15', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('30', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('60', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('120', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          ///Todo period
+                          KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                          EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       CommandBarButton(
                         label: Text('Y', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () {
+                          // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                          // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                        },
                       ),
                       // const CommandBarSeparator(),
                     ],
                   )),
-                  // Image.asset("assets/images/quote_st.png"),
-                  // Image.asset("assets/images/user_st.png")
                   const Icon(FluentIcons.join_online_meeting),
                   SizedBox(width: 2.sp),
                   const Icon(FluentIcons.plug_connected), //FluentIcons.plug_disconnected
@@ -418,9 +511,13 @@ class _HomepageState extends State<Homepage> with WindowListener {
             actions: [
               FilledButton(
                 child: const Text('确定'),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(_);
-                  windowManager.destroy();
+                  mainWindowClose() async => await windowManager.hide();
+                  if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
+                    await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
+                  }
+                  await mainWindowClose();
                 },
               ),
               Button(

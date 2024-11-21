@@ -22,7 +22,7 @@ class AlligatorEntity {
   /**鳄鱼线唇线数据集合*/
   List<double> LipsList = [];
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
 
@@ -131,12 +131,7 @@ class AlligatorEntity {
     Paint jawPaint = MethodUntil().getDrawPaint(Port.jawColor);
     Paint teethPaint = MethodUntil().getDrawPaint(Port.teethColor);
     Paint lipsPaint = MethodUntil().getDrawPaint(Port.lipsColor);
-    TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.foreGroundColor);
-    // jawPaint.setStrokeWidth(Port.alligatorWidth[0]);
-    // teethPaint.setStrokeWidth(Port.alligatorWidth[1]);
-    // lipsPaint.setStrokeWidth(Port.alligatorWidth[2]);
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
+    TextPainter textPaint = TextPainter();
 
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;

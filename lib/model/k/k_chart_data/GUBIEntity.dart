@@ -24,7 +24,7 @@ import 'CalcIndexData.dart';
    List<double> Cost11=[];
    List<double> Cost12=[];
   /** 默认字体大小 **/
-   static  double DEFAULT_AXIS_TITLE_SIZE = 22;
+   static  double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
    CalcIndexData mCalcData =  CalcIndexData();
 
@@ -275,8 +275,6 @@ import 'CalcIndexData.dart';
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.foreGroundColor);
     shortPaint.strokeWidth=Port.GUBIWidth[0];
     longPaint.strokeWidth=Port.GUBIWidth[1];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE-10) / (mMaxPrice - mMinPrice);//计算最小单位
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;

@@ -1,26 +1,37 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:multi_split_view/multi_split_view.dart';
 import 'package:provider/provider.dart';
 import 'package:super_context_menu/super_context_menu.dart';
 import 'package:trade/page/quote/quote_data.dart';
 
-import '../../../model/pb/quote/quote.pb.dart' hide QuoteData;
 import '../../../util/theme/theme.dart';
 
 class EmptyView extends StatefulWidget {
-  const EmptyView({super.key});
+  final int? empty;
+  const EmptyView({this.empty, super.key});
 
   @override
   State<EmptyView> createState() => _EmptyViewState();
 }
 
 class _EmptyViewState extends State<EmptyView> {
+  final MultiSplitViewController _controller = MultiSplitViewController();
+  late AppTheme appTheme;
   int empty = 0;
+
+  init() {
+    if (widget.empty != null) {
+      empty = widget.empty!;
+      if (mounted) setState(() {});
+    }
+  }
 
   @override
   void initState() {
     super.initState();
+    init();
   }
 
   @override
@@ -30,7 +41,11 @@ class _EmptyViewState extends State<EmptyView> {
 
   @override
   Widget build(BuildContext context) {
-    final appTheme = context.watch<AppTheme>();
+    appTheme = context.watch<AppTheme>();
+    return MultiSplitView(axis: Axis.vertical, resizable: false, controller: _controller, builder: (BuildContext context, Area area) => area.data);
+  }
+
+  Widget item() {
     if (empty == 0) {
       return ContextMenuWidget(
           menuProvider: (_) {
@@ -67,7 +82,7 @@ class _EmptyViewState extends State<EmptyView> {
                 )),
           ));
     } else if (empty == 1) {
-      return  const QuoteData();
+      return const QuoteDatas();
     } else {
       return Container();
     }

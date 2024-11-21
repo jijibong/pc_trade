@@ -18,7 +18,7 @@ import 'CalcIndexData.dart';
   /**MADKX数据集合*/
    List<double> MADKX=[];
   /** 默认字体大小 **/
-   static double DEFAULT_AXIS_TITLE_SIZE = 22;
+   static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
    CalcIndexData mCalcData =  CalcIndexData();
 
@@ -113,7 +113,6 @@ import 'CalcIndexData.dart';
     TextPainter textPaint =TextPainter();// MethodUntil().getDrawPaint(Port.foreGroundColor);
     yellowPaint.strokeWidth=Port.DKXWidth[0];
     bluePaint.strokeWidth=Port.DKXWidth[1];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
     // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE-10) / (mMaxPrice - mMinPrice);//计算最小单位

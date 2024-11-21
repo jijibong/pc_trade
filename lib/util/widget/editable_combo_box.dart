@@ -31,6 +31,7 @@ class EditableComboBox<T> extends ComboBox<T> {
     super.selectedItemBuilder,
     super.style,
     super.value,
+    super.mathValue,
     super.numBox,
     super.smallChange,
     required this.onFieldSubmitted,
@@ -87,11 +88,13 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
   EditableComboBox<T> get widget => super.widget as EditableComboBox<T>;
 
   late TextEditingController controller;
+  late double mathValue;
 
   @override
   void initState() {
     super.initState();
     controller = widget.textController ?? TextEditingController();
+    mathValue = widget.mathValue ?? 0.0;
     _setText('${widget.value}');
   }
 
@@ -116,15 +119,17 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
     );
   }
 
-  void incrementSmall() {
-    final value = (num.tryParse(controller.text) ?? num.tryParse(widget.value.toString()) ?? 0) + (widget.smallChange ?? 0.1);
+  void decrementSmall() {
+    var value = mathValue - (widget.smallChange ?? 0.01);
+    value = math.max(value, 0);
+    mathValue = value;
     _updateController(value);
     // updateValue();
   }
 
-  void decrementSmall() {
-    var value = (num.tryParse(controller.text) ?? num.tryParse(widget.value.toString()) ?? 0) - (widget.smallChange ?? 0.1);
-    value = math.min(value, 0);
+  void incrementSmall() {
+    final value = mathValue + (widget.smallChange ?? 0.01);
+    mathValue = value;
     _updateController(value);
     // updateValue();
   }

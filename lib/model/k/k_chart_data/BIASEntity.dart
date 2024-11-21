@@ -3,6 +3,7 @@ import 'package:path_drawing/path_drawing.dart';
 
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/painter/k_chart/sub_chart_painter.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -23,7 +24,7 @@ class BIASEntity {
   /**BIAS最低价*/
   double minPrice = 0.0;
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /** 默认虚线效果 */
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
   // static final PathEffect DEFAULT_DASH_EFFECT = new DashPathEffect(new double[] { 2, 3, 2,
@@ -176,9 +177,10 @@ class BIASEntity {
    * 绘制RSI,价格线
    */
   void drawBIAS(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double MARGINLEFT, double MARGINBOTTOM, double LOWER_CHART_TOP, double mRightArea, int BIAS1Period, int BIAS2Period, int BIAS3Period) {
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM - DEFAULT_AXIS_TITLE_SIZE - 10; //下表高度
-    double latitudeSpacing = lowerHight / 4; //每格高度
+      double leftMarginSpace, double halfTextHeight, int BIAS1Period, int BIAS2Period, int BIAS3Period) {
+    double textBottom = Port.defult_margin_top;
+    double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
+    double latitudeSpacing = lowerHeight / 4; //每格高度
     double rate = 0.0; //每单位像素价格
     Paint redPaint = MethodUntil().getDrawPaint(Port.BIAS1Color);
     Paint yellowPaint = MethodUntil().getDrawPaint(Port.BIAS2Color);
@@ -192,18 +194,15 @@ class BIASEntity {
     redPaint.strokeWidth = Port.BIASWidth[0];
     yellowPaint.strokeWidth = Port.BIASWidth[1];
     bluePaint.strokeWidth = Port.BIASWidth[2];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
 
-    rate = lowerHight / (maxPrice - minPrice);
-    double textBottom = DEFAULT_AXIS_TITLE_SIZE + 10;
-    double textXStart = MARGINLEFT;
+    rate = lowerHeight / (maxPrice - minPrice);
+    double textXStart = Port.defult_icon_width + leftMarginSpace;
 
     //绘制虚线
     for (int i = 1; i <= 3; i++) {
       Path path = Path(); // 绘制虚线
-      path.moveTo(MARGINLEFT, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      // canvas.drawPath(path, dottedPaint);
+      path.moveTo(leftMarginSpace, viewHeight - latitudeSpacing * i - textBottom);
+      path.lineTo(viewWidth - leftMarginSpace, viewHeight - latitudeSpacing * i - textBottom);
       canvas.drawPath(
         dashPath(
           path,
@@ -216,35 +215,27 @@ class BIASEntity {
     //绘制价格
     double perPrice = (maxPrice - minPrice) / (3 + 1); //计算每一格纬线框所占有的价格
     for (int i = 1; i <= 3; i++) {
-      // if (Port.drawFlag==1) {
-      // canvas.drawText(mUntil.getPointNum(minPrice+perPrice*i), viewWidth - MARGINLEFT-mRightArea,
-      // viewHeight - MARGINBOTTOM - latitudeSpacing*i + DEFAULT_AXIS_TITLE_SIZE/2,
-      // textPaint);
-      // }else{
-      // canvas.drawText(Utils.getPointNum(minPrice+perPrice*i), MARGINLEFT,
-      // viewHeight - MARGINBOTTOM - latitudeSpacing*i,
-      // textPaint);
+      double textWidth = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice * i)} ", textPaint);
       textPaint
         ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, viewHeight - MARGINBOTTOM - latitudeSpacing * i));
-      // }
+        ..paint(canvas, Offset(leftMarginSpace - textWidth, viewHeight - latitudeSpacing * i - textBottom - halfTextHeight));
     }
 
     //绘制BIAS
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = (MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth);
-      double nextX = (MARGINLEFT + mCandleWidth * (number) + mCandleWidth);
+      double startX = leftMarginSpace + mCandleWidth * (i - mDataStartIndext) + mCandleWidth;
+      double nextX = leftMarginSpace + mCandleWidth * (number) + mCandleWidth;
 
       //从周期开始才绘制BIAS1
       if (i >= BIAS1Period - 1) {
         //K线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (BIAS1Period - 1) : i - (BIAS1Period - 1) + 1;
         if (nextNumber < BIASs1.length) {
-          double startY = (LOWER_CHART_TOP + (maxPrice - BIASs1[i - (BIAS1Period - 1)]) * rate + textBottom);
-          double stopY = (LOWER_CHART_TOP + (maxPrice - BIASs1[nextNumber]) * rate + textBottom);
+          double startY = (maxPrice - BIASs1[i - (BIAS1Period - 1)]) * rate + textBottom;
+          double stopY = (maxPrice - BIASs1[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), redPaint);
         }
       }
@@ -254,8 +245,8 @@ class BIASEntity {
         //K线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (BIAS2Period - 1) : i - (BIAS2Period - 1) + 1;
         if (nextNumber < BIASs2.length) {
-          double startY = (LOWER_CHART_TOP + (maxPrice - BIASs2[i - (BIAS2Period - 1)]) * rate + textBottom);
-          double stopY = (LOWER_CHART_TOP + (maxPrice - BIASs2[nextNumber]) * rate + textBottom);
+          double startY = (maxPrice - BIASs2[i - (BIAS2Period - 1)]) * rate + textBottom + halfTextHeight * 2;
+          double stopY = (maxPrice - BIASs2[nextNumber]) * rate + textBottom + halfTextHeight * 2;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), yellowPaint);
         }
       }
@@ -265,8 +256,8 @@ class BIASEntity {
         //K线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (BIAS3Period - 1) : i - (BIAS3Period - 1) + 1;
         if (nextNumber < BIASs3.length) {
-          double startY = (LOWER_CHART_TOP + (maxPrice - BIASs3[i - (BIAS3Period - 1)]) * rate + textBottom);
-          double stopY = (LOWER_CHART_TOP + (maxPrice - BIASs3[nextNumber]) * rate + textBottom);
+          double startY = (maxPrice - BIASs3[i - (BIAS3Period - 1)]) * rate + textBottom + halfTextHeight * 2;
+          double stopY = (maxPrice - BIASs3[nextNumber]) * rate + textBottom + halfTextHeight * 2;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), bluePaint);
         }
       }
@@ -291,42 +282,35 @@ class BIASEntity {
         }
 
         String text = "BIAS($BIAS1Period , $BIAS2Period , $BIAS3Period)";
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
 
         text = "bias1: $bias1";
-        // textPaint.setColor(Port.BIAS1Color);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
 
         text = "bias2: $bias2";
-        // textPaint.setColor(Port.BIAS2Color);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
 
         text = "bias3: $bias3";
-        // textPaint.setColor(Port.BIAS3Color);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
       }
     }
   }

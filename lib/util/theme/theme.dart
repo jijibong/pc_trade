@@ -12,6 +12,8 @@ class AppTheme extends ChangeNotifier {
   Color get unColor => _unColor;
   Color _commandBarColor = Common.darkCommandBarColor;
   Color get commandBarColor => _commandBarColor;
+  // Color _quoteColor = Common.darkCommandBarColor;
+  // Color get quoteColor => _quoteColor;
   colorRefresh(ThemeMode mode) {
     if (mode == ThemeMode.light) {
       _color = Colors.black;
@@ -22,7 +24,6 @@ class AppTheme extends ChangeNotifier {
       _unColor = Colors.black;
       _commandBarColor = Common.darkCommandBarColor;
     }
-    notifyListeners();
   }
 
   Color _exchangeTextColor = Common.exchangeTextColor;
@@ -47,16 +48,38 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
+  int _selectIndex = 1;
+  int get selectIndex => _selectIndex;
+  set selectIndex(int selectIndex) {
+    _selectIndex = selectIndex;
+    notifyListeners();
+  }
+
+  int _viewIndex = 0;
+  int get viewIndex => _viewIndex;
+  set viewIndex(int viewIndex) {
+    _viewIndex = viewIndex;
+    notifyListeners();
+  }
+
   int _tradeIndex = 0;
   int get tradeIndex => _tradeIndex;
   set tradeIndex(int tradeIndex) {
     _tradeIndex = tradeIndex;
     notifyListeners();
   }
+
   int _tradeDetailIndex = 0;
   int get tradeDetailIndex => _tradeDetailIndex;
   set tradeDetailIndex(int tradeDetailIndex) {
     _tradeDetailIndex = tradeDetailIndex;
+    notifyListeners();
+  }
+
+  int _tradeAllIndex = 0;
+  int get tradeAllIndex => _tradeAllIndex;
+  set tradeAllIndex(int tradeAllIndex) {
+    _tradeAllIndex = tradeAllIndex;
     notifyListeners();
   }
 
@@ -108,7 +131,7 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  Locale _locale=const Locale('zh', 'CN');
+  Locale _locale = const Locale('zh', 'CN');
   Locale get locale => _locale;
   set locale(Locale locale) {
     _locale = locale;

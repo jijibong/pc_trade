@@ -12,8 +12,7 @@ class Exchange {
   num? orderNum;
   num? orderUser;
   num? marketPriceTrade;
-  List<Contract>? contracts=[];
-  bool? isMyExchange;
+  List<Contract>? contracts = [];
 
   Exchange({
     this.editStatus,
@@ -26,7 +25,6 @@ class Exchange {
     this.orderNum,
     this.orderUser,
     this.marketPriceTrade,
-    this.isMyExchange,
   });
 
   Exchange.fromJson(Map<String, dynamic> json) {
@@ -40,7 +38,6 @@ class Exchange {
     orderNum = json['OrderNum'];
     orderUser = json['OrderUser'];
     marketPriceTrade = json['MarketPriceTrade'];
-    isMyExchange = json['isMyExchange'];
   }
 
   Map<String, dynamic> toJson() {
@@ -55,7 +52,6 @@ class Exchange {
     data['OrderNum'] = orderNum;
     data['OrderUser'] = orderUser;
     data['MarketPriceTrade'] = marketPriceTrade;
-    data['isMyExchange'] = isMyExchange;
     return data;
   }
 }

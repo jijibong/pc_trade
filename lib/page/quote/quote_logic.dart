@@ -1,7 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:get/get.dart';
 import 'package:trade/util/event_bus/events.dart';
 
+import '../../config/common.dart';
+import '../../main.dart';
+import '../../model/quote/commodity.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../model/socket_packet/operation.dart';
@@ -11,6 +16,8 @@ import '../../server/quote/market.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
+import '../../util/multi_windows_manager/consts.dart';
+import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
@@ -21,16 +28,29 @@ class QuoteLogic extends GetxController {
   var selectedContract = Contract().obs;
   var mOptionalList = <Contract>[].obs;
   var mVarietyList = <Contract>[].obs;
-  var selectIndex = 1.obs;
-  var viewIndex = 0.obs;
-  var showContent = true.obs;
+  var commodityList = <Commodity>[].obs;
+
+  // var selectIndex = 1.obs;
+  // var viewIndex = 0.obs;
 
   late StreamSubscription quoteEventSubscription;
   late StreamSubscription optionEventSubscription;
 
   setListener() {
+    EventBusUtil.getInstance().on<LoginSuccess>().listen((event) async {
+      queryOption();
+    });
+
     EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
       loadData();
+    });
+
+    EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
+      List<int> wnds = await RustDeskMultiWindowManager.instance.getAllSubWindowIds();
+      if (wnds.isNotEmpty) {
+        String msg = jsonEncode(event.contract);
+        await DesktopMultiWindow.invokeMethod(wnds[0], kWindowEventNewContract, msg);
+      }
     });
   }
 
@@ -188,10 +208,14 @@ class QuoteLogic extends GetxController {
       con.changeString = Utils.double2Str(Utils.dealPointByOld(con.change, tick));
       con.buyPriceString = Utils.d2SBySrc(con.buyPrice?.toDouble(), tick);
       con.salePriceString = Utils.d2SBySrc(con.salePrice?.toDouble(), tick);
-      if (con.change! < 0) {
-        con.changePerString = "-${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-      } else {
-        con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+      if (con.change != null) {
+        if (con.change! < 0) {
+          con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+          con.changeColor = Common.quoteLowColor;
+        } else {
+          con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+          con.changeColor = Common.quoteHighColor;
+        }
       }
       con.high = Utils.d2SBySrc(con.highPrice?.toDouble(), tick);
       con.low = Utils.d2SBySrc(con.lowPrice?.toDouble(), tick);
@@ -200,40 +224,42 @@ class QuoteLogic extends GetxController {
       con.changeString = Utils.double2Str(Utils.dealPointByOld(con.change, tick));
       con.buyPriceString = Utils.d2SBySrc(con.buyPrice?.toDouble(), tick);
       con.salePriceString = Utils.d2SBySrc(con.salePrice?.toDouble(), tick);
-      if (con.change != null && con.change! < 0) {
-        con.changePerString = "-${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-      } else {
-        con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+      if (con.change != null) {
+        if (con.change! < 0) {
+          con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+          con.changeColor = Common.quoteLowColor;
+        } else {
+          con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
+          con.changeColor = Common.quoteHighColor;
+        }
       }
       con.high = Utils.d2SBySrc(con.highPrice?.toDouble(), tick);
       con.low = Utils.d2SBySrc(con.lowPrice?.toDouble(), tick);
     }
 
-    // if (con.change! > 0 && con.lastPrice != 0) {
-    //   con.lastPriceColor = Common.quote_red_color;
-    //   con.changeColor = Common.quote_red_color;
-    //   con.buyPriceColor = Common.quote_red_color;
-    //   con.salePriceColor = Common.quote_red_color;
-    //   con.changePerColor = Common.quote_red_color;
-    //   con.highColor = Common.quote_red_color;
-    //   con.lowColor = Common.quote_red_color;
-    // } else if (con.change != null && con.change! < 0 && con.lastPrice != 0) {
-    //   con.lastPriceColor = Common.quote_green_color;
-    //   con.changeColor = Common.quote_green_color;
-    //   con.buyPriceColor = Common.quote_green_color;
-    //   con.salePriceColor = Common.quote_green_color;
-    //   con.changePerColor = Common.quote_green_color;
-    //   con.highColor = Common.quote_green_color;
-    //   con.lowColor = Common.quote_green_color;
-    // } else {
-    //   con.lastPriceColor = Common.quote_gray_color;
-    //   con.changeColor = Common.quote_gray_color;
-    //   con.buyPriceColor = Common.quote_gray_color;
-    //   con.salePriceColor = Common.quote_gray_color;
-    //   con.changePerColor = Common.quote_gray_color;
-    //   con.highColor = Common.quote_gray_color;
-    //   con.lowColor = Common.quote_gray_color;
-    // }
+    if (con.preSettlePrice != null) {
+      if (con.lastPrice != null) {
+        if (con.lastPrice! > con.preSettlePrice!) {
+          con.lastPriceColor = Common.quoteHighColor;
+        } else if (con.lastPrice! < con.preSettlePrice!) {
+          con.lastPriceColor = Common.quoteLowColor;
+        }
+      }
+      if (con.highPrice != null) {
+        if (con.highPrice! > con.preSettlePrice!) {
+          con.highColor = Common.quoteHighColor;
+        } else if (con.highPrice! < con.preSettlePrice!) {
+          con.highColor = Common.quoteLowColor;
+        }
+      }
+      if (con.lowPrice != null) {
+        if (con.lowPrice! > con.preSettlePrice!) {
+          con.lowColor = Common.quoteHighColor;
+        } else if (con.lowPrice! < con.preSettlePrice!) {
+          con.lowColor = Common.quoteLowColor;
+        }
+      }
+    }
     return con;
   }
 
@@ -281,28 +307,14 @@ class QuoteLogic extends GetxController {
   }
 
   ///自选操作
-  void optionOperate(Contract pos) async {
-    if (pos.optional == true) {
+  void optionOperate(Contract pos, {bool? add}) async {
+    if (add != true && pos.optional == false) {
+      InfoBarUtils.showErrorBar("该合约尚未加入自选");
+    } else if (add == true || pos.optional == false) {
       if (LoginServer.isLogin) {
         List<Contract> list = [];
         list.add(pos);
-        MarketServer.delOption(list).then((value) {
-          if (value != null) {
-            optionChange(pos, false);
-            Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
-            InfoBarUtils.showInfoBar("${pos.name}已删除自选");
-          }
-        });
-      } else {
-        Utils.operateOption(pos, false, 0);
-        InfoBarUtils.showInfoBar("删除自选成功");
-        optionChange(pos, false);
-      }
-    } else {
-      if (LoginServer.isLogin) {
-        List<Contract> list = [];
-        list.add(pos);
-        MarketServer.addOption(pos).then((value) {
+        await MarketServer.addOption(pos).then((value) {
           if (value) {
             Utils.operateOption(pos, true, UserUtils.currentUser!.id!);
             optionChange(pos, true);
@@ -313,6 +325,22 @@ class QuoteLogic extends GetxController {
         Utils.operateOption(pos, true, 0);
         optionChange(pos, true);
         InfoBarUtils.showInfoBar("加入自选成功");
+      }
+    } else {
+      if (LoginServer.isLogin) {
+        List<Contract> list = [];
+        list.add(pos);
+        await MarketServer.delOption(list).then((value) {
+          if (value != null) {
+            optionChange(pos, false);
+            Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
+            InfoBarUtils.showInfoBar("${pos.name}已删除自选");
+          }
+        });
+      } else {
+        Utils.operateOption(pos, false, 0);
+        InfoBarUtils.showInfoBar("删除自选成功");
+        optionChange(pos, false);
       }
     }
   }
@@ -371,7 +399,13 @@ class QuoteLogic extends GetxController {
         break;
       }
     }
+    if (change) {
+      mOptionalList.add(con);
+    } else {
+      mOptionalList.removeWhere((e) => e.exCode == con.exCode && e.code == con.code && e.comType == con.comType);
+    }
     mContractList.refresh();
+    mOptionalList.refresh();
   }
 
   ///市场详情页

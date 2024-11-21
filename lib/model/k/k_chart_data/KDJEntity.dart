@@ -3,6 +3,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/painter/k_chart/sub_chart_painter.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -31,7 +32,7 @@ class KDJEntity {
   /**
    * 默认字体大小
    **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**
    * 默认虚线效果
    */
@@ -186,9 +187,9 @@ class KDJEntity {
    * 绘制KDJ,价格线
    */
   void drawKDJ(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double MARGINLEFT, double MARGINBOTTOM, double LOWER_CHART_TOP, double mRightArea, int KDJPeriod, int KDJ_M1, int KDJ_M2) {
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM - DEFAULT_AXIS_TITLE_SIZE - 10; //下表高度
-    double latitudeSpacing = lowerHight / 6; //每格高度
+      double leftMarginSpace, double halfTextHeight, int KDJPeriod, int KDJ_M1, int KDJ_M2) {
+    double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
+    double latitudeSpacing = lowerHight / 3; //每格高度
     double rate = 0.0; //每单位像素价格
     Paint yellowPaint = MethodUntil().getDrawPaint(Port.KDJ_KColor);
     Paint purplePaint = MethodUntil().getDrawPaint(Port.KDJ_DColor);
@@ -201,72 +202,52 @@ class KDJEntity {
     yellowPaint.strokeWidth = Port.KDJWidth[0];
     purplePaint.strokeWidth = Port.KDJWidth[1];
     greenPaint.strokeWidth = Port.KDJWidth[2];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = lowerHight / (maxPrice - minPrice);
     double textBottom = DEFAULT_AXIS_TITLE_SIZE + 10;
 
     //绘制虚线
-    for (int i = 1; i <= 5; i++) {
-      Path path = Path(); // 绘制虚线
-      path.moveTo(MARGINLEFT, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      // canvas.drawPath(path, dottedPaint);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        dottedPaint,
-      );
-    }
+    Path path = Path(); // 绘制虚线
+    path.moveTo(leftMarginSpace, viewHeight - latitudeSpacing - textBottom);
+    path.lineTo(viewWidth - leftMarginSpace, viewHeight - latitudeSpacing - textBottom);
+    canvas.drawPath(
+      dashPath(
+        path,
+        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      ),
+      dottedPaint,
+    );
     //绘制价格
-    double perPrice = (maxPrice - minPrice) / (5 + 1); //计算每一格纬线框所占有的价格
+    double perPrice = (maxPrice - minPrice) / 2; //计算每一格纬线框所占有的价格
+    double textWidth1 = SubChartPainter.getStringWidth("${Utils.getLimitNum(minPrice + perPrice, 0)} ", textPaint);
 
-    for (int i = 1; i <= 5; i++) {
-      // if (Port.drawFlag == 1) {
-      // canvas.drawText(Utils.getPointNum(minPrice + perPrice * i), viewWidth - MARGINLEFT - mRightArea,
-      //     viewHeight - MARGINBOTTOM - latitudeSpacing * i + DEFAULT_AXIS_TITLE_SIZE / 2 + textBottom,
-      //     textPaint);
-      //
-      //   textPaint
-      //     ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-      //     ..textDirection = TextDirection.ltr
-      //     ..layout()
-      //     ..paint(
-      //         canvas, Offset(viewWidth - MARGINLEFT - mRightArea, viewHeight - MARGINBOTTOM - latitudeSpacing * i + DEFAULT_AXIS_TITLE_SIZE / 2 + textBottom));
-      // } else {
-      //   canvas.drawText(Utils.getPointNum(minPrice + perPrice * i), MARGINLEFT, viewHeight - MARGINBOTTOM - latitudeSpacing * i + textBottom, textPaint);
-      textPaint
-        ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, viewHeight - MARGINBOTTOM - latitudeSpacing * i + textBottom));
-      // }
-    }
+    textPaint
+      ..text = TextSpan(text: Utils.getLimitNum(minPrice + perPrice, 0), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(leftMarginSpace - textWidth1, viewHeight - latitudeSpacing - halfTextHeight - textBottom));
 
     //绘制KDJ
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = (MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth);
-      double nextX = (MARGINLEFT + mCandleWidth * (number) + mCandleWidth);
+      double startX = mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
 
       //从周期开始才绘制KDJ
       if (i >= KDJPeriod - 1) {
         //K线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (KDJPeriod - 1) : i - (KDJPeriod - 1) + 1;
         if (nextNumber < Ks.length && nextNumber < Ds.length && nextNumber < Js.length) {
-          double KstartY = (LOWER_CHART_TOP + (maxPrice - Ks[i - (KDJPeriod - 1)]) * rate + textBottom);
-          double KstopY = (LOWER_CHART_TOP + (maxPrice - Ks[nextNumber]) * rate + textBottom);
+          double KstartY = (maxPrice - Ks[i - (KDJPeriod - 1)]) * rate + textBottom;
+          double KstopY = (maxPrice - Ks[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, KstartY), Offset(nextX, KstopY), yellowPaint);
           //D线
-          double DstartY = (LOWER_CHART_TOP + (maxPrice - Ds[i - (KDJPeriod - 1)]) * rate + textBottom);
-          double DstopY = (LOWER_CHART_TOP + (maxPrice - Ds[nextNumber]) * rate + textBottom);
+          double DstartY = (maxPrice - Ds[i - (KDJPeriod - 1)]) * rate + textBottom;
+          double DstopY = (maxPrice - Ds[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, DstartY), Offset(nextX, DstopY), purplePaint);
           //J线
-          double JstartY = (LOWER_CHART_TOP + (maxPrice - Js[i - (KDJPeriod - 1)]) * rate + textBottom);
-          double JstopY = (LOWER_CHART_TOP + (maxPrice - Js[nextNumber]) * rate + textBottom);
+          double JstartY = (maxPrice - Js[i - (KDJPeriod - 1)]) * rate + textBottom;
+          double JstopY = (maxPrice - Js[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, JstartY), Offset(nextX, JstopY), greenPaint);
         }
       }
@@ -287,45 +268,38 @@ class KDJEntity {
           J = "0.000";
         }
 
-        double textXStart = MARGINLEFT;
+        double textXStart = Port.defult_icon_width + leftMarginSpace;
         String text = "KDJ($KDJPeriod , $KDJ_M1 , $KDJ_M2)";
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "K:$K";
-        // textPaint.setColor(Port.KDJ_KColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_KColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "D:$D";
-        // textPaint.setColor(Port.KDJ_DColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_DColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "J:$J";
-        // textPaint.setColor(Port.KDJ_JColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_JColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }
   }

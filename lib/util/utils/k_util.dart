@@ -20,26 +20,26 @@ import '../shared_preferences/shared_preferences_utils.dart';
 
 class KUtils {
   ///查询K线周期
-  static Future<List<KPeriod>> getKPeriodList(bool isNeedFs, bool isAll) async {
-    List<KPeriod> kPeriodList = [];
-    String? string = await SpUtils.getString(SpKey.kPeriod);
-    if (string != null) {
-      List tmp = jsonDecode(string);
-      kPeriodList = tmp.map((e) => KPeriod.fromJson(e)).toList();
-    }
-    if (!isAll) {
-      kPeriodList.removeWhere((element) => element.isDel != false);
-    }
-
-    if (isNeedFs) {
-      KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-      kPeriodList.insert(0, fs);
-    }
-    for (var element in kPeriodList) {
-      element.isSelected = false;
-    }
-    return kPeriodList;
-  }
+  // static Future<List<KPeriod>> getKPeriodList(bool isNeedFs, bool isAll) async {
+  //   List<KPeriod> kPeriodList = [];
+  //   String? string = await SpUtils.getString(SpKey.kPeriod);
+  //   if (string != null) {
+  //     List tmp = jsonDecode(string);
+  //     kPeriodList = tmp.map((e) => KPeriod.fromJson(e)).toList();
+  //   }
+  //   if (!isAll) {
+  //     kPeriodList.removeWhere((element) => element.isDel != false);
+  //   }
+  //
+  //   if (isNeedFs) {
+  //     KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+  //     kPeriodList.insert(0, fs);
+  //   }
+  //   for (var element in kPeriodList) {
+  //     element.isSelected = false;
+  //   }
+  //   return kPeriodList;
+  // }
 
   ///处理分时数据
   static List<OHLCEntity> dealFsData(List<OHLCEntity>? response, List<String> tradeTimes, double preClose, String excd) {

@@ -25,7 +25,7 @@ class MIKEEntity {
   /**MIKE数据集合*/
   List<double> SS = [];
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
 
@@ -168,12 +168,6 @@ class MIKEEntity {
     WSPaint.strokeWidth = Port.MIKEWidth[3];
     MSPaint.strokeWidth = Port.MIKEWidth[4];
     SSPaint.strokeWidth = Port.MIKEWidth[5];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-
-    // Paint mPaint = Paint()
-    //   ..color = Colors.red
-    //   ..isAntiAlias = true;
 
     rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;

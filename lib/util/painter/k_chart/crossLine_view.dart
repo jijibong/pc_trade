@@ -58,10 +58,10 @@ class CrossLineView extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     crossLineViewHeight = size.height;
-    int number = getNumber(currentX!.toInt(), BaseKChartPainter.MARGINLEFT, mKChartsView.mCandleWidth, mKChartsView.mShowDataNum, isDrawTime);
+    int number = getNumber(currentX.toInt(), BaseKChartPainter.MARGINLEFT, mKChartsView.mCandleWidth, mKChartsView.mShowDataNum, isDrawTime);
 //		Log.i("", "第"+number+" 根K线");
     currentX = BaseKChartPainter.MARGINLEFT + number * mKChartsView.mCandleWidth;
-    currentY = dealY(currentY, mKChartsView.kChartViewHeight, mKChartsView.MARGINBOTTOM, mKChartsView.MARGINTOP);
+    currentY = dealY(currentY, ChartPainter.kChartViewHeight, mKChartsView.MARGINBOTTOM, mKChartsView.MARGINTOP);
 
     priceH = getPrice(currentY);
     priceH = priceH ?? 0;
@@ -240,6 +240,8 @@ class CrossLineView extends CustomPainter {
       double MARGINTOP,
       double MARGINBOTTOM,
       double MARGINLEFT,
+      double leftMarginSpace,
+      double rightMarginSpace,
       double MARGINRIGHT,
       int showNum,
       int startIndex,
@@ -247,9 +249,9 @@ class CrossLineView extends CustomPainter {
       bool isDrawTime,
       double lastClsoe,
       KPeriod mKPeriod) {
-    int number = getNumber(X.toInt(), MARGINLEFT, mPointWidth, showNum, isDrawTime);
+    int number = getNumber(X.toInt(), MARGINLEFT + leftMarginSpace, mPointWidth, showNum, isDrawTime);
 //		Log.i("", "第"+number+" 根K线");
-    X = MARGINLEFT + number * mPointWidth;
+    X = MARGINLEFT + number * mPointWidth + leftMarginSpace;
     Y = dealY(Y, viewHeight, MARGINBOTTOM, MARGINTOP);
 
     double startX = X;
@@ -258,13 +260,13 @@ class CrossLineView extends CustomPainter {
     double stopY = MARGINTOP;
     TextPainter areaTextPaint = MethodUntil().getTextPainter(Utils.dp2px(15));
     Paint areaPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(29, 32, 44, 1));
-    Paint _redPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 255, 255, 1));
+    Paint redPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 255, 255, 1));
     Paint framePaint = MethodUntil().getDrawPaint(const Color.fromRGBO(38, 41, 55, 1));
     framePaint
       ..style = PaintingStyle.stroke
       ..strokeWidth = Utils.dp2px(1);
     //竖线
-    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), _redPaint);
+    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
 
     startX = MARGINLEFT;
     startY = Y;
@@ -272,7 +274,7 @@ class CrossLineView extends CustomPainter {
     stopY = Y;
 
     //横线
-    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), _redPaint);
+    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
 
     int index = isDrawTime ? startIndex + number : startIndex + number - 1;
     OHLCEntity? ohlc = index < list.length ? list[index] : null;
@@ -284,11 +286,7 @@ class CrossLineView extends CustomPainter {
 
     double ts = 0;
     if (isDrawTime) {
-      // if (Port.drawFlag == 1) {
-      //   ts = viewHeight / (12 + 6);
-      // } else {
-      ts = (viewHeight - LowerChartHeight) / 18;
-      // }
+      ts = (viewHeight - LowerChartHeight) / 28;
     } else {
       ts = viewHeight / 28;
     }
@@ -296,7 +294,7 @@ class CrossLineView extends CustomPainter {
     double left = 0, right = 0, top = 0, bottom = 0, textX = 0;
     double margin = getStringHeight("价格", TextPainter(), size: ts) / 2;
     double height = getStringHeight("价格", TextPainter(), size: ts);
-    double width = getStringWidth("2018-08-25 12:12", TextPainter(), size: ts);
+    double width = getStringWidth("1970-01-01 00:00", TextPainter(), size: ts);
     if (isDrawTime) {
       String date, price, average, changePer, volume, hold;
       double close = ohlc == null ? lastClsoe : ohlc.close?.toDouble() ?? 0;
@@ -309,16 +307,16 @@ class CrossLineView extends CustomPainter {
 
       if (X > viewWidth / 2) {
         //左边
-        left = MARGINLEFT;
-        top = MARGINTOP;
-        right = MARGINLEFT + width;
+        left = MARGINLEFT + leftMarginSpace;
+        top = 0;
+        right = MARGINLEFT + width + leftMarginSpace;
         bottom = MARGINTOP + height * 12 + margin;
         textX = left + 5;
       } else {
         //右边
-        left = viewWidth - MARGINRIGHT - width;
-        top = MARGINTOP;
-        right = viewWidth - MARGINRIGHT;
+        left = viewWidth - MARGINRIGHT - width - rightMarginSpace;
+        top = 0;
+        right = viewWidth - MARGINRIGHT - rightMarginSpace;
         bottom = MARGINTOP + height * 12 + margin;
         textX = left + 5;
       }
@@ -329,51 +327,51 @@ class CrossLineView extends CustomPainter {
       areaTextPaint
         ..text = TextSpan(text: "时间", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top - height + margin));
+        ..paint(canvas, Offset(textX, top));
       areaTextPaint
         ..text = TextSpan(text: date, style: TextStyle(color: orangeColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + margin));
+        ..paint(canvas, Offset(textX, top + height * 1));
       areaTextPaint
         ..text = TextSpan(text: "价格", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 1 + margin));
+        ..paint(canvas, Offset(textX, top + height * 2));
       areaTextPaint
         ..text = TextSpan(text: price, style: TextStyle(color: getColorPaint(close, lastClsoe), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 2 + margin));
+        ..paint(canvas, Offset(textX, top + height * 3));
       areaTextPaint
         ..text = TextSpan(text: "均价", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 3 + margin));
+        ..paint(canvas, Offset(textX, top + height * 4));
       areaTextPaint
         ..text = TextSpan(text: average, style: TextStyle(color: getColorPaint(close, lastClsoe), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 4 + margin));
+        ..paint(canvas, Offset(textX, top + height * 5));
       areaTextPaint
         ..text = TextSpan(text: "涨跌幅", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 5 + margin));
+        ..paint(canvas, Offset(textX, top + height * 6));
       areaTextPaint
         ..text = TextSpan(text: changePer, style: TextStyle(color: getColorPaint(close, lastClsoe), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 6 + margin));
+        ..paint(canvas, Offset(textX, top + height * 7));
       areaTextPaint
         ..text = TextSpan(text: "成交量", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 7 + margin));
+        ..paint(canvas, Offset(textX, top + height * 8));
       areaTextPaint
         ..text = TextSpan(text: volume, style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 8 + margin));
+        ..paint(canvas, Offset(textX, top + height * 9));
       areaTextPaint
         ..text = TextSpan(text: "持仓量", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 9 + margin));
+        ..paint(canvas, Offset(textX, top + height * 10));
       areaTextPaint
         ..text = TextSpan(text: hold, style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 10 + margin));
+        ..paint(canvas, Offset(textX, top + height * 11));
     } else {
       String date, open, high, close, low, change, changePer, volume, hold;
       if (mKPeriod.kpFlag == KPFlag.Minute || mKPeriod.kpFlag == KPFlag.Hour) {
@@ -394,15 +392,15 @@ class CrossLineView extends CustomPainter {
 
       if (X > viewWidth / 2) {
         //左边
-        left = MARGINLEFT;
-        top = MARGINTOP;
-        right = MARGINLEFT + width;
+        left = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
+        top = 0;
+        right = MARGINLEFT + width + Port.defult_icon_width + leftMarginSpace;
         bottom = MARGINTOP + height * 18;
         textX = left + 5;
       } else {
         //右边
         left = viewWidth - MARGINRIGHT - width;
-        top = MARGINTOP;
+        top = 0;
         right = viewWidth - MARGINRIGHT;
         bottom = MARGINTOP + height * 18;
         textX = left + 5;
@@ -414,75 +412,75 @@ class CrossLineView extends CustomPainter {
       areaTextPaint
         ..text = TextSpan(text: "时间", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top - height));
+        ..paint(canvas, Offset(textX, top));
       areaTextPaint
         ..text = TextSpan(text: date, style: TextStyle(color: orangeColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top));
+        ..paint(canvas, Offset(textX, top + height));
       areaTextPaint
         ..text = TextSpan(text: "开盘", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height));
+        ..paint(canvas, Offset(textX, top + height * 2));
       areaTextPaint
         ..text = TextSpan(text: open, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 2));
+        ..paint(canvas, Offset(textX, top + height * 3));
       areaTextPaint
         ..text = TextSpan(text: "最高", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 3));
+        ..paint(canvas, Offset(textX, top + height * 4));
       areaTextPaint
         ..text = TextSpan(text: high, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 4));
+        ..paint(canvas, Offset(textX, top + height * 5));
       areaTextPaint
         ..text = TextSpan(text: "最低", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 5));
+        ..paint(canvas, Offset(textX, top + height * 6));
       areaTextPaint
         ..text = TextSpan(text: low, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 6));
+        ..paint(canvas, Offset(textX, top + height * 7));
       areaTextPaint
         ..text = TextSpan(text: "收盘", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 7));
+        ..paint(canvas, Offset(textX, top + height * 8));
       areaTextPaint
         ..text = TextSpan(text: close, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 8));
+        ..paint(canvas, Offset(textX, top + height * 9));
       areaTextPaint
         ..text = TextSpan(text: "涨跌", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 9));
+        ..paint(canvas, Offset(textX, top + height * 10));
       areaTextPaint
         ..text = TextSpan(text: change, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 10));
+        ..paint(canvas, Offset(textX, top + height * 11));
       areaTextPaint
         ..text = TextSpan(text: "涨跌幅", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 11));
+        ..paint(canvas, Offset(textX, top + height * 12));
       areaTextPaint
         ..text = TextSpan(text: changePer, style: TextStyle(color: getKColorPaint(ch), fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 12));
+        ..paint(canvas, Offset(textX, top + height * 13));
       areaTextPaint
         ..text = TextSpan(text: "成交量", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 13));
+        ..paint(canvas, Offset(textX, top + height * 14));
       areaTextPaint
         ..text = TextSpan(text: volume, style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 14));
+        ..paint(canvas, Offset(textX, top + height * 15));
       areaTextPaint
         ..text = TextSpan(text: "持仓量", style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 15));
+        ..paint(canvas, Offset(textX, top + height * 16));
       areaTextPaint
         ..text = TextSpan(text: hold, style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
-        ..paint(canvas, Offset(textX, top + height * 16));
+        ..paint(canvas, Offset(textX, top + height * 17));
     }
   }
 

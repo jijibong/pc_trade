@@ -72,9 +72,7 @@ class Utils {
       List<dynamic> list = jsonDecode(string);
       for (var element in list) {
         Exchange tmp = Exchange.fromJson(element);
-        if (tmp.isMyExchange == isMy) {
-          conList.add(tmp);
-        }
+        conList.add(tmp);
       }
     }
     if (conList.isNotEmpty) {
@@ -84,9 +82,6 @@ class Utils {
         }
         return b.orderUser?.compareTo(a.orderUser ?? 0) ?? 0;
       });
-      // for (var element in conList) {
-      //   element.isSelect = false;
-      // }
     }
     return conList;
   }
@@ -432,9 +427,9 @@ class Utils {
   }
 
   /// 根据小数点位置保存小数位数
-  static String getPointNum(double num) {
+  static String getPointNum(double num, {int? length}) {
     String text = "";
-    int digit = 3;
+    int digit = length ?? 3;
     String strNum = Decimal.fromJson(num.toString()).toString();
 
     int loc = strNum.indexOf(".");
@@ -490,7 +485,7 @@ class Utils {
   ///将毫秒转换成指定格式字符串时间
   static String timeMillisToString(int time) {
     time = time * 1000;
-    DateTime dateTime = DateTime.fromMicrosecondsSinceEpoch(time);
+    DateTime dateTime = DateTime.fromMillisecondsSinceEpoch(time);
     String date = format.format(dateTime);
     return date;
   }
@@ -850,22 +845,22 @@ class Utils {
 
   ///操作自选
   static Future<void> operateOption(Contract mContract, bool isAdd, int userId) async {
-    // String? option = await SpUtils.getString(SpKey.option);
-    // List<Option> tmp = [];
-    // if (option != null && option != "") {
-    //   List temp = jsonDecode(option);
-    //   for (var element in temp) {
-    //     tmp.add(Option.fromJson(element));
-    //   }
-    // }
-    // if (isAdd) {
-    //   Option option = Option(
-    //       excd: mContract.exCode, scode: mContract.code, comCode: mContract.subComCode, comType: mContract.comType, userId: userId, isMain: mContract.isMain);
-    //   tmp.add(option);
-    // } else {
-    //   tmp.removeWhere((element) =>
-    //   element.excd == mContract.exCode && element.scode == mContract.code && element.comType == mContract.comType && element.isMain == mContract.isMain);
-    // }
-    // SpUtils.set(SpKey.option, jsonEncode(tmp));
+    String? option = await SpUtils.getString(SpKey.option);
+    List<Option> tmp = [];
+    if (option != null && option != "") {
+      List temp = jsonDecode(option);
+      for (var element in temp) {
+        tmp.add(Option.fromJson(element));
+      }
+    }
+    if (isAdd) {
+      Option option = Option(
+          excd: mContract.exCode, scode: mContract.code, comCode: mContract.subComCode, comType: mContract.comType, userId: userId, isMain: mContract.isMain);
+      tmp.add(option);
+    } else {
+      tmp.removeWhere((element) =>
+          element.excd == mContract.exCode && element.scode == mContract.code && element.comType == mContract.comType && element.isMain == mContract.isMain);
+    }
+    SpUtils.set(SpKey.option, jsonEncode(tmp));
   }
 }

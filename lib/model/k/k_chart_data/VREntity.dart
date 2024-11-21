@@ -1,7 +1,6 @@
-import 'dart:ui';
-
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path_drawing/path_drawing.dart';
+import 'package:trade/util/painter/k_chart/sub_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
@@ -30,7 +29,7 @@ class VREntity {
   /**
    * 默认XY轴字体大小
    **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**
    * 增加数据类
    */
@@ -128,14 +127,12 @@ class VREntity {
    *
    * @param canvas
    */
-  void drawVR(Canvas canvas, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL, double MARGINLEFT,
-      double MARGINBOTTOM, double LOWER_CHART_TOP, double MID_CHART_TOP, double mRightArea, int period) {
+  void drawVR(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
+      double leftMarginSpace, double halfTextHeight, int period) {
     if (mVrlList.isEmpty) {
       return;
     }
-
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    double lowerHight = LOWER_CHART_TOP - MID_CHART_TOP - DEFAULT_AXIS_TITLE_SIZE - 10; //下表高度
+    double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     Paint linePaint = MethodUntil().getDrawPaint(Port.VR_Color);
     TextPainter textPaint = TextPainter();
     Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
@@ -154,43 +151,36 @@ class VREntity {
     Path path = Path(); // 绘制虚线
     double perPrice = (maxPrice - minPrice) / 4;
 
-    for (int i = 1; i <= 3; i++) {
-      double perheight = perPrice * i * rate;
-      path.moveTo(MARGINLEFT, LOWER_CHART_TOP - perheight);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP - perheight);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        girdPaint,
-      );
-
-      String price = Utils.getPointNum(perPrice * i + minPrice);
-      // if (Port.drawFlag == 1) {
-      //   canvas.drawText(price, viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP - perheight + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-      // } else {
-      //   canvas.drawText(price, MARGINLEFT, LOWER_CHART_TOP - perheight, textPaint);
-      textPaint
-        ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, LOWER_CHART_TOP - perheight));
-      // }
-    }
+    double perheight = perPrice * 2 * rate;
+    path.moveTo(leftMarginSpace, viewHeight - perheight);
+    path.lineTo(viewWidth, viewHeight - perheight);
+    canvas.drawPath(
+      dashPath(
+        path,
+        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      ),
+      girdPaint,
+    );
+    String price = Utils.getLimitNum(perPrice * 2 + minPrice, 2);
+    double priceWidth = SubChartPainter.getStringWidth("$price ", textPaint);
+    textPaint
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(leftMarginSpace - priceWidth, viewHeight - perheight - halfTextHeight));
 
     //绘制VR图
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth;
-      double nextX = MARGINLEFT + mCandleWidth * (number) + mCandleWidth;
+      double startX = mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
 
       //从周期开始才绘制VR
       if (i >= period - 1) {
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (period - 1) : i - (period - 1) + 1;
         if (nextNumber < mVrlList.length) {
-          double startY = LOWER_CHART_TOP - (mVrlList[i - (period - 1)] - minPrice) * rate;
-          double stopY = LOWER_CHART_TOP - (mVrlList[nextNumber] - minPrice) * rate;
+          double startY = viewHeight - (mVrlList[i - (period - 1)] - minPrice) * rate;
+          double stopY = viewHeight - (mVrlList[nextNumber] - minPrice) * rate;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), linePaint);
         }
       }
@@ -205,13 +195,11 @@ class VREntity {
         }
 
         String text = "VR:($period): $rsi";
-        // textPaint.setColor(Port.VR_Color);
-        // canvas.drawText(text, MARGINLEFT, MID_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.VR_Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(MARGINLEFT, MID_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));
       }
     }
   }

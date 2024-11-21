@@ -20,7 +20,7 @@ class DMIEntity {
   /**ADX数据集合*/
   List<double> ADXs = [];
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 8;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   // /** 默认虚线效果 */
   //  static final PathEffect DEFAULT_DASH_EFFECT = new DashPathEffect(new double[] { 2, 3, 2, 3 }, 1);
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
@@ -155,7 +155,6 @@ class DMIEntity {
     redPaint.strokeWidth = Port.dmiWidth[1].toDouble();
     bluePaint.strokeWidth = Port.dmiWidth[0].toDouble();
     greenPaint.strokeWidth = Port.dmiWidth[2].toDouble();
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
     // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = lowerHight / 100;

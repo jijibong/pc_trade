@@ -9,7 +9,7 @@ class GridChart extends CustomPainter {
   Color DEFAULT_CHART_BACKGROUD = Colors.white;
 
   /// 默认XY轴字体大小
-  double DEFAULT_AXIS_TITLE_SIZE = 8;
+  double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
 
   /// 默认左右边距
   static double MARGINLEFT = 2;
@@ -256,17 +256,8 @@ class GridChart extends CustomPainter {
     double viewWidth = size.width;
     if (isDrawTime) {
       textPaint.strutStyle = StrutStyle(fontSize: DEFAULT_AXIS_TITLE_SIZE + 2);
-      if (Port.drawFlag == 1) {
-        textPaint.text = const TextSpan(text: "00000000");
-        textPaint.layout();
-        TimeMarginLeft = textPaint.width;
-        textPaint.text = const TextSpan(text: "0.00%");
-        textPaint.layout();
-        TimeMarginRight = textPaint.width;
-      } else {
-        TimeMarginLeft = 2;
-        TimeMarginRight = 2;
-      }
+      TimeMarginLeft = 2;
+      TimeMarginRight = 2;
 
       timeDownChartHeight = isDrawTimeDown ? (viewHeight - MARGINBOTTOM - MARGINTOP) ~/ (DEFAULT_TIME_LATITUDE_NUM + 1) * 3 : 0;
       TIME_UPER_CHART_BOTTOM = viewHeight - timeDownChartHeight - MARGINBOTTOM;
@@ -289,12 +280,7 @@ class GridChart extends CustomPainter {
         DEFAULT_MID_LATITUDE_NUM = 0;
         DEFAULT_LOWER_LATITUDE_NUM = 0;
       }
-
-      if (Port.drawFlag == 1) {
-        // _mRightArea = textPaint.measureText("00000000");
-      } else {
-        _mRightArea = mCursorWidth;
-      }
+      _mRightArea = mCursorWidth;
 
       longitudeSpacing = (viewWidth - 2 * MARGINLEFT - _mRightArea) ~/ (DEFAULT_LOGITUDE_NUM + 1);
 

@@ -21,7 +21,7 @@ class TRIXEntity {
   /**TRIX最低价*/
   double minPrice = 0.0;
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /** 默认虚线效果 */
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
   // static final PathEffect DEFAULT_DASH_EFFECT = new DashPathEffect(new double[] { 2, 3, 2,
@@ -226,7 +226,6 @@ class TRIXEntity {
       ..strokeWidth = 1;
     redPaint.strokeWidth = Port.TRIXWidth[0];
     yellowPaint.strokeWidth = Port.TRIXWidth[1];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
 
     rate = lowerHight / (maxPrice - minPrice);
     double textBottom = DEFAULT_AXIS_TITLE_SIZE + 10;

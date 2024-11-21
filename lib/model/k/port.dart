@@ -431,6 +431,9 @@ class Port {
   static double rsiWidth = 1;
   /**图表字体大小，单位dp,需要适配转化为px使用*/
   static double ChartTextSize = 14;
+  static double defult_margin_top = 12;
+  static double defult_icon_width = 25;
+  static double text_check = 10;
 
   //////////智能决策////////////
   /**是否使用瀑布线智能决策*/

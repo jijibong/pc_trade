@@ -1,16 +1,6 @@
-# trade
-
-A new Flutter project.
-
-## Getting Started
-
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+cargo install flutter_rust_bridge_codegen --version 1.80.1 --features uuid
+flutter pub get
+flutter_rust_bridge_codegen --rust-input ./src/flutter_ffi.rs --dart-output ./lib/generated_bridge.dart --llvm-path D:\WorlkSoftware\LLVM
+cargo build --features flutter
+cargo run 
+flutter run

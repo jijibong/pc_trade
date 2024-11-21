@@ -2,6 +2,7 @@ import 'package:path_drawing/path_drawing.dart';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/painter/k_chart/sub_chart_painter.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -20,16 +21,16 @@ class RSIEntity {
   /**RSI最低价*/
   double minPrice = 0.0;
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /** 默认虚线效果 */
   // static final PathEffect DEFAULT_DASH_EFFECT = new DashPathEffect(new double[] { 2, 3, 2,
   // 3 }, 1);
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
 
   /** 虚线颜色 */
-  static const Color DEFAULT_DOTTED_COLOR = Colors.grey;
+  static Color DEFAULT_DOTTED_COLOR = Colors.red;
   /**增加数据类*/
-  CalcIndexData mCalcData = new CalcIndexData();
+  CalcIndexData mCalcData = CalcIndexData();
 
   RSIEntity() {
     RSIs = [];
@@ -140,29 +141,27 @@ class RSIEntity {
   /**
    * 绘制RSI,价格线
    */
-  void drawRsi(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int candleInterval,
-      double MARGINLEFT, double MARGINBOTTOM, double lowerChartTop, double mRightArea, int rsiPeriod) {
-    double lowerHight = viewHeight - lowerChartTop - MARGINBOTTOM - DEFAULT_AXIS_TITLE_SIZE - 10; //下表高度
+  void drawRSI(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
+      double leftMarginSpace, double halfTextHeight, int rsiPeriod) {
+    double textBottom = Port.defult_margin_top;
+    double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double rate = 0.0; //每单位像素价格
     Paint yellowPaint = MethodUntil().getDrawPaint(Port.rsiColor);
-    TextPainter textPaint = TextPainter(); //MethodUntil().getDrawPaint(Port.chartTxtColor);
+    TextPainter textPaint = TextPainter();
     Paint dottedPaint = MethodUntil().getDrawPaint(DEFAULT_DOTTED_COLOR); //虚线画笔
-    // dottedPaint.setPathEffect(DEFAULT_DASH_EFFECT);
     dottedPaint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
     yellowPaint.strokeWidth = Port.rsiWidth;
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
-    rate = lowerHight / 100;
+    rate = lowerHeight / 100;
 
     //绘制价格30线
     Path path = Path();
-    double Y30 = (viewHeight - MARGINBOTTOM - lowerHight * 0.3);
-    String price30 = "30.00";
-    path.moveTo(MARGINLEFT, Y30);
-    path.lineTo(viewWidth - MARGINLEFT - mRightArea, Y30);
+    double Y = viewHeight - lowerHeight * 0.5 + textBottom;
+    String price = "50";
+    path.moveTo(leftMarginSpace, Y);
+    path.lineTo(viewWidth - leftMarginSpace, Y);
     canvas.drawPath(
       dashPath(
         path,
@@ -171,64 +170,25 @@ class RSIEntity {
       dottedPaint,
     );
 
-    //70线
-    double Y70 = (viewHeight - MARGINBOTTOM - lowerHight * 0.7);
-    String price70 = "70.00";
-    path.moveTo(MARGINLEFT, Y70);
-    path.lineTo(viewWidth - MARGINLEFT - mRightArea, Y70);
-    // canvas.drawPath(path, dottedPaint);
-    canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
-    );
-
-    // if (Port.drawFlag == 1) {
-    //   canvas.drawText(price30, viewWidth - MARGINLEFT - mRightArea, Y30+DEFAULT_AXIS_TITLE_SIZE/2, textPaint);
-    //   canvas.drawText(price70, viewWidth - MARGINLEFT - mRightArea, Y70+DEFAULT_AXIS_TITLE_SIZE/2, textPaint);
-    //   //0线价格
-    //   canvas.drawText("0.00", viewWidth - MARGINLEFT - mRightArea, viewHeight - MARGINBOTTOM, textPaint);
-    //   //100线价格
-    //   canvas.drawText("100.00", viewWidth - MARGINLEFT - mRightArea, lowerChartTop + DEFAULT_AXIS_TITLE_SIZE , textPaint);
-    // }else{
-    //   canvas.drawText(price30, MARGINLEFT, Y30, textPaint);
-    //   canvas.drawText(price70, MARGINLEFT, Y70, textPaint);
-    //0线价格
-    // canvas.drawText("0.00", MARGINLEFT, viewHeight - MARGINBOTTOM, textPaint);
-
+    double textWidth = SubChartPainter.getStringWidth("$price ", textPaint);
     textPaint
-      ..text = TextSpan(text: price30, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, Y30));
-    textPaint
-      ..text = TextSpan(text: price70, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-      ..textDirection = TextDirection.ltr
-      ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, Y70));
-    textPaint
-      ..text = TextSpan(text: "0.00", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-      ..textDirection = TextDirection.ltr
-      ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, viewHeight - MARGINBOTTOM));
-    //100线价格
-//			canvas.drawText("100.00", MARGINLEFT, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE , textPaint);
-//     }
+      ..paint(canvas, Offset(leftMarginSpace - textWidth, Y - halfTextHeight));
 
     //绘制RSI
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = (MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth);
-      double nextX = (MARGINLEFT + mCandleWidth * (number) + mCandleWidth);
+      double startX = mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
 
       //从周期开始才绘制RSI
       if (i >= rsiPeriod - 1) {
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (rsiPeriod - 1) : i - (rsiPeriod - 1) + 1;
         if (nextNumber < RSIs.length) {
-          double startY = viewHeight - MARGINBOTTOM - RSIs[i - (rsiPeriod - 1)] * rate;
-          double stopY = viewHeight - MARGINBOTTOM - RSIs[nextNumber] * rate;
+          double startY = viewHeight - RSIs[i - (rsiPeriod - 1)] * rate + textBottom;
+          double stopY = viewHeight - RSIs[nextNumber] * rate + textBottom;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), yellowPaint);
         }
       }
@@ -243,13 +203,11 @@ class RSIEntity {
         }
 
         String text = "RSI($rsiPeriod):$rsi";
-        // textPaint.setColor(Port.rsiColor);
-        // canvas.drawText(text, MARGINLEFT, lowerChartTop+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.rsiColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(MARGINLEFT, lowerChartTop + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));
       }
     }
   }

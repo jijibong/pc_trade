@@ -2,6 +2,7 @@ import 'package:path_drawing/path_drawing.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/painter/k_chart/sub_chart_painter.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -21,7 +22,7 @@ class WREntity {
   /**WR最低价*/
   double minPrice = 0.0;
   /** 默认字体大小 **/
-  static double DEFAULT_AXIS_TITLE_SIZE = 22;
+  static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /** 默认虚线效果 */
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
 
@@ -142,74 +143,60 @@ class WREntity {
   /**
    * 绘制WR,价格线
    */
-  void drawWR(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL, double MARGINLEFT,
-      double MARGINBOTTOM, double LOWER_CHART_TOP, double mRightArea, int Wr1Period, int Wr2Period) {
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM - DEFAULT_AXIS_TITLE_SIZE - 10; //下表高度
-    double latitudeSpacing = lowerHight / 6; //每格高度
+  void drawWR(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
+      double leftMarginSpace, double halfTextHeight, int Wr1Period, int Wr2Period) {
+    double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
+    double latitudeSpacing = lowerHight / 2; //每格高度
     double rate = 0.0; //每单位像素价格
     Paint greenPaint = MethodUntil().getDrawPaint(Port.WR1Color);
     Paint yellowPaint = MethodUntil().getDrawPaint(Port.WR2Color);
     TextPainter textPaint = TextPainter(); //MethodUntil().getDrawPaint(Port.chartTxtColor);
     Paint dottedPaint = MethodUntil().getDrawPaint(Port.girdColor); //虚线画笔
-    // dottedPaint.setPathEffect(DEFAULT_DASH_EFFECT);
     dottedPaint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    // dottedPaint.setStrokeWidth(1); // 设置画笔大小
     yellowPaint.strokeWidth = Port.WRWidth[0];
     greenPaint.strokeWidth = Port.WRWidth[1];
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     maxPrice = 100.0;
     minPrice = 0.0;
     rate = lowerHight / (maxPrice - minPrice);
     double textBottom = DEFAULT_AXIS_TITLE_SIZE + 10;
-    double textXStart = MARGINLEFT;
+    double textXStart = Port.defult_icon_width + leftMarginSpace;
 
     //绘制虚线
-    for (int i = 1; i <= 5; i++) {
-      Path path = Path(); // 绘制虚线
-      path.moveTo(MARGINLEFT, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP + latitudeSpacing * i + textBottom);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        dottedPaint,
-      );
-    }
+    Path path = Path(); // 绘制虚线
+    path.moveTo(leftMarginSpace, latitudeSpacing + textBottom);
+    path.lineTo(viewWidth - leftMarginSpace, latitudeSpacing + textBottom);
+    canvas.drawPath(
+      dashPath(
+        path,
+        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      ),
+      dottedPaint,
+    );
     //绘制价格
-    double perPrice = (maxPrice - minPrice) / (5 + 1); //计算每一格纬线框所占有的价格
-    for (int i = 1; i <= 5; i++) {
-      // if (Port.drawFlag==1) {
-      //   canvas.drawText(Utils.getPointNum(minPrice+perPrice*i), viewWidth - MARGINLEFT-mRightArea, viewHeight - MARGINBOTTOM - latitudeSpacing*i + DEFAULT_AXIS_TITLE_SIZE/2,
-      //       textPaint);
-      // }else{
-      //   canvas.drawText(Utils.getPointNum(minPrice+perPrice*i), MARGINLEFT, viewHeight - MARGINBOTTOM - latitudeSpacing*i,
-      //       textPaint);
-      textPaint
-        ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, viewHeight - MARGINBOTTOM - latitudeSpacing * i));
-      // }
-    }
+    double perPrice = (maxPrice - minPrice) / 2; //计算每一格纬线框所占有的价格
+    double textWidth1 = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice)} ", textPaint);
+    textPaint
+      ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(leftMarginSpace - textWidth1, latitudeSpacing + textBottom - halfTextHeight));
 
     //绘制WR
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth;
-      double nextX = MARGINLEFT + mCandleWidth * number + mCandleWidth;
+      double startX = mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = mCandleWidth * number + mCandleWidth + leftMarginSpace;
 
       //从周期开始才绘制WR
       if (i >= Wr1Period - 1) {
         //wr1线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (Wr1Period - 1) : i - (Wr1Period - 1) + 1;
         if (nextNumber < WR1.length) {
-          double startY = (LOWER_CHART_TOP + (maxPrice - WR1[i - (Wr1Period - 1)]) * rate + textBottom);
-          double stopY = (LOWER_CHART_TOP + (maxPrice - WR1[nextNumber]) * rate + textBottom);
+          double startY = (maxPrice - WR1[i - (Wr1Period - 1)]) * rate + textBottom;
+          double stopY = (maxPrice - WR1[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), greenPaint);
         }
       }
@@ -218,8 +205,8 @@ class WREntity {
         //wr2线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (Wr2Period - 1) : i - (Wr2Period - 1) + 1;
         if (nextNumber < WR2.length) {
-          double startY = (LOWER_CHART_TOP + (maxPrice - WR2[i - (Wr2Period - 1)]) * rate + textBottom);
-          double stopY = (LOWER_CHART_TOP + (maxPrice - WR2[nextNumber]) * rate + textBottom);
+          double startY = (maxPrice - WR2[i - (Wr2Period - 1)]) * rate + textBottom;
+          double stopY = (maxPrice - WR2[nextNumber]) * rate + textBottom;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), yellowPaint);
         }
       }
@@ -239,32 +226,27 @@ class WREntity {
         }
 
         String text = "WR($Wr1Period , $Wr2Period)";
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
 
         text = "WR1: $wr1";
-        // textPaint.setColor(Port.WR1Color);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.WR1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
 
         text = "WR2: $wr2";
-        // textPaint.setColor(Port.WR2Color);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.WR2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + DEFAULT_AXIS_TITLE_SIZE + 5));
+          ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
       }
     }

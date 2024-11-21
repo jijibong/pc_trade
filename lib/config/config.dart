@@ -179,4 +179,22 @@ class Config {
 
   ///查询行情地址
   static String queryQuoteAddress = "/v1/software/qry/quoteaddr";
+
+  ///结算单
+  static String GET_CAPITAL = "/v1/report/reportForm/capital";
+
+  ///平仓明细
+  static String CLOSEDETAILED = "/v1/report/reportForm/closeDetailed";
+
+  ///成交记录
+  static String FILLRECORD = "/v1/report/reportForm/fillRecord";
+
+  ///持仓明细
+  static String POSITIONDETAILED = "/v1/report/reportForm/positionDetailed";
+
+  ///出入金记录
+  static String GET_CASHREPORT = "/v1/report/reportForm/cashReport";
+
+  ///持仓汇总
+  static String POSITIONSUMMARY = "/v1/report/reportForm/positionSummary";
 }

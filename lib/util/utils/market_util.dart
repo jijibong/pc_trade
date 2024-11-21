@@ -25,6 +25,7 @@ class MarketUtils {
           varietyMap["${con.exCode}${con.code}${con.comType}"] = con;
         }
       }
+      SpUtils.set(SpKey.varietyMap, jsonEncode(varietyMap));
     }
   }
 
@@ -82,7 +83,7 @@ class MarketUtils {
         }
       }
     }
-    
+
     // if (contract != null) {
     //   contract.isMain = false;
     // }
@@ -147,39 +148,39 @@ class MarketUtils {
 
   ///自选管理
   // static Future<bool> manageOption(Contract? con, bool add) async {
-    // if (con == null) {
-    //   ToastUtil.showWarningToast("合约错误");
-    //   return false;
-    // }
-    // if (LoginServer.isLogin) {
-    //   if (add) {
-    //     await MarketServer.addOption(con).then((value) {
-    //       if (value) {
-    //         ToastUtil.showSimpleToast("${con.name}已加入自选");
-    //         Utils.operateOption(con, true, UserUtils.currentUser!.id!);
-    //         return true;
-    //       }
-    //     });
-    //   } else {
-    //     MarketServer.delOption([con]).then((value) {
-    //       if (value != null) {
-    //         ToastUtil.showSimpleToast("${con.name}已移出自选");
-    //         Utils.operateOption(con, false, UserUtils.currentUser!.id!);
-    //         return true;
-    //       }
-    //     });
-    //   }
-    // } else {
-    //   if (add) {
-    //     Utils.operateOption(con, true, 0);
-    //     ToastUtil.showSimpleToast("添加自选成功");
-    //     return true;
-    //   } else {
-    //     Utils.operateOption(con, false, 0);
-    //     ToastUtil.showSimpleToast("删除自选成功");
-    //     return true;
-    //   }
-    // }
-    // return false;
+  // if (con == null) {
+  //   ToastUtil.showWarningToast("合约错误");
+  //   return false;
+  // }
+  // if (LoginServer.isLogin) {
+  //   if (add) {
+  //     await MarketServer.addOption(con).then((value) {
+  //       if (value) {
+  //         ToastUtil.showSimpleToast("${con.name}已加入自选");
+  //         Utils.operateOption(con, true, UserUtils.currentUser!.id!);
+  //         return true;
+  //       }
+  //     });
+  //   } else {
+  //     MarketServer.delOption([con]).then((value) {
+  //       if (value != null) {
+  //         ToastUtil.showSimpleToast("${con.name}已移出自选");
+  //         Utils.operateOption(con, false, UserUtils.currentUser!.id!);
+  //         return true;
+  //       }
+  //     });
+  //   }
+  // } else {
+  //   if (add) {
+  //     Utils.operateOption(con, true, 0);
+  //     ToastUtil.showSimpleToast("添加自选成功");
+  //     return true;
+  //   } else {
+  //     Utils.operateOption(con, false, 0);
+  //     ToastUtil.showSimpleToast("删除自选成功");
+  //     return true;
+  //   }
+  // }
+  // return false;
   // }
 }

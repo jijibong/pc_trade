@@ -1,6 +1,10 @@
+import 'dart:math';
+
 import 'package:flutter/cupertino.dart';
 import 'package:path_drawing/path_drawing.dart';
+import 'package:trade/util/painter/k_chart/sub_chart_painter.dart';
 
+import '../../../util/log/log.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
@@ -35,7 +39,7 @@ class MACDEntity {
   /**
    * 默认XY轴字体大小
    **/
-  double DEFAULT_AXIS_TITLE_SIZE = 8;
+  double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**
    * 增加数据类
    */
@@ -251,14 +255,12 @@ class MACDEntity {
    *
    * @param canvas
    */
-  void drawMacd(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double MARGINLEFT, double MARGINBOTTOM, double LOWER_CHART_TOP, double mRightArea, int macdLPeriod, int macdSPeriod, int macdPeriod) {
+  void drawMACD(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
+      double leftMarginSpace, double halfTextHeight, int macdLPeriod, int macdSPeriod, int macdPeriod) {
     if (DIFs.isEmpty || DEAs.isEmpty || MACDs.isEmpty) {
       return;
     }
-
-    DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM - DEFAULT_AXIS_TITLE_SIZE - 10;
+    double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double textsize = DEFAULT_AXIS_TITLE_SIZE;
     Paint blackPaint = getDrawPaint(const Color.fromRGBO(0, 0, 0, 1));
     Paint redPaint = getDrawPaint(Port.macdUpColor);
@@ -267,13 +269,11 @@ class MACDEntity {
     Paint diffPaint = getDrawPaint(Port.macdFastColor);
     TextPainter textPaint = TextPainter(); // getDrawPaint(Port.chartTxtColor);
     Paint girdPaint = getDrawPaint(Port.girdColor);
-    // girdPaint.setPathEffect(DEFAULT_DASH_EFFECT);
     girdPaint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    // textPaint.setTextSize(textsize);
     redPaint.strokeWidth = Port.macdWidth[2].toDouble();
-    blackPaint.strokeWidth = 3;
+    blackPaint.strokeWidth = 1;
     greenPaint.strokeWidth = Port.macdWidth[3].toDouble();
     deaPaint.strokeWidth = Port.macdWidth[1].toDouble();
     diffPaint.strokeWidth = Port.macdWidth[0].toDouble();
@@ -284,63 +284,36 @@ class MACDEntity {
 
     //绘制网格线
     Path path = Path(); // 绘制虚线
-    //max/2
     double maxheight = (maxPrice / 2 - minPrice) * rate;
-    if ((viewHeight - maxheight - MARGINBOTTOM) > LOWER_CHART_TOP) {
-      //当最高价为零时不绘制此线
-      path.moveTo(MARGINLEFT, viewHeight - maxheight - MARGINBOTTOM);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, viewHeight - maxheight - MARGINBOTTOM);
-      // canvas.drawPath(path, girdPaint);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        girdPaint,
-      );
-      String price = Utils.getPointNum(maxPrice / 2);
-      // if (Port.drawFlag == 1) {
-      // canvas.drawText(price, viewWidth - MARGINLEFT - mRightArea, viewHeight - maxheight - MARGINBOTTOM + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-      // } else {
+    //当最高价为零时不绘制此线
+    path.moveTo(leftMarginSpace, viewHeight - maxheight);
+    path.lineTo(viewWidth, viewHeight - maxheight);
+    String price = Utils.getLimitNum(maxPrice / 2, 2);
 
-      textPaint
-        ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, viewHeight - maxheight - MARGINBOTTOM));
-      // }
-    }
+    double textWidth = SubChartPainter.getStringWidth("$price ", textPaint);
+    textPaint
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(leftMarginSpace - textWidth, viewHeight - maxheight - halfTextHeight));
 
     //零轴
     double zeroheight = (0 - minPrice) * rate;
-    double Y = viewHeight - zeroheight - MARGINBOTTOM;
-    // logger.i("Y:$Y  MARGINLEFT:$MARGINLEFT  viewHeight:$viewHeight  minPrice:$minPrice  rate:$rate  MARGINBOTTOM:$MARGINBOTTOM");
-    path.moveTo(MARGINLEFT, Y);
-    path.lineTo(viewWidth - MARGINLEFT - mRightArea, Y);
-    // canvas.drawPath(path, girdPaint);
-    canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      girdPaint,
-    );
+    double Y = viewHeight - zeroheight;
+    path.moveTo(leftMarginSpace, Y);
+    path.lineTo(viewWidth, Y);
     String price0 = "0.00";
-    // if (Port.drawFlag == 1) {
-    // canvas.drawText(price0, viewWidth - MARGINLEFT - mRightArea, Y + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-    // } else {
+    double textWidth0 = SubChartPainter.getStringWidth("$price0 ", textPaint);
     textPaint
       ..text = TextSpan(text: price0, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, Y));
-    // }
+      ..paint(canvas, Offset(leftMarginSpace - textWidth0, Y - halfTextHeight));
 
     //min/2
     double minheight = (minPrice / 2 - minPrice) * rate;
-    path.moveTo(MARGINLEFT, viewHeight - minheight - MARGINBOTTOM);
-    path.lineTo(viewWidth - MARGINLEFT - mRightArea, viewHeight - minheight - MARGINBOTTOM);
-    // canvas.drawPath(path, girdPaint);
+    path.moveTo(leftMarginSpace, viewHeight - minheight);
+    path.lineTo(viewWidth, viewHeight - minheight);
     canvas.drawPath(
       dashPath(
         path,
@@ -348,31 +321,25 @@ class MACDEntity {
       ),
       girdPaint,
     );
-    String lowPrice = Utils.getPointNum(minPrice / 2);
-    // if (Port.drawFlag == 1) {
-    // canvas.drawText(lowPrice, viewWidth - MARGINLEFT - mRightArea, viewHeight - minheight - MARGINBOTTOM + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-    // } else {
+    String lowPrice = Utils.getLimitNum(minPrice / 2, 2);
+    double textWidth1 = SubChartPainter.getStringWidth("$lowPrice ", textPaint);
     textPaint
       ..text = TextSpan(text: lowPrice, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, viewHeight - minheight - MARGINBOTTOM));
-    // }
+      ..paint(canvas, Offset(leftMarginSpace - textWidth1, viewHeight - minheight - halfTextHeight));
 
     //零轴
     zeroheight = (0 - minPrice) * rate;
-    double zero = viewHeight - zeroheight - MARGINBOTTOM;
-    if (zero < LOWER_CHART_TOP) {
-      zero = LOWER_CHART_TOP;
-    }
+    double zero = viewHeight - zeroheight;
 
     //绘制MACD
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = (MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth);
-      double nextX = (MARGINLEFT + mCandleWidth * (number) + mCandleWidth);
-      double left = (startX - (mCandleWidth - CANDLE_INTERVAL) / 2);
-      double right = (startX + (mCandleWidth - CANDLE_INTERVAL) / 2);
+      double startX = mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
+      double nextX = mCandleWidth * (number) + mCandleWidth + leftMarginSpace;
+      // double left = startX - (mCandleWidth - CANDLE_INTERVAL) / 2;
+      // double right = startX + (mCandleWidth - CANDLE_INTERVAL) / 2;
 
       // 绘制矩形
       if (i >= (macdLPeriod + macdPeriod - 1)) {
@@ -382,13 +349,13 @@ class MACDEntity {
         if (loction < MACDs.length) {
           if (MACDs[loction] >= 0.0) {
             //绘制横线
-            canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
+            // canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
             //绘制竖线
             double top = zero - MACDs[loction] * rate;
             canvas.drawLine(Offset(startX, zero), Offset(startX, top), redPaint);
           } else {
             //绘制横线
-            canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
+            // canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
             //绘制竖线
             double top = zero - MACDs[loction] * rate;
             canvas.drawLine(Offset(startX, zero), Offset(startX, top), greenPaint);
@@ -435,39 +402,32 @@ class MACDEntity {
         } else {
           dea = "0.000";
           macd = "0.000";
-          // dea = Utils.getPointNum(DEAs.last);
-          // macd = Utils.getPointNum(MACDs.last);
         }
 
-        double textXStart = MARGINLEFT;
+        double textXStart = Port.defult_icon_width + leftMarginSpace;
         String text = "MACD($macdSPeriod , $macdLPeriod , $macdPeriod)";
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + textsize + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(230, 56, 89, 1), fontSize: textsize))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + textsize + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "DEA:$dea , $diff , $macd";
-        // textPaint.setColor(Port.macdSlowColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + textsize + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.macdSlowColor, fontSize: textsize))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + textsize + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "DIFF:$diff";
-        // textPaint.setColor(Port.macdFastColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP + textsize + 5, textPaint);
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: Port.macdFastColor, fontSize: textsize))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + textsize + 5));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
+          ..paint(canvas, Offset(textXStart, Port.text_check));
+        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         // 绘制矩形
         if (i >= (macdLPeriod + macdPeriod - 1) && (i - (macdLPeriod + macdPeriod - 1)) < MACDs.length) {
@@ -477,207 +437,15 @@ class MACDEntity {
               ..text = TextSpan(text: text, style: TextStyle(color: Port.macdUpColor, fontSize: textsize))
               ..textDirection = TextDirection.ltr
               ..layout()
-              ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + textsize + 5));
+              ..paint(canvas, Offset(textXStart, Port.text_check));
           } else {
             textPaint
               ..text = TextSpan(text: text, style: TextStyle(color: Port.macdDownColor, fontSize: textsize))
               ..textDirection = TextDirection.ltr
               ..layout()
-              ..paint(canvas, Offset(textXStart, LOWER_CHART_TOP + textsize + 5));
+              ..paint(canvas, Offset(textXStart, Port.text_check));
           }
         }
-      }
-    }
-  }
-
-  /**
-   * 绘制分时图macd
-   *
-   * @param canvas
-   */
-  void drawFenshiMacd(Canvas canvas, int viewHeight, int viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double MARGINLEFT, int MARGINBOTTOM, double LOWER_CHART_TOP, double MARGINRIGHT, int macdLPeriod, int macdSPeriod, int macdPeriod) {
-    if (DIFs.isEmpty || DEAs.isEmpty || MACDs.isEmpty) {
-      return;
-    }
-
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM;
-    double textsize = Port.ChartTextSize;
-    Paint blackPaint = getDrawPaint(const Color.fromRGBO(0, 0, 0, 1));
-    Paint redPaint = getDrawPaint(Port.macdUpColor);
-    Paint greenPaint = getDrawPaint(Port.macdDownColor);
-    Paint deaPaint = getDrawPaint(Port.macdSlowColor);
-    Paint diffPaint = getDrawPaint(Port.macdFastColor);
-    TextPainter textPaint = TextPainter(); //getDrawPaint(Port.foreGroundColor);
-    Paint girdPaint = getDrawPaint(Port.girdColor);
-    // girdPaint.setPathEffect(DEFAULT_DASH_EFFECT);
-    girdPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    // textPaint.setTextSize(textsize);
-    redPaint.strokeWidth = Port.macdWidth[2].toDouble();
-    blackPaint.strokeWidth = 3;
-    greenPaint.strokeWidth = Port.macdWidth[3].toDouble();
-    deaPaint.strokeWidth = Port.macdWidth[1].toDouble();
-    diffPaint.strokeWidth = Port.macdWidth[0].toDouble();
-
-    double rate = 0.0;
-    //计算最高价，最低价
-    rate = maxPrice < 0 ? lowerHight / (0 - minPrice) : lowerHight / (maxPrice - minPrice);
-
-    //绘制网格线
-    Path path = Path(); // 绘制虚线
-    //max/2
-    double maxheight = ((maxPrice / 2 - minPrice) * rate);
-    if ((viewHeight - maxheight - MARGINBOTTOM) > LOWER_CHART_TOP) {
-      //当最高价为零时不绘制此线
-      path.moveTo(MARGINLEFT, viewHeight - maxheight - MARGINBOTTOM);
-      path.lineTo(viewWidth - MARGINRIGHT, viewHeight - maxheight - MARGINBOTTOM);
-      // canvas.drawPath(path, girdPaint);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        girdPaint,
-      );
-      String price = Utils.getPointNum(maxPrice / 2);
-      // if (Port.drawFlag == 1) {
-      // canvas.drawText(price, viewWidth - MARGINRIGHT, viewHeight - maxheight - MARGINBOTTOM + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-      // } else {
-      // canvas.drawText(price, MARGINLEFT, viewHeight - maxheight - MARGINBOTTOM, textPaint);
-      textPaint
-        ..text = TextSpan(text: price, style: TextStyle(color: Port.foreGroundColor, fontSize: textsize))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(MARGINLEFT, viewHeight - maxheight - MARGINBOTTOM));
-      // }
-    }
-
-    //零轴
-    double zeroheight = ((0 - minPrice) * rate);
-    double Y = (viewHeight - zeroheight - MARGINBOTTOM);
-    path.moveTo(MARGINLEFT, Y);
-    path.lineTo(viewWidth - MARGINRIGHT, Y);
-    // canvas.drawPath(path, girdPaint);
-    canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      girdPaint,
-    );
-    String price0 = "0.00";
-    // if (Port.drawFlag == 1) {
-    // canvas.drawText(price0, viewWidth - MARGINRIGHT, Y + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-    // } else {
-    // canvas.drawText(price0, MARGINLEFT, Y, textPaint);
-    textPaint
-      ..text = TextSpan(text: price0, style: TextStyle(color: Port.foreGroundColor, fontSize: textsize))
-      ..textDirection = TextDirection.ltr
-      ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, Y));
-    // }
-
-    //min/2
-    double minheight = ((minPrice / 2 - minPrice) * rate);
-    path.moveTo(MARGINLEFT, viewHeight - minheight - MARGINBOTTOM);
-    path.lineTo(viewWidth - MARGINRIGHT, viewHeight - minheight - MARGINBOTTOM);
-    // canvas.drawPath(path, girdPaint);
-    canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      girdPaint,
-    );
-    String lowPrice = Utils.getPointNum(minPrice / 2);
-    // if (Port.drawFlag == 1) {
-    // canvas.drawText(lowPrice, viewWidth - MARGINRIGHT, viewHeight - minheight - MARGINBOTTOM + DEFAULT_AXIS_TITLE_SIZE / 2, textPaint);
-    // } else {
-    // canvas.drawText(lowPrice, MARGINLEFT, viewHeight - minheight - MARGINBOTTOM, textPaint);
-    textPaint
-      ..text = TextSpan(text: lowPrice, style: TextStyle(color: Port.foreGroundColor, fontSize: textsize))
-      ..textDirection = TextDirection.ltr
-      ..layout()
-      ..paint(canvas, Offset(MARGINLEFT, viewHeight - minheight - MARGINBOTTOM));
-    // }
-
-    //零轴
-    zeroheight = ((0 - minPrice) * rate);
-    double zero = viewHeight - zeroheight - MARGINBOTTOM;
-    if (zero < LOWER_CHART_TOP) {
-      zero = LOWER_CHART_TOP;
-    }
-
-    //绘制MACD
-    for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
-      int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
-      double startX = (MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth);
-      double nextX = (MARGINLEFT + mCandleWidth * (number) + mCandleWidth);
-      double left = (startX - (mCandleWidth - CANDLE_INTERVAL) / 2);
-      double right = (startX + (mCandleWidth - CANDLE_INTERVAL) / 2);
-
-      // 绘制矩形
-      if (i >= (macdLPeriod + macdPeriod - 1)) {
-        //当前所绘K线根数大于MACD长周期与周期之和才开始绘制柱状图
-        int loction = i - (macdLPeriod + macdPeriod - 1);
-
-        if (MACDs[loction] >= 0.0) {
-          //绘制横线
-          canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
-          //绘制竖线
-          double top = zero - MACDs[loction] * rate;
-          canvas.drawLine(Offset(startX, zero), Offset(startX, top), redPaint);
-        } else {
-          //绘制横线
-          canvas.drawLine(Offset(left, zero), Offset(right, zero), blackPaint);
-          //绘制竖线
-          double top = zero - MACDs[loction] * rate;
-          canvas.drawLine(Offset(startX, zero), Offset(startX, top), greenPaint);
-        }
-      }
-
-      //绘制DIFF
-      if (i >= macdLPeriod - 1) {
-        int diffNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (macdLPeriod - 1) : i - (macdLPeriod - 1) + 1;
-        double startY = zero - DIFs[i - (macdLPeriod - 1)] * rate;
-        double stopY = zero - DIFs[diffNumber] * rate;
-        canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), diffPaint);
-      }
-
-      //绘制DEA
-      if (i >= macdLPeriod + macdPeriod - 1) {
-        int deaNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (macdLPeriod + macdPeriod - 1) : i - (macdLPeriod + macdPeriod - 1) + 1;
-        double startY = zero - DEAs[i - (macdLPeriod + macdPeriod - 1)] * rate;
-        double stopY = zero - DEAs[deaNumber] * rate;
-        canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), deaPaint);
-      }
-
-      //绘制当前周期，最新一根数据的diff,dea,macd
-      if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String diff, dea, macd;
-
-        if ((mDataStartIndext + mShowDataNum) > macdLPeriod) {
-          diff = Utils.getPointNum(DIFs[i - (macdLPeriod - 1)]);
-        } else {
-          diff = "0.000";
-        }
-
-        if ((mDataStartIndext + mShowDataNum) > (macdLPeriod + macdPeriod)) {
-          dea = Utils.getPointNum(DEAs[i - (macdLPeriod + macdPeriod - 1)]);
-          macd = Utils.getPointNum(MACDs[i - (macdLPeriod + macdPeriod - 1)]);
-        } else {
-          dea = "0.000";
-          macd = "0.000";
-        }
-        String text = "MACD($macdSPeriod , $macdLPeriod , $macdPeriod) ($dea , $diff , $macd)";
-        // canvas.drawText(text, MARGINLEFT, LOWER_CHART_TOP + textsize + 5, textPaint);
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.foreGroundColor, fontSize: textsize))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(MARGINLEFT, LOWER_CHART_TOP + textsize + 5));
       }
     }
   }
@@ -692,25 +460,5 @@ class MACDEntity {
       ..isAntiAlias = true
       ..strokeWidth = Port.StrokeWidth;
     return paint;
-  }
-
-  List<double> getDEA() {
-    return DEAs;
-  }
-
-  List<double> getDIF() {
-    return DIFs;
-  }
-
-  List<double> getMACD() {
-    return MACDs;
-  }
-
-  double getMaxPrice() {
-    return maxPrice;
-  }
-
-  double getMinPrice() {
-    return minPrice;
   }
 }

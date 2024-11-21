@@ -2,7 +2,6 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
@@ -241,7 +240,7 @@ class NumberBox<T extends num> extends StatefulWidget {
     required this.onChanged,
     this.onTextChange,
     this.focusNode,
-    this.mode = SpinButtonPlacementMode.compact,
+    this.mode = SpinButtonPlacementMode.inline,
     this.clearButton = true,
     this.smallChange = 1,
     this.largeChange = 10,
@@ -333,7 +332,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
 
       if (widget.mode == SpinButtonPlacementMode.compact) {
         // if (_hasPrimaryFocus && _entry == null) {
-          // _insertOverlay();
+        // _insertOverlay();
         // } else if (!_hasPrimaryFocus && _entry != null) {
         //   _dismissOverlay();
         // }
@@ -587,7 +586,8 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
   }
 
   void decrementSmall() {
-    final value = (num.tryParse(controller.text) ?? widget.value ?? 0) - widget.smallChange;
+    var value = (num.tryParse(controller.text) ?? widget.value ?? 0) - widget.smallChange;
+    value = max(value, 0);
     _updateController(value);
     updateValue();
   }

@@ -29,13 +29,13 @@ class Contract {
   Color? changeColor;
   num? changePer; //涨跌幅
   String? changePerString = "0%"; //涨跌幅String
-  Color? changePerColor;
   num? buyPrice; //买价
   num? salePrice; //卖价
   String? buyPriceString = "0.0"; //买价String
   String? salePriceString = "0.0"; //卖价String
   Color? buyPriceColor;
   Color? salePriceColor;
+  Color? volumeColor;
   num? volume; //成交量
   num? lastVolume; //最新成交量
   num? turnOver; //成交额
@@ -49,8 +49,10 @@ class Contract {
   num? preSettlePrice; //昨日结算价
   num? settlePrice; //结算价
   num? openPrice; //开盘价
+  Color? openColor;
   num? execPrice; //执行价
   num? prePosition; //昨持仓量
+  Color? positionColor;
   num? position; //持仓量
   num? hisHigh; //历史最高价
   num? hisLow; //历史最低价
@@ -74,6 +76,8 @@ class Contract {
   num? amplitude; //振幅
   num? delegateBuy; //委买总量
   num? delegateSale; //委卖总量
+  Color? delegateBuyColor;
+  Color? delegateSaleColor;
   num? futureTickSize; //期货合约跳价
   num? contractSize; //合约乘数
   num? initial; //合约单笔初始保证金
@@ -85,7 +89,7 @@ class Contract {
   int? itemType;
   bool? optional = false;
   bool? selected = false;
-  bool? isMain ; //是否是主力
+  bool? isMain; //是否是主力
 
   Contract({
     this.id,

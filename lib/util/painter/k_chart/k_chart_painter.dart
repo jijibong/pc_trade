@@ -4,30 +4,22 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path_drawing/path_drawing.dart';
 
 import '../../../model/k/OHLCEntity.dart';
-import '../../../model/k/k_chart_data/ATREntity.dart';
 import '../../../model/k/k_chart_data/AlligatorEntity.dart';
 import '../../../model/k/k_chart_data/BIASEntity.dart';
 import '../../../model/k/k_chart_data/BollingerEntity.dart';
 import '../../../model/k/k_chart_data/CCIEntity.dart';
 import '../../../model/k/k_chart_data/CostLineEntity.dart';
-import '../../../model/k/k_chart_data/DKXEntity.dart';
-import '../../../model/k/k_chart_data/DMIEntity.dart';
 import '../../../model/k/k_chart_data/FallLineEntity.dart';
-import '../../../model/k/k_chart_data/GUBIEntity.dart';
 import '../../../model/k/k_chart_data/KDJEntity.dart';
 import '../../../model/k/k_chart_data/MACDEntity.dart';
-import '../../../model/k/k_chart_data/MIKEEntity.dart';
 import '../../../model/k/k_chart_data/PSYEntity.dart';
 import '../../../model/k/k_chart_data/RSIEntity.dart';
-import '../../../model/k/k_chart_data/TRIXEntity.dart';
 import '../../../model/k/k_chart_data/VREntity.dart';
 import '../../../model/k/k_chart_data/VolEntity.dart';
 import '../../../model/k/k_chart_data/WREntity.dart';
 import '../../../model/k/k_preiod.dart';
 import '../../../model/k/port.dart';
 import '../../../model/k/trade_time.dart';
-import '../../event_bus/eventBus_utils.dart';
-import '../../event_bus/events.dart';
 import '../../log/log.dart';
 import '../../utils/k_util.dart';
 import '../../utils/utils.dart';
@@ -50,163 +42,145 @@ class ChartPainter extends BaseKChartPainter {
   int mTimeStartIndext = 0;
   int mTimeShowNum = 1380;
   int mShowNum = 35, mStartIndex = 0;
-  double timeMarginRight = getStringWidth("00000000", TextPainter());
-  double timeMarginLeft = getStringWidth("00000000", TextPainter());
+  double timeMarginRight = 0;
+  double timeMarginLeft = 0;
+  static double leftMarginSpace = getStringWidth("000.000", TextPainter(), size: Port.ChartTextSize);
+  static double rightMarginSpace = getStringWidth("+0.00%", TextPainter(), size: Port.ChartTextSize);
+  static double halfTextHeight = ChartPainter.getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
   int mPreSize = 0;
   int mOrder = 0;
   static double lastClose = 0;
   String chartExCode = "";
   String chartCode = "";
-  /** 十字线辅助绘制 */
+
+  /// 十字线辅助绘制
   late CrossLineView mCrossLineView;
   // 下部表的数据
-  /** MACD数据 */
+  /// MACD数据
   MACDEntity? mMACDData;
-  /** DMI数据 */
-  DMIEntity? mDMIData;
-  /** RSI数据 */
+
+  /// RSI数据
   RSIEntity? mRSIData;
-  /** 布林带数据 */
+
+  /// 布林带数据
   BollingerEntity? mBollingerData;
-  /** 多空线数据 */
-  DKXEntity? mDKXData;
-  /** 均线数据 */
+
+  /// 均线数据
   CostLineEntity? mCostData;
-  /** 瀑布线数据 */
+
+  /// 瀑布线数据
   FallLineEntity? mFallData;
-  /** 鳄鱼线数据 */
+
+  /// 鳄鱼线数据
   AlligatorEntity? mAlligatorData;
-  /** KDJ线数据 */
+
+  /// KDJ线数据
   KDJEntity? mKDJData;
-  /** WR线数据 */
+
+  /// WR线数据
   WREntity? mWRData;
-  /** CCI线数据 */
+
+  /// CCI线数据
   CCIEntity? mCCIData;
-  /** ATR线数据 */
-  ATREntity? mATRData;
-  /** BIAS线数据 */
+
+  /// BIAS线数据
   BIASEntity? mBIASData;
-  /** PSY线数据 */
+
+  /// PSY线数据
   PSYEntity? mPSYData;
-  /** TRIX线数据 */
-  TRIXEntity? mTRIXData;
-  /** MIKE线数据 */
-  MIKEEntity? mMIKEData;
-  /** MIKE线数据 */
-  GUBIEntity? mGUBIData;
-  /** 成交量线数据 */
+
+  /// 成交量线数据
   VolEntity? mVolData;
-  /** VR线数据 */
+
+  /// VR线数据
   VREntity? mVRData;
 
   /////////////指标线属性////////////////////
-  /**MACD	长周期*/
+  /// MACD	长周期
   static int macdLPeriod = 26;
-  /**MACD	短周期*/
+
+  /// MACD	短周期
   static int macdSPeriod = 12;
-  /**MACD	周期*/
+
+  /// MACD	周期
   static int macdPeriod = 9;
-  /**RSI	周期*/
+
+  /// RSI	周期
   static int rsiPeriod = 14;
-  /**DMI	周期*/
-  static int dmiPeriod = 14;
-  /**布林线	周期*/
+
+  /// 布林线	周期
   static int BollingerPeriod = 26;
-  /**布林线	标准差*/
+
+  /// 布林线	标准差
   static double BollingerSD = 2.000;
-  /**多空线	周期*/
-  static int DKXPeriod = 20;
-  /**多空线	周期*/
-  static int MADKXPeriod = 10;
-  /**均线	周期1*/
+
+  /// 均线	周期1
   static int CostOnePeriod = 5;
-  /**均线	周期2*/
+
+  /// 均线	周期2
   static int CostTwoPeriod = 10;
-  /**均线	周期3*/
+
+  /// 均线	周期3
   static int CostThreePeriod = 20;
-  /**均线	周期4*/
+
+  /// 均线	周期4
   static int CostFourPeriod = 40;
-  /**均线	周期5*/
+
+  /// 均线	周期5
   static int CostFivePeriod = 60;
-  /**瀑布线	周期1*/
+
+  /// 瀑布线	周期1
   static int FallPeriod1 = 4;
-  /**瀑布线	周期2*/
+
+  /// 瀑布线	周期2
   static int FallPeriod2 = 6;
-  /**瀑布线	周期3*/
+
+  /// 瀑布线	周期3
   static int FallPeriod3 = 9;
-  /**瀑布线	周期4*/
+
+  /// 瀑布线	周期4
   static int FallPeriod4 = 13;
-  /**瀑布线	周期5*/
+
+  /// 瀑布线	周期5
   static int FallPeriod5 = 18;
-  /**瀑布线	周期6*/
+
+  /// 瀑布线	周期6
   static int FallPeriod6 = 24;
-  /**鳄鱼线	下巴周期*/
-  static int JawPeriod = 13;
-  /**鳄鱼线	下巴速度*/
-  static int JawSpeed = 8;
-  /**鳄鱼线	牙齿周期*/
-  static int TeethPeriod = 8;
-  /**鳄鱼线	牙齿速度*/
-  static int TeethSpeed = 5;
-  /**鳄鱼线	嘴唇周期*/
-  static int LipsPeriod = 5;
-  /**鳄鱼线	嘴唇速度*/
-  static int LipsSpeed = 3;
-  /**MIKE线	周期*/
-  static int MikePeriod = 12;
-  /**KDJ周期*/
+
+  /// KDJ周期
   static int KDJPeriod = 9;
-  /**KDJ m1*/
+
+  /// KDJ m1
   static int KDJ_M1 = 3;
-  /**KDJ m2*/
+
+  /// KDJ m2
   static int KDJ_M2 = 3;
-  /**WR1 周期*/
+
+  /// WR1 周期
   static int Wr1Period = 10;
-  /**WR2 周期*/
+
+  /// WR2 周期
   static int Wr2Period = 6;
-  /**CCI周期*/
+
+  /// CCI周期
   static int CCIPeriod = 14;
-  /**ATR周期*/
-  static int ATRPeriod = 14;
-  /**BIAS1周期*/
+
+  /// BIAS1周期
   static int BIAS1Period = 6;
-  /**BIAS2周期*/
+
+  /// BIAS2周期
   static int BIAS2Period = 12;
-  /**BIAS3周期*/
+
+  /// BIAS3周期
   static int BIAS3Period = 24;
-  /**PSY周期*/
+
+  /// PSY周期
   static int PSYPeriod = 12;
-  /**PSYMA周期*/
+
+  /// PSYMA周期
   static int PSYMAPeriod = 6;
-  /**TRIX周期*/
-  static int TRIXPeriod = 12;
-  /**MATRIX周期*/
-  static int TRIXMAPeriod = 9;
-  /**顾比均线周期1*/
-  static int GUBIPeriod1 = 3;
-  /**顾比均线周期2*/
-  static int GUBIPeriod2 = 5;
-  /**顾比均线周期3*/
-  static int GUBIPeriod3 = 8;
-  /**顾比均线周期4*/
-  static int GUBIPeriod4 = 10;
-  /**顾比均线周期5*/
-  static int GUBIPeriod5 = 12;
-  /**顾比均线周期6*/
-  static int GUBIPeriod6 = 15;
-  /**顾比均线周期7*/
-  static int GUBIPeriod7 = 30;
-  /**顾比均线周期8*/
-  static int GUBIPeriod8 = 35;
-  /**顾比均线周期9*/
-  static int GUBIPeriod9 = 40;
-  /**顾比均线周期10*/
-  static int GUBIPeriod10 = 45;
-  /**顾比均线周期11*/
-  static int GUBIPeriod11 = 50;
-  /**顾比均线周期12*/
-  static int GUBIPeriod12 = 60;
-  /**VR线周期12*/
+
+  /// VR线周期12
   static int VRPeriod = 26;
 
   Paint yangPaint = Paint();
@@ -225,44 +199,24 @@ class ChartPainter extends BaseKChartPainter {
   bool SWITHING_PERIOD = false;
   bool ADD_DATA = false;
   bool type_changed = false;
-  bool isReachLast = false;
-  bool isSend = true;
 
-  bool isDrawMacd = true;
-  bool isDrawRsi = false;
-  bool isDrawDmi = false;
-  bool isDrawBollinger = true;
-  bool isDrawDKX = false;
-  bool isDrawCost = false;
+  bool isDrawBollinger = false;
+  bool isDrawCost = true;
   bool isDrawCost1 = true;
   bool isDrawCost2 = true;
   bool isDrawCost3 = false;
   bool isDrawCost4 = false;
   bool isDrawCost5 = true;
   bool isDrawFall = false;
-  bool isDrawAlligator = false;
-  bool isDrawKDJ = false;
-  bool isDrawWR = false;
-  bool isDrawCCI = false;
-  bool isDrawATR = false;
-  bool isDrawBIAS = false;
-  bool isDrawPSY = false;
-  bool isDrawTRIX = false;
-  bool isDrawMIKE = false;
-  bool isDrawGUBI = false;
-  bool isDrawVolume = true;
-  bool isDrawVR = false;
+
   bool isDrawCrossLine = false;
   bool isDrawCandle = true;
-  bool isDrawTower = false;
-  bool isDrawHN = false;
   bool isSmartFall = false;
   bool isSwithSmart = false;
-  bool isFirstSmart = false;
   static List<TradeTime> mTradeTimes = [];
   static List<String> mFsTimes = [];
   static int mFsCount = 0;
-  double kChartViewHeight = 0;
+  static double kChartViewHeight = 0;
   static double kChartViewWidth = 0;
   KPeriod mKPeriod = KPeriod();
   double mCandleWidth = Port.CandleWidth;
@@ -296,11 +250,7 @@ class ChartPainter extends BaseKChartPainter {
     required this.mDataStartIndext,
     required this.mShowDataNum,
     required this.MIN_CANDLE_NUM,
-    required this.isDrawMacd,
-    required this.isDrawRsi,
-    required this.isDrawDmi,
     required this.isDrawBollinger,
-    required this.isDrawDKX,
     required this.isDrawCost,
     required this.isDrawCost1,
     required this.isDrawCost2,
@@ -308,50 +258,29 @@ class ChartPainter extends BaseKChartPainter {
     required this.isDrawCost4,
     required this.isDrawCost5,
     required this.isDrawFall,
-    required this.isDrawAlligator,
-    required this.isDrawKDJ,
-    required this.isDrawWR,
-    required this.isDrawCCI,
-    required this.isDrawATR,
-    required this.isDrawBIAS,
-    required this.isDrawPSY,
-    required this.isDrawTRIX,
-    required this.isDrawMIKE,
-    required this.isDrawGUBI,
-    required this.isDrawVolume,
-    required this.isDrawVR,
     required this.isDrawCrossLine,
     required this.mPreSize,
     required this.mMACDData,
-    required this.mDMIData,
     required this.mRSIData,
     required this.mBollingerData,
-    required this.mDKXData,
     required this.mCostData,
     required this.mFallData,
     required this.mAlligatorData,
     required this.mKDJData,
     required this.mWRData,
     required this.mCCIData,
-    required this.mATRData,
     required this.mBIASData,
     required this.mPSYData,
-    required this.mTRIXData,
-    required this.mMIKEData,
-    required this.mGUBIData,
     required this.mVolData,
     required this.mVRData,
     required this.isDrawTimeDown,
-  }) : super(isDrawTime: isDrawTime) {
-    EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {});
-  }
+  }) : super(isDrawTime: isDrawTime);
 
   @override
   void paint(Canvas canvas, Size size) {
     super.paint(canvas, size);
     kChartViewHeight = size.height;
     kChartViewWidth = size.width;
-    Port.drawFlag = 0;
     if (mOHLCData.isEmpty) {
       return;
     }
@@ -400,8 +329,8 @@ class ChartPainter extends BaseKChartPainter {
 
     for (int i = 1; i <= DEFAULT_TIME_LATITUDE_NUM; i++) {
       Path path = Path(); // 绘制虚线
-      path.moveTo(timeMarginLeft, MARGINTOP + latitudeSpacing * i);
-      path.lineTo(kChartViewWidth - timeMarginRight, MARGINTOP + latitudeSpacing * i);
+      path.moveTo(timeMarginLeft + leftMarginSpace, MARGINTOP + latitudeSpacing * i);
+      path.lineTo(kChartViewWidth - timeMarginRight - rightMarginSpace, MARGINTOP + latitudeSpacing * i);
       canvas.drawPath(
         dashPath(
           path,
@@ -422,7 +351,7 @@ class ChartPainter extends BaseKChartPainter {
       String textPercent = "${Utils.getLimitNum(percent, 2)}%";
       double leftX = 0, leftY = 0, rightX = 0;
       leftX = timeMarginLeft;
-      leftY = MARGINTOP + latitudeSpacing * i;
+      leftY = MARGINTOP + latitudeSpacing * i - halfTextHeight;
       rightX = kChartViewWidth - getStringWidth(textPercent, redPaint, size: DEFAULT_AXIS_TITLE_SIZE);
       redPaint
         ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(230, 56, 89, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
@@ -441,15 +370,10 @@ class ChartPainter extends BaseKChartPainter {
       double percent = (perPrice * (i - 4)) / lastClose * 100;
       String textPercent = "-${Utils.getLimitNum(percent, 2)}%";
       double leftX = 0, leftY = 0, rightX = 0;
-      if (Port.drawFlag == 1) {
-        leftX = timeMarginLeft - getStringWidth(text, greenPaint);
-        leftY = MARGINTOP + latitudeSpacing * i + getStringHeight(text, greenPaint) / 2;
-        rightX = kChartViewWidth - timeMarginRight;
-      } else {
-        leftX = timeMarginLeft;
-        leftY = MARGINTOP + latitudeSpacing * i;
-        rightX = kChartViewWidth - getStringWidth(textPercent, greenPaint, size: DEFAULT_AXIS_TITLE_SIZE);
-      }
+
+      leftX = timeMarginLeft;
+      leftY = MARGINTOP + latitudeSpacing * i - halfTextHeight;
+      rightX = kChartViewWidth - getStringWidth(textPercent, greenPaint, size: DEFAULT_AXIS_TITLE_SIZE);
       greenPaint
         ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(58, 255, 32, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
@@ -463,7 +387,7 @@ class ChartPainter extends BaseKChartPainter {
     }
     double leftX = 0, leftY = 0, rightX = 0;
     leftX = timeMarginLeft;
-    leftY = MARGINTOP + latitudeSpacing * 4;
+    leftY = MARGINTOP + latitudeSpacing * 4 - halfTextHeight;
     rightX = kChartViewWidth - getStringWidth("0.00%", textPaint, size: DEFAULT_AXIS_TITLE_SIZE);
     redPaint
       ..text = TextSpan(text: Utils.getPointNum(lastClose), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
@@ -489,7 +413,7 @@ class ChartPainter extends BaseKChartPainter {
     } else {
       for (int i = 1; i <= DEFAULT_TIME_LOGITUDE_NUM; i++) {
         Path path = Path(); // 绘制虚线
-        path.moveTo(timeMarginLeft + longitudeSpacing * i, MARGINTOP.toDouble());
+        path.moveTo(timeMarginLeft + longitudeSpacing * i, MARGINTOP);
         path.lineTo(timeMarginLeft + longitudeSpacing * i, TIME_UPER_CHART_BOTTOM);
         canvas.drawPath(path, paint);
       }
@@ -520,31 +444,31 @@ class ChartPainter extends BaseKChartPainter {
     showNum = (kChartViewWidth - timeMarginLeft - timeMarginRight) ~/ mPointWidth;
     for (int i = 0; i < showNum; i++) {
       int num = (i + 1) >= showNum ? showNum - 1 : i + 1;
-      startX = mPointWidth * i + timeMarginLeft;
-      nextX = mPointWidth * num + timeMarginLeft;
+      startX = mPointWidth * i + timeMarginLeft + leftMarginSpace;
+      nextX = mPointWidth * num + timeMarginLeft + rightMarginSpace;
       if (i >= mOHLCData.length) break;
 
       if (i < mOHLCData.length) {
         int next = (i + 1) >= mOHLCData.length ? mOHLCData.length - 1 : i + 1;
-        closeY = (max - (mOHLCData[i].close ?? 0)) * rate + MARGINTOP;
-        averageY = (max - (mOHLCData[i].average ?? 0)) * rate + MARGINTOP;
-        nextCloseY = (max - (mOHLCData[next].close ?? 0)) * rate + MARGINTOP;
-        nextAverageY = (max - (mOHLCData[next].average ?? 0)) * rate + MARGINTOP;
+        closeY = (max - (mOHLCData[i].close ?? 0)) * rate;
+        averageY = (max - (mOHLCData[i].average ?? 0)) * rate;
+        nextCloseY = (max - (mOHLCData[next].close ?? 0)) * rate;
+        nextAverageY = (max - (mOHLCData[next].average ?? 0)) * rate;
         canvas.drawLine(Offset(startX, closeY), Offset(nextX, nextCloseY), bluePaint); //绘制收盘价
         canvas.drawLine(Offset(startX, averageY), Offset(nextX, nextAverageY), yellowPaint); //绘制收盘价
       }
     }
     //绘制成交量
     if (mVolData != null && isDrawTimeDown) {
-      mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, MARGINBOTTOM, TIME_LOWER_CHART_TOP,
-          BaseKChartPainter.TimeMarginRight);
+      mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, leftMarginSpace, rightMarginSpace,
+          MARGINBOTTOM, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
     }
 
     //绘制十字线
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
       num lowerHeight = kChartViewHeight - MARGINBOTTOM - TIME_LOWER_CHART_TOP;
       CrossLineView.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, lowerHeight, currentX, currentY, mPointWidth, MARGINTOP, MARGINBOTTOM,
-          timeMarginLeft, timeMarginRight, showNum, 0, mOHLCData, isDrawTime, lastClose, mKPeriod);
+          timeMarginLeft, leftMarginSpace, rightMarginSpace, timeMarginRight, showNum, 0, mOHLCData, isDrawTime, lastClose, mKPeriod);
     }
   }
 
@@ -562,11 +486,11 @@ class ChartPainter extends BaseKChartPainter {
     double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
     for (int i = 0; i < mShowDataNum && mDataStartIndext + i < mOHLCData.length; i++) {
       OHLCEntity entity = mOHLCData[mDataStartIndext + i];
-      String date = "${entity.date} ${entity.time?.substring(0, 5)}";
-
-      double startX = BaseKChartPainter.MARGINLEFT + mCandleWidth * i + mCandleWidth;
+      double startX = BaseKChartPainter.MARGINLEFT + mCandleWidth * i + mCandleWidth + leftMarginSpace;
       double left = startX - (mCandleWidth - CANDLE_INTERVAL) / 2;
       double right = startX + (mCandleWidth - CANDLE_INTERVAL) / 2;
+
+      canvas.drawLine(Offset(leftMarginSpace, 0), Offset(leftMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint);
 
       //绘制K线
       if (isDrawCandle) {
@@ -586,25 +510,6 @@ class ChartPainter extends BaseKChartPainter {
           canvas.drawRect(Rect.fromLTRB(left, close, right, open), yangPaint);
         }
       }
-
-      //绘制日期
-      double y = kChartViewHeight - MARGINBOTTOM / 2;
-      if (i == 0) {
-        double x = BaseKChartPainter.MARGINLEFT + mCandleWidth * i + mCandleWidth / 2;
-        textPaint
-          ..text = TextSpan(text: date, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(x, y));
-      } else if (i == mShowDataNum - 1) {
-        double x = (BaseKChartPainter.MARGINLEFT + mCandleWidth * i + 2 * mCandleWidth + mCandleWidth / 2) -
-            getStringWidth(date, textPaint, size: DEFAULT_AXIS_TITLE_SIZE + 2);
-        textPaint
-          ..text = TextSpan(text: date, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(x, y));
-      }
     }
 
     //绘制价格指示线
@@ -617,23 +522,18 @@ class ChartPainter extends BaseKChartPainter {
       }
 
       Path path = Path();
-      path.moveTo(BaseKChartPainter.MARGINLEFT + mChartWidth, closeHigh);
-      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + BaseKChartPainter.mCursorWidth, closeHigh - 3);
-      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + BaseKChartPainter.mCursorWidth, closeHigh + 3);
+      path.moveTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace, closeHigh);
+      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace + BaseKChartPainter.mCursorWidth, closeHigh - 10);
+      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace + BaseKChartPainter.mCursorWidth, closeHigh + 10);
       path.close();
       canvas.drawPath(path, cursorPaint);
     }
     drawHighLowPoint(canvas, rate, textBottom);
-    //绘制鳄鱼线
-    if (isDrawAlligator && mAlligatorData != null) {
-      mAlligatorData?.drawAlligator(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINTOP, mUperChartHeight, JawPeriod, JawSpeed, TeethPeriod, TeethSpeed, LipsPeriod, LipsSpeed);
-    }
 
     //绘制瀑布线
     if (isDrawFall && isSmartFall == false && mFallData != null) {
-      mFallData?.drawFall(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT, MARGINTOP,
-          mUperChartHeight, FallPeriod1, FallPeriod2, FallPeriod3, FallPeriod4, FallPeriod5, FallPeriod6);
+      mFallData?.drawFall(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
+          leftMarginSpace, MARGINTOP, mUperChartHeight, FallPeriod1, FallPeriod2, FallPeriod3, FallPeriod4, FallPeriod5, FallPeriod6);
     }
 
     //绘制均线
@@ -647,6 +547,7 @@ class ChartPainter extends BaseKChartPainter {
           mMinPrice,
           CANDLE_INTERVAL,
           BaseKChartPainter.MARGINLEFT,
+          leftMarginSpace,
           MARGINTOP,
           mUperChartHeight,
           CostOnePeriod,
@@ -661,122 +562,10 @@ class ChartPainter extends BaseKChartPainter {
           isDrawCost5);
     }
 
-    //顾比均线
-    if (isDrawGUBI && mGUBIData != null) {
-      mGUBIData?.drawGUBI(
-          canvas,
-          mDataStartIndext,
-          mShowDataNum,
-          mCandleWidth,
-          mMaxPrice,
-          mMinPrice,
-          CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT,
-          MARGINTOP,
-          mUperChartHeight,
-          GUBIPeriod1,
-          GUBIPeriod2,
-          GUBIPeriod3,
-          GUBIPeriod4,
-          GUBIPeriod5,
-          GUBIPeriod6,
-          GUBIPeriod7,
-          GUBIPeriod8,
-          GUBIPeriod9,
-          GUBIPeriod10,
-          GUBIPeriod11,
-          GUBIPeriod12);
-    }
-
-    //绘制DKX
-    if (isDrawDKX && mDKXData != null) {
-      mDKXData?.drawDKX(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT, MARGINTOP,
-          mUperChartHeight, DKXPeriod, MADKXPeriod);
-    }
-
     //绘制布林线
     if (isDrawBollinger && mBollingerData != null) {
       mBollingerData?.drawBollinger(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD);
-    }
-
-    //绘制MIKE线
-    if (isDrawMIKE && mMIKEData != null) {
-      mMIKEData?.drawMIKE(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT, MARGINTOP,
-          mUperChartHeight, MikePeriod);
-    }
-
-    //绘制MACD
-    if (isDrawMacd && mMACDData != null) {
-      //绘制MACD
-      mMACDData?.drawMacd(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT, MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, macdLPeriod, macdSPeriod, macdPeriod);
-    }
-
-    //绘制RSI
-    if (isDrawRsi && mRSIData != null) {
-      mRSIData?.drawRsi(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, rsiPeriod);
-    }
-
-    //绘制DMI
-    if (isDrawDmi && mDMIData != null) {
-      mDMIData?.drawDmi(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, dmiPeriod);
-    }
-
-    //绘制KDJ
-    if (isDrawKDJ && mKDJData != null) {
-      mKDJData?.drawKDJ(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, KDJPeriod, KDJ_M1, KDJ_M2);
-    }
-
-    //绘制WR
-    if (isDrawWR && mWRData != null) {
-      mWRData?.drawWR(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, Wr1Period, Wr2Period);
-    }
-
-    //绘制CCI
-    if (isDrawCCI && mCCIData != null) {
-      mCCIData?.drawCCI(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, CCIPeriod);
-    }
-
-    //绘制ATR
-    if (isDrawATR && mATRData != null) {
-      mATRData?.drawATR(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, ATRPeriod);
-    }
-
-    //绘制BIAS
-    if (isDrawBIAS && mBIASData != null) {
-      mBIASData?.drawBIAS(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT, MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, BIAS1Period, BIAS2Period, BIAS3Period);
-    }
-
-    //绘制PSY
-    if (isDrawPSY && mPSYData != null) {
-      mPSYData?.drawPSY(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, PSYPeriod, PSYMAPeriod);
-    }
-
-    //绘制TRIX
-    if (isDrawTRIX && mTRIXData != null) {
-      mTRIXData?.drawTRIX(canvas, kChartViewHeight, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT, MARGINBOTTOM, BaseKChartPainter.LOWER_CHART_TOP, mRightArea, TRIXPeriod, TRIXMAPeriod);
-    }
-
-    //绘制成交量
-    if (isDrawVolume && mVolData != null) {
-      mVolData?.drawVol(canvas, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT, MARGINBOTTOM,
-          BaseKChartPainter.LOWER_CHART_TOP, BaseKChartPainter.MID_CHART_TOP, mRightArea);
-    }
-
-    //绘制vr
-    if (isDrawVR && mVRData != null) {
-      mVRData?.drawVR(canvas, kChartViewWidth, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT, MARGINBOTTOM,
-          BaseKChartPainter.LOWER_CHART_TOP, BaseKChartPainter.MID_CHART_TOP, mRightArea, VRPeriod);
+          leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD);
     }
   }
 
@@ -803,14 +592,7 @@ class ChartPainter extends BaseKChartPainter {
 
     Paint redTPaint = MethodUntil().getDrawPaint(Port.transLineColor);
     Paint redVPaint = MethodUntil().getDrawPaint(Port.verticalColor);
-    TextPainter redGPaint = TextPainter(); //MethodUntil().getDrawPaint(Port.goldenLineColor)
-    // Paint redOPaint = MethodUntil().getDrawPaint(Port.obliqueLineColor);
-    // textPaint.setColor(Color.WHITE);
-    // redTPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-    // redVPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-    // redOPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-    // redGPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
-    // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
+    TextPainter redGPaint = TextPainter();
 
     // 绘制横线
     for (int i = 0; i < Port.transverseList.length; i++) {
@@ -829,21 +611,13 @@ class ChartPainter extends BaseKChartPainter {
         top = Y - getStringHeight(price, textPaint) / 2 - 5;
         right = left + getStringWidth(price, textPaint) + 15;
         bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
-        // if (Port.drawFlag == 1) {
-        //   priceX = BaseKChartPainter.MARGINLEFT + mChartWidth + 5;
-        //   priceY = Y + getStringHeight(price, textPaint) / 2;
-        //   left = BaseKChartPainter.MARGINLEFT + mChartWidth;
-        //   top = Y - getStringHeight(price, textPaint) / 2 - 5;
-        //   right = left + getStringWidth(price, textPaint) + 15;
-        //   bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
-        // } else {
+
         priceX = BaseKChartPainter.MARGINLEFT + -getStringWidth(price, textPaint) - 15;
         priceY = Y + getStringHeight(price, textPaint) / 2;
         left = BaseKChartPainter.MARGINLEFT + mChartWidth - getStringWidth(price, textPaint) - 15;
         top = Y - getStringHeight(price, textPaint) / 2 - 5;
         right = left + getStringWidth(price, textPaint) + 15;
         bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
-        // }
 
         canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redTPaint);
         redPaint
@@ -924,8 +698,26 @@ class ChartPainter extends BaseKChartPainter {
 
     // 绘制十字线
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
-      CrossLineView.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, mLowerChartHeight, currentX, currentY, mCandleWidth, MARGINTOP, MARGINBOTTOM,
-          BaseKChartPainter.MARGINLEFT, mRightArea, mShowDataNum, mDataStartIndext, mOHLCData, isDrawTime, lastClose, mKPeriod);
+      CrossLineView.drawCrossLine(
+          canvas,
+          kChartViewHeight,
+          kChartViewWidth,
+          mLowerChartHeight,
+          currentX,
+          currentY,
+          mCandleWidth,
+          MARGINTOP,
+          MARGINBOTTOM,
+          BaseKChartPainter.MARGINLEFT,
+          leftMarginSpace,
+          rightMarginSpace,
+          mRightArea,
+          mShowDataNum,
+          mDataStartIndext,
+          mOHLCData,
+          isDrawTime,
+          lastClose,
+          mKPeriod);
     }
   }
 
@@ -948,16 +740,16 @@ class ChartPainter extends BaseKChartPainter {
       }
     }
 
-    double minX = BaseKChartPainter.MARGINLEFT + mCandleWidth * minLoc + mCandleWidth;
-    double maxX = BaseKChartPainter.MARGINLEFT + mCandleWidth * maxLoc + mCandleWidth;
-    double high = (mMaxPrice - maxPrice) * rate + textBottom;
+    double minX = BaseKChartPainter.MARGINLEFT + leftMarginSpace + mCandleWidth * minLoc + mCandleWidth;
+    double maxX = BaseKChartPainter.MARGINLEFT + leftMarginSpace + mCandleWidth * maxLoc + mCandleWidth;
+    double high = (mMaxPrice - maxPrice) * rate + textBottom - 20;
     double low = (mMaxPrice - minPrice) * rate + textBottom;
 
     String maxText = maxPrice.toString();
     String minText = minPrice.toString();
-    if (high < textBottom + getStringHeight(maxText, textPaint) + 10) {
+    if (high < textBottom + getStringHeight(maxText, textPaint) - 30) {
       maxText = "$maxText<---";
-      high = textBottom + getStringHeight(maxText, textPaint) + 10;
+      high = textBottom + getStringHeight(maxText, textPaint) - 30;
       if (maxX - getStringWidth(maxText, textPaint) > BaseKChartPainter.MARGINLEFT) {
         maxX = maxX - getStringWidth(maxText, textPaint);
       } else {
@@ -1004,92 +796,32 @@ class ChartPainter extends BaseKChartPainter {
   }
 
   void drawTime(Canvas canvas, Paint linePaint, TextPainter textPaint) {
-    if (mFsTimes.length == 2) {
-      double x, y;
-      String startStr = mFsTimes[0].substring(0, 16);
-      String timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
-      //第一个时间
-      timeStr = Utils.getHourTime(Utils.timeMillisToString(Utils.StringToTime10(startStr)));
-      x = timeMarginLeft;
-      // y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint);
-      y = kChartViewHeight - MARGINBOTTOM + getStringHeight(timeStr, textPaint);
-      textPaint
-        ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(x, y));
+    double x, y;
+    String startStr = mFsTimes[0].substring(0, 16);
+    String timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
+    //第一个时间
+    timeStr = Utils.getHourTime(Utils.timeMillisToString(Utils.StringToTime10(startStr)));
+    x = timeMarginLeft + leftMarginSpace - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
+    y = kChartViewHeight - MARGINBOTTOM;
+    canvas.drawLine(
+        Offset(timeMarginLeft + leftMarginSpace, 0), Offset(timeMarginLeft + leftMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint..strokeWidth = 1.5);
+    textPaint
+      ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(x, y));
 
-      //最后一个时间
-      timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
-      x = (kChartViewWidth - timeMarginRight - getStringWidth(timeStr, textPaint));
-      y = kChartViewHeight - MARGINBOTTOM + getStringHeight(timeStr, textPaint);
-      // y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint);
-      textPaint
-        ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(x, y));
-
-      //第1,2,3,4个时间
-      // for (int i = 0; i <= 3; i++) {
-      //   timeStr = Utils.getHourTime(Utils.timeMillisToString(Utils.StringToTime10(startStr) + i * period * 60));
-      //   if (i == 0) {
-      //     x = (timeMarginLeft + i * period * mPointWidth);
-      //   } else {
-      //     x = (timeMarginLeft + i * period * mPointWidth - getStringWidth(timeStr, textPaint) / 2);
-      //   }
-      //   y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint);
-      //   textPaint
-      //     ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-      //     ..textDirection = TextDirection.ltr
-      //     ..layout()
-      //     ..paint(canvas, Offset(x, y));
-      // }
-    } else if (mFsTimes.length >= 4) {
-      //取自身时间段，每段都画出来
-
-      for (int i = 1; i <= mFsTimes.length - 2; i++) {
-        if (i % 2 != 0) {
-          int period = 0;
-          for (int j = 0; j <= i; j = j + 2) {
-            int start = int.parse(Utils.getLongTime(mFsTimes[j]));
-            int end = int.parse(Utils.getLongTime(mFsTimes[j + 1]));
-            period += (end - start) ~/ 60;
-          }
-
-          double x, y;
-          String timeStr = "${Utils.getHourTime(mFsTimes[i])}/${Utils.getHourTime(mFsTimes[i + 1])}";
-          x = (timeMarginLeft + period * mPointWidth - getStringWidth(timeStr, textPaint) / 2);
-          y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint);
-          textPaint
-            ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-            ..textDirection = TextDirection.ltr
-            ..layout()
-            ..paint(canvas, Offset(x, y));
-        }
-      }
-
-      double x, y;
-      //最后一个时间
-      String timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
-      x = kChartViewWidth - timeMarginRight - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE + 2);
-      y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE + 2);
-      textPaint
-        ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(x, y));
-
-      //第一个时间
-      timeStr = Utils.getHourTime(mFsTimes.first);
-      x = timeMarginLeft;
-      y = kChartViewHeight - MARGINBOTTOM - timeDownChartHeight + getStringHeight(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE + 2);
-      textPaint
-        ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
-        ..textDirection = TextDirection.ltr
-        ..layout()
-        ..paint(canvas, Offset(x, y));
-    }
+    //最后一个时间
+    timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
+    x = kChartViewWidth - rightMarginSpace - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
+    canvas.drawLine(Offset(kChartViewWidth - rightMarginSpace, 0), Offset(kChartViewWidth - rightMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint);
+    textPaint
+      ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
+      ..textDirection = TextDirection.ltr
+      ..layout()
+      ..paint(canvas, Offset(x, y));
+    canvas.drawLine(
+        Offset(timeMarginLeft, kChartViewHeight - MARGINBOTTOM), Offset(kChartViewWidth - timeMarginRight, kChartViewHeight - MARGINBOTTOM), girdPaint);
   }
 
   List<OHLCEntity> getOHLCData() {
@@ -1199,31 +931,11 @@ class ChartPainter extends BaseKChartPainter {
   }
 
   static int getMaxPeriod(
-    bool isDrawAlligator,
     bool isDrawCost,
-    bool isDrawDKX,
     bool isDrawBollinger,
-    bool isDrawFall,
-    bool isDrawMacd,
-    bool isDrawDmi,
-    bool isDrawRsi,
-    bool isDrawTRIX,
-    bool isDrawPSY,
-    bool isDrawATR,
-    bool isDrawBIAS,
-    bool isDrawCCI,
-    bool isDrawKDJ,
-    bool isDrawWR,
-    bool isDrawMIKE,
-    bool isDrawGUBI,
+    bool isDrawFall
   ) {
     int max = 0;
-    if (isDrawAlligator) {
-      //  鳄鱼线周期
-      max = max > (JawPeriod + JawSpeed) ? max : (JawPeriod + JawSpeed);
-      max = max > (TeethPeriod + TeethSpeed) ? max : (TeethPeriod + TeethSpeed);
-      max = max > (LipsPeriod + LipsSpeed) ? max : (LipsPeriod + LipsSpeed);
-    }
     if (isDrawCost) {
       // 均线线周期
       max = max > CostOnePeriod ? max : CostOnePeriod;
@@ -1231,11 +943,6 @@ class ChartPainter extends BaseKChartPainter {
       max = max > CostThreePeriod ? max : CostThreePeriod;
       max = max > CostFourPeriod ? max : CostFourPeriod;
       max = max > CostFivePeriod ? max : CostFivePeriod;
-    }
-    if (isDrawDKX) {
-      //  多空线周期
-      max = max > DKXPeriod ? max : DKXPeriod;
-      max = max > MADKXPeriod ? max : MADKXPeriod;
     }
     if (isDrawBollinger) {
       max = max > BollingerPeriod ? max : BollingerPeriod;
@@ -1249,77 +956,45 @@ class ChartPainter extends BaseKChartPainter {
       max = max > FallPeriod5 * 4 ? max : FallPeriod5 * 4;
       max = max > FallPeriod6 * 4 ? max : FallPeriod6 * 4;
     }
-    if (isDrawMacd) {
-      //  MACD线周期
-      max = max > (macdPeriod + macdLPeriod) ? max : (macdPeriod + macdLPeriod);
-      max = max > macdLPeriod ? max : macdLPeriod;
-    }
-    if (isDrawDmi) {
-      //  DMI线周期
-      max = max > dmiPeriod ? max : dmiPeriod;
-    }
-    if (isDrawRsi) {
-      //  rsi线周期
-      max = max > rsiPeriod ? max : rsiPeriod;
-    }
-    if (isDrawTRIX) {
-      //  TRIX线周期
-      max = max > (TRIXPeriod + TRIXMAPeriod) ? max : (TRIXPeriod + TRIXMAPeriod);
-      max = max > TRIXPeriod ? max : TRIXPeriod;
-    }
-    if (isDrawPSY) {
-      //  PSY线周期
-      max = max > (PSYPeriod + PSYMAPeriod) ? max : (PSYPeriod + PSYMAPeriod);
-      max = max > PSYPeriod ? max : PSYPeriod;
-    }
-    if (isDrawATR) {
-      //  ATR线周期
-      max = max > ATRPeriod ? max : ATRPeriod;
-    }
-    if (isDrawBIAS) {
-      //  BIAS线周期
-      max = max > BIAS1Period ? max : BIAS1Period;
-      max = max > BIAS2Period ? max : BIAS2Period;
-      max = max > BIAS3Period ? max : BIAS3Period;
-    }
-    if (isDrawCCI) {
-      //  CCI线周期
-      max = max > CCIPeriod ? max : CCIPeriod;
-    }
-    if (isDrawKDJ) {
-      //  KDJ线周期
-      max = max > KDJPeriod ? max : KDJPeriod;
-    }
-    if (isDrawWR) {
-      //  WR线周期
-      max = max > Wr1Period ? max : Wr1Period;
-      max = max > Wr2Period ? max : Wr2Period;
-    }
-    if (isDrawMIKE) {
-      //  MIKE线周期
-      max = max > MikePeriod ? max : MikePeriod;
-    }
-    if (isDrawGUBI) {
-      //  GUBI线周期
-      max = max > GUBIPeriod1 ? max : GUBIPeriod1;
-      max = max > GUBIPeriod2 ? max : GUBIPeriod2;
-      max = max > GUBIPeriod3 ? max : GUBIPeriod3;
-      max = max > GUBIPeriod4 ? max : GUBIPeriod4;
-      max = max > GUBIPeriod5 ? max : GUBIPeriod5;
-      max = max > GUBIPeriod6 ? max : GUBIPeriod6;
-      max = max > GUBIPeriod7 ? max : GUBIPeriod7;
-      max = max > GUBIPeriod8 ? max : GUBIPeriod8;
-      max = max > GUBIPeriod9 ? max : GUBIPeriod9;
-      max = max > GUBIPeriod10 ? max : GUBIPeriod10;
-      max = max > GUBIPeriod11 ? max : GUBIPeriod11;
-      max = max > GUBIPeriod12 ? max : GUBIPeriod12;
-    }
+    // if (isMidDrawMacd) {
+    //   //  MACD线周期
+    //   max = max > (macdPeriod + macdLPeriod) ? max : (macdPeriod + macdLPeriod);
+    //   max = max > macdLPeriod ? max : macdLPeriod;
+    // }
+    // if (isDrawRsi) {
+    //   //  rsi线周期
+    //   max = max > rsiPeriod ? max : rsiPeriod;
+    // }
+    // if (isDrawPSY) {
+    //   //  PSY线周期
+    //   max = max > (PSYPeriod + PSYMAPeriod) ? max : (PSYPeriod + PSYMAPeriod);
+    //   max = max > PSYPeriod ? max : PSYPeriod;
+    // }
+    // if (isDrawBIAS) {
+    //   //  BIAS线周期
+    //   max = max > BIAS1Period ? max : BIAS1Period;
+    //   max = max > BIAS2Period ? max : BIAS2Period;
+    //   max = max > BIAS3Period ? max : BIAS3Period;
+    // }
+    // if (isDrawCCI) {
+    //   //  CCI线周期
+    //   max = max > CCIPeriod ? max : CCIPeriod;
+    // }
+    // if (isDrawKDJ) {
+    //   //  KDJ线周期
+    //   max = max > KDJPeriod ? max : KDJPeriod;
+    // }
+    // if (isDrawWR) {
+    //   //  WR线周期
+    //   max = max > Wr1Period ? max : Wr1Period;
+    //   max = max > Wr2Period ? max : Wr2Period;
+    // }
     return max;
   }
 
   static double getStringWidth(String text, TextPainter paint, {double? size}) {
     paint
-      ..text = TextSpan(text: text, style: TextStyle(fontSize: size ?? 8))
+      ..text = TextSpan(text: text, style: TextStyle(fontSize: size ?? Port.ChartTextSize))
       ..textDirection = TextDirection.ltr
       ..layout();
     return paint.width;
@@ -1327,7 +1002,7 @@ class ChartPainter extends BaseKChartPainter {
 
   static double getStringHeight(String text, TextPainter paint, {double? size}) {
     paint
-      ..text = TextSpan(text: text, style: TextStyle(fontSize: size ?? 8))
+      ..text = TextSpan(text: text, style: TextStyle(fontSize: size ?? Port.ChartTextSize))
       ..textDirection = TextDirection.ltr
       ..layout();
     return paint.height;

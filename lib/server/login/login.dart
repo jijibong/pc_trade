@@ -1,9 +1,5 @@
 import 'dart:convert';
-
-import 'package:bot_toast/bot_toast.dart';
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
-
 import '../../config/common.dart';
 import '../../config/config.dart';
 import '../../model/broker/broker.dart';
@@ -79,7 +75,7 @@ class LoginServer {
     try {
       Response response = await HttpUtils.getInstance().post(Config.loginUrl,
           data: {"Account": account, "Password": pwd, "BrokerId": brokerId, "Platform": Common.desktopPlatform, "Site": "达渊", "Mac": mac, "Ip": ip});
-      logger.w(response);
+      // logger.w(response);
       if (response.data["code"] == 0) {
         UserUtils.currentUser = User.fromJson(response.data["data"]);
         SpUtils.set(SpKey.currentUser, jsonEncode(response.data["data"]));

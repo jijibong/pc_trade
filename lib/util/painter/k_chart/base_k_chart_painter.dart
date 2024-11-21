@@ -1,5 +1,6 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path_drawing/path_drawing.dart';
+import 'package:trade/util/painter/k_chart/k_chart_painter.dart';
 
 import '../../../model/k/port.dart';
 import 'method_util.dart';
@@ -14,12 +15,13 @@ abstract class BaseKChartPainter extends CustomPainter {
   bool isDrawTimeDown = true;
   double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   static double MARGINLEFT = 2;
-  double MARGINTOP = 4;
-  double MARGINBOTTOM = 16;
+  static double KMARGINLEFT = 0;
+  double MARGINTOP = Port.defult_margin_top;
+  double MARGINBOTTOM = 0;
   int UPER_LOWER_INTERVAL = 5;
   int TIME_UPER_LOWER_INTERVAL = 20;
   Color DEFAULT_AXIS_COLOR = Colors.black;
-  static double mCursorWidth = 6;
+  static double mCursorWidth = 0;
   Color DEFAULT_BORDER_COLOR = Colors.black;
   Color DEFAULT_LONGI_LAITUDE_COLOR = Colors.black;
   List<double> DEFAULT_DASH_EFFECT = [2, 1];
@@ -42,8 +44,8 @@ abstract class BaseKChartPainter extends CustomPainter {
   Paint forePaint = MethodUntil().getDrawPaint(Port.foreGroundColor);
   Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
   bool isDrawTime = true;
-  bool isDrawMid = true;
-  bool isDrawLower = true;
+  bool isDrawMid = false;
+  bool isDrawLower = false;
   bool isDrawFrame = false;
   double bChartWidth = 0;
 
@@ -107,7 +109,7 @@ abstract class BaseKChartPainter extends CustomPainter {
       girdPaint.color = mForGround;
       girdPaint.strokeWidth = 2;
 
-      canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset((viewWidth - TimeMarginRight), MARGINTOP), forePaint);
+      canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(viewWidth - TimeMarginRight, MARGINTOP), forePaint);
       canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(TimeMarginLeft, viewHeight - MARGINBOTTOM), forePaint);
       canvas.drawLine(
           Offset((viewWidth - TimeMarginLeft), (viewHeight - MARGINBOTTOM).toDouble()), Offset((viewWidth - TimeMarginRight), MARGINTOP.toDouble()), forePaint);
@@ -120,16 +122,14 @@ abstract class BaseKChartPainter extends CustomPainter {
     if (isDrawTimeDown) {
       forePaint.color = mForGround;
       forePaint.strokeWidth = 2;
-      // forePaint.setAlpha(150);
-      canvas.drawLine(Offset(TimeMarginLeft, TIME_UPER_CHART_BOTTOM), Offset((viewWidth - TimeMarginRight), TIME_UPER_CHART_BOTTOM), forePaint);
-      canvas.drawLine(Offset(TimeMarginLeft, TIME_LOWER_CHART_TOP), Offset((viewWidth - TimeMarginRight), TIME_LOWER_CHART_TOP), forePaint);
+      canvas.drawLine(Offset(0, TIME_UPER_CHART_BOTTOM), Offset((viewWidth - TimeMarginRight), TIME_UPER_CHART_BOTTOM), forePaint);
     }
   }
 
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
-    girdPaint.color = mForGround;
+    girdPaint.color = mGridColor;
     girdPaint.strokeWidth = 2;
-    canvas.drawLine(Offset(viewWidth - MARGINLEFT - mRightArea, viewHeight - MARGINBOTTOM), Offset(MARGINLEFT, viewHeight - MARGINBOTTOM), forePaint);
+    canvas.drawLine(Offset(viewWidth - MARGINLEFT - mRightArea, viewHeight - MARGINBOTTOM), Offset(MARGINLEFT, viewHeight - MARGINBOTTOM), girdPaint);
   }
 
   void drawLatitudes(Canvas canvas, double viewWidth, double latitudeSpacing) {
@@ -139,9 +139,8 @@ abstract class BaseKChartPainter extends CustomPainter {
     girdPaint.strokeWidth = 1;
     for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
       Path path = Path(); // 绘制虚线
-      path.moveTo(MARGINLEFT, MARGINTOP + latitudeSpacing * i);
+      path.moveTo(MARGINLEFT + ChartPainter.leftMarginSpace, MARGINTOP + latitudeSpacing * i);
       path.lineTo(viewWidth - MARGINLEFT - mRightArea, MARGINTOP + latitudeSpacing * i);
-      // canvas.drawPath(path, girdPaint);
       canvas.drawPath(
         dashPath(
           path,
@@ -156,13 +155,15 @@ abstract class BaseKChartPainter extends CustomPainter {
     if (isDrawMid) {
       forePaint.color = mForGround;
       forePaint.strokeWidth = 2;
-      canvas.drawLine(Offset(MARGINLEFT, UPER_CHART_BOTTOM), Offset(viewWidth - MARGINLEFT - mRightArea, UPER_CHART_BOTTOM), forePaint);
+      canvas.drawLine(
+          Offset(MARGINLEFT + ChartPainter.leftMarginSpace, UPER_CHART_BOTTOM), Offset(viewWidth - MARGINLEFT - mRightArea, UPER_CHART_BOTTOM), forePaint);
     }
 
     if (isDrawLower) {
       forePaint.color = mForGround;
       forePaint.strokeWidth = 2;
-      canvas.drawLine(Offset(MARGINLEFT, LOWER_CHART_TOP), Offset(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP), forePaint);
+      canvas.drawLine(
+          Offset(MARGINLEFT + ChartPainter.leftMarginSpace, LOWER_CHART_TOP), Offset(viewWidth - MARGINLEFT - mRightArea, LOWER_CHART_TOP), forePaint);
     }
   }
 
