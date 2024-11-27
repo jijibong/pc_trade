@@ -90,7 +90,7 @@ class _QuoteState extends State<Quote> {
 
   listener() {
     EventBusUtil.getInstance().on<GoKChart>().listen((event) {
-      logger.i(event.go);
+      // logger.i(event.go);
       if (event.go) {
         appTheme.viewIndex = 1;
       } else {

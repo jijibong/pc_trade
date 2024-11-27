@@ -4,6 +4,7 @@ import 'dart:math' hide log;
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:provider/provider.dart';
 
@@ -42,6 +43,7 @@ import '../../../util/utils/k_util.dart';
 import '../../../util/utils/market_util.dart';
 import '../../../util/utils/utils.dart';
 import '../../../util/widget/dash_line.dart';
+import '../quote_logic.dart';
 
 class QuoteDetails extends StatefulWidget {
   final Contract contract;
@@ -53,6 +55,7 @@ class QuoteDetails extends StatefulWidget {
 }
 
 class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMixin {
+  final QuoteLogic logic = Get.put(QuoteLogic());
   Contract? contract = Contract();
   List<FillData> quoteFilledData = [];
   List<Contract> mConSelects = [];
@@ -341,16 +344,16 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (isDrawCost) {
       if (mCostData == null) {
         mCostData = CostLineEntity();
-        mCostData?.initData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod, ChartPainter.CostFourPeriod,
-            ChartPainter.CostFivePeriod, cost_indexType, cost_priceType);
+        mCostData?.initData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod,
+            ChartPainter.CostFourPeriod, ChartPainter.CostFivePeriod, cost_indexType, cost_priceType);
       } else {
         if (SWITHING_TIME || SWITHING_CODE || isSwithSmart || type_changed || SWITHING_INDEX || SWITHING_PERIOD || ADD_DATA) {
           //是否正在切换数据
-          mCostData?.initData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod, ChartPainter.CostFourPeriod,
-              ChartPainter.CostFivePeriod, cost_indexType, cost_priceType);
+          mCostData?.initData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod,
+              ChartPainter.CostFourPeriod, ChartPainter.CostFivePeriod, cost_indexType, cost_priceType);
         } else {
-          mCostData?.addData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod, ChartPainter.CostFourPeriod,
-              ChartPainter.CostFivePeriod, cost_indexType, cost_priceType, count);
+          mCostData?.addData(mOHLCData, ChartPainter.CostOnePeriod, ChartPainter.CostTwoPeriod, ChartPainter.CostThreePeriod,
+              ChartPainter.CostFourPeriod, ChartPainter.CostFivePeriod, cost_indexType, cost_priceType, count);
         }
       }
     }
@@ -861,7 +864,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           SWITHING_TIME = true;
           ChartPainter.lastClose = contract!.preSettlePrice!.toDouble();
           ChartPainter.calcFsTime(value[value.length - 1].date ?? '', value[value.length - 1].time ?? '');
-          List<OHLCEntity> allList = KUtils.dealFsData(value, ChartPainter.mFsTimes, contract?.preSettlePrice?.toDouble() ?? 0, contract?.exCode ?? '');
+          List<OHLCEntity> allList =
+              KUtils.dealFsData(value, ChartPainter.mFsTimes, contract?.preSettlePrice?.toDouble() ?? 0, contract?.exCode ?? '');
           setTimeData(allList);
           isAllowAdd = true;
         }
@@ -1648,27 +1652,46 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     return MenuFlyout(items: [
                       MenuFlyoutItem(
                         text: const Text('下单'),
-                        onPressed: Flyout.of(context).close,
+                        onPressed: () {
+                          EventBusUtil.getInstance().fire(LoginEvent());
+                          Flyout.of(context).close();
+                        },
                       ),
                       MenuFlyoutItem(
-                        text: const Text('加入自选'),
-                        onPressed: Flyout.of(context).close,
-                      ),
+                          text: const Text('加入自选'),
+                          onPressed: () {
+                            logic.optionOperate(logic.selectedContract.value, add: true);
+                            Flyout.of(context).close();
+                          }),
                       MenuFlyoutItem(
-                        text: const Text('移除自选'),
-                        onPressed: Flyout.of(context).close,
-                      ),
+                          text: const Text('移除自选'),
+                          onPressed: () {
+                            logic.optionOperate(logic.selectedContract.value, add: false);
+                            Flyout.of(context).close();
+                          }),
                       MenuFlyoutSubItem(
                         text: const Text('切换画面'),
                         items: (context) => [
                           MenuFlyoutItem(
-                            text: const Text('报价页面'),
-                            onPressed: Flyout.of(context).close,
-                          ),
+                              text: const Text('报价页面'),
+                              onPressed: () {
+                                appTheme.viewIndex = 0;
+                                Flyout.of(context).close();
+                              }),
                           MenuFlyoutItem(
-                            text: const Text('分时'),
-                            onPressed: Flyout.of(context).close,
-                          ),
+                              text: const Text('分时'),
+                              onPressed: () {
+                                KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = true;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                                Flyout.of(context).close();
+                              }),
                           MenuFlyoutItem(
                             text: const Text('成交报表'),
                             onPressed: Flyout.of(context).close,
@@ -2963,7 +2986,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                   Expanded(flex: 2, child: detailItem(timeStr.substring(0, timeStr.indexOf(".")))),
                                   Expanded(flex: 2, child: detailItem(quoteFilledData[index].lastPrice.toString(), up: 1)),
                                   Expanded(
-                                      flex: 1, child: detailItem(quoteFilledData[index].volume.toInt().toString(), up: quoteFilledData[index].orderForward)),
+                                      flex: 1,
+                                      child: detailItem(quoteFilledData[index].volume.toInt().toString(), up: quoteFilledData[index].orderForward)),
                                 ],
                               );
                             })),
@@ -2978,7 +3002,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Widget dataItem(String? title, {Color? color, bool? thin}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Text(title ?? "-", style: TextStyle(fontWeight: thin == true ? FontWeight.w100 : FontWeight.bold, fontSize: 16, color: color ?? appTheme.color)),
+      child: Text(title ?? "-",
+          style: TextStyle(fontWeight: thin == true ? FontWeight.w100 : FontWeight.bold, fontSize: 16, color: color ?? appTheme.color)),
     );
   }
 

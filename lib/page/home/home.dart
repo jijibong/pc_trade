@@ -280,12 +280,20 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
             child: ToggleSwitch(
               content: const Text('台灯'),
               checked: FluentTheme.of(context).brightness.isLight,
-              onChanged: (v) {
+              onChanged: (v) async {
+                // int modeIndex = 0;
                 if (v) {
                   appTheme.mode = ThemeMode.light;
+                  // modeIndex = 1;
                 } else {
                   appTheme.mode = ThemeMode.dark;
                 }
+                // List<int> wnds = await RustDeskMultiWindowManager.instance.getAllSubWindowIds();
+                // if (wnds.isNotEmpty) {
+                //   for (int wnd in wnds) {
+                //     await DesktopMultiWindow.invokeMethod(wnd, kWindowEventSwitchMode, modeIndex);
+                //   }
+                // }
               },
             ),
           ),
@@ -343,109 +351,128 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         onPressed: () {},
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.line_chart, color: appTheme.exchangeTextColor),
+                        icon: Icon(FluentIcons.line_chart, color: appTheme.selectCommandBarIndex == 0 ? appTheme.exchangeTextColor : appTheme.color),
                         label: Text('分时图', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 0;
                           KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('日', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('日', style: TextStyle(color: appTheme.selectCommandBarIndex == 1 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 1;
                           KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('周', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('周', style: TextStyle(color: appTheme.selectCommandBarIndex == 2 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
-                          KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                          appTheme.selectCommandBarIndex = 2;
+                          KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('月', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('月', style: TextStyle(color: appTheme.selectCommandBarIndex == 3 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
-                          KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                          appTheme.selectCommandBarIndex = 3;
+                          KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('年', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('年', style: TextStyle(color: appTheme.selectCommandBarIndex == 4 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
                           ///Todo period
+                          appTheme.selectCommandBarIndex = 4;
                           KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('X', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('X', style: TextStyle(color: appTheme.selectCommandBarIndex == 5 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 5;
                           // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
                           // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('1', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('1', style: TextStyle(color: appTheme.selectCommandBarIndex == 6 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 6;
                           KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('3', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('3', style: TextStyle(color: appTheme.selectCommandBarIndex == 7 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 7;
                           KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('5', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('5', style: TextStyle(color: appTheme.selectCommandBarIndex == 8 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 8;
                           KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('10', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('10', style: TextStyle(color: appTheme.selectCommandBarIndex == 9 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 9;
                           KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('15', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label:
+                            Text('15', style: TextStyle(color: appTheme.selectCommandBarIndex == 10 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 10;
                           KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('30', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label:
+                            Text('30', style: TextStyle(color: appTheme.selectCommandBarIndex == 11 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 11;
                           KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('60', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label:
+                            Text('60', style: TextStyle(color: appTheme.selectCommandBarIndex == 12 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 12;
                           KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('120', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label:
+                            Text('120', style: TextStyle(color: appTheme.selectCommandBarIndex == 13 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
                           ///Todo period
+                          appTheme.selectCommandBarIndex = 13;
                           KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
                           EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
                       CommandBarButton(
-                        label: Text('Y', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('Y', style: TextStyle(color: appTheme.selectCommandBarIndex == 14 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
+                          appTheme.selectCommandBarIndex = 14;
                           // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
                           // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },

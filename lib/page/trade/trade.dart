@@ -97,6 +97,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   double padWidth = 20;
   String price = "市价";
   List priceList = ["对手价", "排队价", "市价", "最新价", "超价"];
+  // bool lock = false;
 
   List<Contract> allContracts = [];
   ResInitMargin? mInitMargin; //合约初始保证金
@@ -153,6 +154,12 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         refreshData();
         subscriptionQuote();
         queryInitMargin();
+      } else if (call.method == kWindowEventSwitchMode) {
+        var mode = ThemeMode.light;
+        if (call.arguments == 1) {
+          mode = ThemeMode.dark;
+        }
+        appTheme.mode = mode;
       }
     });
 
@@ -191,8 +198,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     }
     if (commodity != null) {
       List temp = jsonDecode(commodity);
-      MarketUtils.commodityList =
-          temp.map((e) => Commodity.fromJson(e)).toList();
+      MarketUtils.commodityList = temp.map((e) => Commodity.fromJson(e)).toList();
       commodityList = Utils.getVariety(exchangeList[0].exchangeNo);
     }
   }
@@ -209,16 +215,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   void unSubscriptionQuote() {
     List<String> json = [];
     json = Utils.getSubJson(0, 1, [contract]);
-    EventBusUtil.getInstance()
-        .fire(SubEvent(json, socket_operation.Operation.UnSendSub));
+    EventBusUtil.getInstance().fire(SubEvent(json, socket_operation.Operation.UnSendSub));
   }
 
   /// 订阅行情
   void subscriptionQuote() {
     List<String> json = [];
     json = Utils.getSubJson(0, 1, [contract]);
-    EventBusUtil.getInstance()
-        .fire(SubEvent(json, socket_operation.Operation.SendSub));
+    EventBusUtil.getInstance().fire(SubEvent(json, socket_operation.Operation.SendSub));
   }
 
   void listener() {
@@ -240,9 +244,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     ///行情变化
     EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
-      if (con.exCode == contract.exCode &&
-          con.code == contract.code &&
-          con.comType == contract.comType) {
+      if (con.exCode == contract.exCode && con.code == contract.code && con.comType == contract.comType) {
         contract = con;
         if (inputting) {
           // if (mounted) setState(() {});
@@ -260,17 +262,12 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       //     "${UserUtils.currentUser?.rates};${contract.currency};${UserUtils.currentUser?.rates?.where((element) => element.currency == contract.currency)}");
       double rate = contract.currency == "USD" || contract.currency == null
           ? 1
-          : UserUtils.currentUser?.rates
-                  ?.where((element) => element.currency == contract.currency)
-                  .first
-                  .rate ??
-              1;
+          : UserUtils.currentUser?.rates?.where((element) => element.currency == contract.currency).first.rate ?? 1;
       if (mInitMargin == null || mInitMargin?.Margin?.MarginValue == 0) {
         tradeBuyCanOpen = "---";
         tradeSaleCanOpen = "---";
       } else {
-        int canopen =
-            canuse ~/ ((mInitMargin?.Margin?.MarginValue ?? 0) * rate);
+        int canopen = canuse ~/ ((mInitMargin?.Margin?.MarginValue ?? 0) * rate);
         tradeBuyCanOpen = "$canopen";
         tradeSaleCanOpen = "$canopen";
       }
@@ -394,22 +391,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     //保证金占用/用户权益*100%
     canUse = mAccountInfo.Available?.toDouble() ?? 0;
     double all = mAccountInfo.Equity?.toDouble() ?? 1;
-    double agree =
-        all == 0 ? 0 : ((mAccountInfo.OccupyDeposit ?? 0) / all) * 100;
+    double agree = all == 0 ? 0 : ((mAccountInfo.OccupyDeposit ?? 0) / all) * 100;
     mineAllAssets = Utils.double2Str(Utils.dealPointBigDecimal(all, 2));
     mineAvailFunds = Utils.double2Str(Utils.dealPointBigDecimal(canUse, 2));
-    mineOccMargin =
-        Utils.dealPointBigDecimal(mAccountInfo.OccupyDeposit?.toDouble(), 2)
-            .toString();
-    mineFreezeMargin =
-        Utils.dealPointBigDecimal(mAccountInfo.FrozenDeposit?.toDouble(), 2)
-            .toString();
+    mineOccMargin = Utils.dealPointBigDecimal(mAccountInfo.OccupyDeposit?.toDouble(), 2).toString();
+    mineFreezeMargin = Utils.dealPointBigDecimal(mAccountInfo.FrozenDeposit?.toDouble(), 2).toString();
     mineRiskDegree = Utils.dealPointBigDecimal(agree, 2).toString();
-    mineCloseProfit =
-        Utils.dealPointBigDecimal(mAccountInfo.CloseProfit?.toDouble(), 2)
-            .toString();
-    mineFee =
-        Utils.dealPointBigDecimal(mAccountInfo.Fee?.toDouble(), 2).toString();
+    mineCloseProfit = Utils.dealPointBigDecimal(mAccountInfo.CloseProfit?.toDouble(), 2).toString();
+    mineFee = Utils.dealPointBigDecimal(mAccountInfo.Fee?.toDouble(), 2).toString();
 
     double floatP = mAccountInfo.FloatProfit?.toDouble() ?? 0;
     mineFloatPrice = Utils.dealPointBigDecimal(floatP, 2).toString();
@@ -438,46 +427,33 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       case "排队价":
         //side true卖出
         if (side) {
-          value = Utils.getIntegerPrice(
-              contract.salePrice, contract.futureTickSize);
+          value = Utils.getIntegerPrice(contract.salePrice, contract.futureTickSize);
         } else {
-          value =
-              Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
+          value = Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
         }
         break;
       case "对手价":
         if (side) {
-          value =
-              Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
+          value = Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
         } else {
-          value = Utils.getIntegerPrice(
-              contract.salePrice, contract.futureTickSize);
+          value = Utils.getIntegerPrice(contract.salePrice, contract.futureTickSize);
         }
         break;
       case "市价":
         value = 0;
         break;
       case "最新价":
-        value =
-            Utils.getIntegerPrice(contract.lastPrice, contract.futureTickSize);
+        value = Utils.getIntegerPrice(contract.lastPrice, contract.futureTickSize);
         break;
       case "超价":
         if (side) {
-          value = Utils.getIntegerPrice(
-              (contract.buyPrice ?? 0) - (contract.futureTickSize ?? 0),
-              contract.futureTickSize);
+          value = Utils.getIntegerPrice((contract.buyPrice ?? 0) - (contract.futureTickSize ?? 0), contract.futureTickSize);
         } else {
-          value = Utils.getIntegerPrice(
-              (contract.salePrice ?? 0) - (contract.futureTickSize ?? 0),
-              contract.futureTickSize);
+          value = Utils.getIntegerPrice((contract.salePrice ?? 0) - (contract.futureTickSize ?? 0), contract.futureTickSize);
         }
         break;
     }
-    if (price != "市价" &&
-        price != "排队价" &&
-        price != "对手价" &&
-        price != "最新价" &&
-        price != "超价") {
+    if (price != "市价" && price != "排队价" && price != "对手价" && price != "最新价" && price != "超价") {
       String str = price.trim();
       if (str.startsWith(".") || str.endsWith(".") || str == "") {
         InfoBarUtils.showWarningBar("请输入正确价格");
@@ -537,22 +513,15 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   /// 查询合约初始保证金
   void queryInitMargin() async {
     mInitMargin = null;
-    await DealServer.getInitMargin(contract.exCode, contract.subComCode,
-            contract.comType, contract.code)
-        .then((value) {
+    await DealServer.getInitMargin(contract.exCode, contract.subComCode, contract.comType, contract.code).then((value) {
       if (value != null) {
         mInitMargin = value;
         if (mInitMargin == null || mInitMargin?.Margin?.MarginValue == 0) {
           tradeBuyCanOpen = "---";
           tradeSaleCanOpen = "---";
         } else {
-          double rate = UserUtils.currentUser?.rates
-                  ?.where((element) => element.currency == contract.currency)
-                  .first
-                  .rate ??
-              1;
-          int canopen =
-              canUse ~/ ((mInitMargin?.Margin?.MarginValue ?? 0) * rate);
+          double rate = UserUtils.currentUser?.rates?.where((element) => element.currency == contract.currency).first.rate ?? 1;
+          int canopen = canUse ~/ ((mInitMargin?.Margin?.MarginValue ?? 0) * rate);
           tradeBuyCanOpen = "$canopen";
           tradeSaleCanOpen = "$canopen";
         }
@@ -587,10 +556,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   /// 判断持仓单与当前合约是否相同
   bool isSameContract(HoldOrder order, Contract? con) {
     bool isSame = false;
-    if (con != null &&
-        order.exCode == con.exCode &&
-        order.code == con.code &&
-        order.comType == con.comType) {
+    if (con != null && order.exCode == con.exCode && order.code == con.code && order.comType == con.comType) {
       isSame = true;
     }
     return isSame;
@@ -795,9 +761,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                 style: ContentDialogThemeData(
                     padding: EdgeInsets.zero,
                     bodyPadding: EdgeInsets.zero,
-                    decoration: BoxDecoration(
-                        color: appTheme.color,
-                        borderRadius: BorderRadius.zero)),
+                    decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
                 content: Container(
                   height: 200,
                   color: Common.dialogContentColor,
@@ -850,22 +814,16 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           Expanded(child: Container()),
                           Button(
                             style: ButtonStyle(
-                                backgroundColor: WidgetStatePropertyAll(
-                                    Common.dialogButtonTextColor),
-                                padding: const WidgetStatePropertyAll(
-                                    EdgeInsets.symmetric(
-                                        horizontal: 30, vertical: 3)),
-                                shape: const WidgetStatePropertyAll(
-                                    RoundedRectangleBorder())),
+                                backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
+                                padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
+                                shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
                             child: const Text(
                               "确定",
                               style: TextStyle(color: Colors.white),
                             ),
                             onPressed: () async {
                               Get.back();
-                              await ConditionServer.delCondition(
-                                      condition.Id ?? 0)
-                                  .then((value) {
+                              await ConditionServer.delCondition(condition.Id ?? 0).then((value) {
                                 if (value) {
                                   qryCondition(0);
                                 }
@@ -877,13 +835,9 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           ),
                           Button(
                             style: ButtonStyle(
-                                backgroundColor: WidgetStatePropertyAll(
-                                    Common.dialogButtonTextColor),
-                                padding: const WidgetStatePropertyAll(
-                                    EdgeInsets.symmetric(
-                                        horizontal: 30, vertical: 3)),
-                                shape: const WidgetStatePropertyAll(
-                                    RoundedRectangleBorder())),
+                                backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
+                                padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
+                                shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
                             child: const Text(
                               "取消",
                               style: TextStyle(color: Colors.white),
@@ -928,10 +882,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   int getLockPositionNum(HoldOrder src) {
     int count = src.quantity ?? 0;
     for (HoldOrder order in mHoldList) {
-      if (order.exCode == src.exCode &&
-          order.code == src.code &&
-          order.comType == src.comType &&
-          order.orderSide != src.orderSide) {
+      if (order.exCode == src.exCode && order.code == src.code && order.comType == src.comType && order.orderSide != src.orderSide) {
         count = count - (order.quantity ?? 0);
         break;
       }
@@ -962,20 +913,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       } else if (hold.orderSide == SideType.SIDE_SELL) {
         OrderSide = SideType.SIDE_BUY;
       }
-      await DealServer.addOrder(
-              ExchangeNo ?? "",
-              CommodityNo ?? "",
-              ContractNo ?? "",
-              CommodityType,
-              OrderType,
-              TimeInForce,
-              ExpireTime,
-              OrderSide,
-              OrderPrice,
-              StopPrice,
-              OrderQty,
-              PositionEffect,
-              "")
+      await DealServer.addOrder(ExchangeNo ?? "", CommodityNo ?? "", ContractNo ?? "", CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide,
+              OrderPrice, StopPrice, OrderQty, PositionEffect, "")
           .then((value) {
         closeIndex++;
         closeAll();
@@ -1011,9 +950,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       InfoBarUtils.showInfoDialog("请选择需要平仓的单子");
       return;
     }
-    int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY
-        ? SideType.SIDE_SELL
-        : SideType.SIDE_BUY;
+    int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY ? SideType.SIDE_SELL : SideType.SIDE_BUY;
     AddOrder order = AddOrder(
       name: mHoldOrder?.name,
       code: mHoldOrder?.code,
@@ -1047,9 +984,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       InfoBarUtils.showInfoDialog("请选择需要反手的单子");
       return;
     }
-    int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY
-        ? SideType.SIDE_SELL
-        : SideType.SIDE_BUY;
+    int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY ? SideType.SIDE_SELL : SideType.SIDE_BUY;
     AddOrder order = AddOrder(
       name: mHoldOrder?.name,
       code: mHoldOrder?.code,
@@ -1086,9 +1021,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     }
     int Quantity = getLockPositionNum(mHoldOrder!);
     if (Quantity > 0) {
-      int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY
-          ? SideType.SIDE_SELL
-          : SideType.SIDE_BUY;
+      int orderSide = mHoldOrder?.orderSide == SideType.SIDE_BUY ? SideType.SIDE_SELL : SideType.SIDE_BUY;
       AddOrder order = AddOrder(
         name: mHoldOrder?.name,
         code: mHoldOrder?.code,
@@ -1165,8 +1098,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
             style: ContentDialogThemeData(
                 padding: EdgeInsets.zero,
                 bodyPadding: EdgeInsets.zero,
-                decoration: BoxDecoration(
-                    color: appTheme.color, borderRadius: BorderRadius.zero)),
+                decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
             content: Container(
               height: 200,
               color: Common.dialogContentColor,
@@ -1219,13 +1151,9 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       Expanded(child: Container()),
                       Button(
                         style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(
-                                Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
+                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
+                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
                         child: const Text(
                           "确定",
                           style: TextStyle(color: Colors.white),
@@ -1234,8 +1162,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           Get.back();
                           if (appTheme.tradeAllIndex == 0) {
                             for (var hold in mPendList) {
-                              await DealServer.cancelOrder(hold.deleNo ?? "")
-                                  .then((value) {
+                              await DealServer.cancelOrder(hold.deleNo ?? "").then((value) {
                                 if (value) {
                                   InfoBarUtils.showSuccessBar("撤单成功");
                                 }
@@ -1244,8 +1171,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             requestCancelDelOrder();
                           } else {
                             for (var hold in mDelList) {
-                              await DealServer.cancelOrder(hold.deleNo ?? "")
-                                  .then((value) {
+                              await DealServer.cancelOrder(hold.deleNo ?? "").then((value) {
                                 if (value) {
                                   InfoBarUtils.showSuccessBar("撤单成功");
                                 }
@@ -1260,13 +1186,9 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       ),
                       Button(
                         style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(
-                                Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
+                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
+                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
                         child: const Text(
                           "取消",
                           style: TextStyle(color: Colors.white),
@@ -1306,21 +1228,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       int? PriceType,
       int? ConditionType,
       double? ConditionPrice) async {
-    await ConditionServer.addCondition(
-            ExchangeNo,
-            CommodityNo,
-            CommodityType,
-            ContractNo,
-            OrderType,
-            TimeInForce,
-            ExpireTime,
-            OrderSide,
-            OrderPrice,
-            OrderQty,
-            PositionEffect,
-            PriceType,
-            ConditionType,
-            ConditionPrice)
+    await ConditionServer.addCondition(ExchangeNo, CommodityNo, CommodityType, ContractNo, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+            OrderQty, PositionEffect, PriceType, ConditionType, ConditionPrice)
         .then((value) {
       if (value) {
         InfoBarUtils.showSuccessBar("添加条件单成功");
@@ -1331,48 +1240,32 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///资金状况
   Future getCapitals() async {
-    capitals = await SettleServer.getCapital(UserUtils.currentUser?.id,
-        formatter.format(startTime), formatter.format(endTime), 1);
+    capitals = await SettleServer.getCapital(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
   }
 
   ///平仓明细
   Future getCloseDetailed() async {
-    close = await SettleServer.getCloseDetailed(UserUtils.currentUser?.id,
-        formatter.format(startTime), formatter.format(endTime), 1);
+    close = await SettleServer.getCloseDetailed(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
   }
 
   ///持仓明细
   Future getPositionDetailed() async {
-    positions = await SettleServer.getPositionDetailed(
-        UserUtils.currentUser?.id,
-        formatter.format(startTime),
-        formatter.format(endTime),
-        1);
+    positions = await SettleServer.getPositionDetailed(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
   }
 
   ///持仓汇总
   Future getPositionSummary() async {
-    positionSummary = await SettleServer.getPositionSummary(
-        UserUtils.currentUser?.id,
-        formatter.format(startTime),
-        formatter.format(endTime),
-        1);
+    positionSummary = await SettleServer.getPositionSummary(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
   }
 
   ///历史成交/成交记录
   Future getFillRecord() async {
-    transactionRecord = await SettleServer.getFillRecord(
-        UserUtils.currentUser?.id,
-        formatter.format(startTime),
-        formatter.format(endTime));
+    transactionRecord = await SettleServer.getFillRecord(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime));
   }
 
   ///出入金
   Future getCashReport() async {
-    withdrawalRecord = await SettleServer.getCashReport(
-        UserUtils.currentUser?.id,
-        formatter.format(startTime),
-        formatter.format(endTime));
+    withdrawalRecord = await SettleServer.getCashReport(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime));
   }
 
   void startDragging(bool isMainWindow) {
@@ -1397,8 +1290,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   void onWindowClose() async {
     notMainWindowClose(WindowController windowController) async {
       await windowController.hide();
-      await rustDeskWinManager
-          .call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
 
     final controller = WindowController.fromWindowId(kWindowId!);
@@ -1450,51 +1342,21 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   Expanded(
                       child: RichText(
                     text: TextSpan(children: [
-                      TextSpan(
-                          text: UserUtils.currentUser?.nick ?? "",
-                          style: TextStyle(color: Colors.yellow)),
-                      TextSpan(
-                          text: "您好，您的可用资金：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineAvailFunds,
-                          style: TextStyle(color: Colors.yellow)),
-                      TextSpan(
-                          text: "   用户权益：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineAllAssets,
-                          style: TextStyle(color: Colors.yellow)),
-                      TextSpan(
-                          text: "   平仓盈亏：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineCloseProfit,
-                          style: TextStyle(color: Colors.red)),
-                      TextSpan(
-                          text: "   手续费：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineFee,
-                          style: TextStyle(color: Colors.yellow)),
-                      TextSpan(
-                          text: "   浮动盈亏：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineFloatPrice,
-                          style: TextStyle(color: Colors.red)),
-                      TextSpan(
-                          text: "   占用保证金：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: mineOccMargin,
-                          style: TextStyle(color: Colors.yellow)),
-                      TextSpan(
-                          text: "   风险度：",
-                          style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(
-                          text: "$mineRiskDegree%",
-                          style: TextStyle(color: Colors.red)),
+                      TextSpan(text: UserUtils.currentUser?.nick ?? "", style: TextStyle(color: Colors.yellow)),
+                      TextSpan(text: "您好，您的可用资金：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineAvailFunds, style: TextStyle(color: Colors.yellow)),
+                      TextSpan(text: "   用户权益：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineAllAssets, style: TextStyle(color: Colors.yellow)),
+                      TextSpan(text: "   平仓盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineCloseProfit, style: TextStyle(color: Colors.red)),
+                      TextSpan(text: "   手续费：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineFee, style: TextStyle(color: Colors.yellow)),
+                      TextSpan(text: "   浮动盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineFloatPrice, style: TextStyle(color: Colors.red)),
+                      TextSpan(text: "   占用保证金：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: mineOccMargin, style: TextStyle(color: Colors.yellow)),
+                      TextSpan(text: "   风险度：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                      TextSpan(text: "$mineRiskDegree%", style: TextStyle(color: Colors.red)),
                     ]),
                   ))
                 ],
@@ -1519,22 +1381,21 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                 }
               },
               style: ButtonStyle(
-                  backgroundColor:
-                      WidgetStatePropertyAll(appTheme.commandBarColor),
-                  padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
+                  backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
+                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
               child: const Text('刷新', textAlign: TextAlign.center),
             ),
             const SizedBox(
               width: 3,
             ),
             Button(
-              onPressed: () {},
+              onPressed: () {
+                // lock = true;
+                // if (mounted) setState(() {});
+              },
               style: ButtonStyle(
-                  backgroundColor:
-                      WidgetStatePropertyAll(appTheme.commandBarColor),
-                  padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
+                  backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
+                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
               child: const Text('锁定', textAlign: TextAlign.center),
             ),
             const SizedBox(
@@ -1542,22 +1403,16 @@ class _TradeState extends State<Trade> with MultiWindowListener {
             ),
             IconButton(
                 icon: const Icon(FluentIcons.minimum_value, size: 22),
-                style: const ButtonStyle(
-                    padding: WidgetStatePropertyAll(
-                        EdgeInsets.symmetric(horizontal: 10))),
+                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
                 onPressed: () {
-                  WindowController.fromWindowId(widget.params["windowId"])
-                      .minimize();
+                  WindowController.fromWindowId(widget.params["windowId"]).minimize();
                 }),
             IconButton(
                 icon: const Icon(FluentIcons.sign_out, size: 22),
-                style: const ButtonStyle(
-                    padding:
-                        WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
+                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
                 onPressed: () async {
                   Future.delayed(Duration.zero, () async {
-                    await DesktopMultiWindow.invokeMethod(
-                        kMainWindowId, kWindowEventHide, null);
+                    await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, null);
                     await WindowController.fromWindowId(kWindowId!).close();
                   });
                   // EventBusUtil.getInstance().fire(LoginEvent(false));
@@ -1581,10 +1436,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
             Container(
               color: appTheme.commandBarColor,
               margin: const EdgeInsets.only(left: 5),
-              child: selectedIndex == 0 ||
-                      selectedIndex == 2 ||
-                      selectedIndex == 3 ||
-                      selectedIndex == 4
+              child: selectedIndex == 0 || selectedIndex == 2 || selectedIndex == 3 || selectedIndex == 4
                   ? tradeContent()
                   : selectedIndex == 1
                       ? cloudConditionContent()
@@ -1613,8 +1465,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   Widget tableTitleItem(String? text) {
     return Container(
-      decoration:
-          BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: AnimatedFluentTheme(
@@ -1634,8 +1485,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   Widget tablePlItem({bool? win, bool? lose}) {
     return Container(
-      decoration:
-          BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       alignment: Alignment.center,
       child: AnimatedFluentTheme(
           data: FluentThemeData(),
@@ -1659,8 +1509,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   Widget tableRadioItem(String check, String uncheck, {bool? checked}) {
     return Container(
-      decoration:
-          BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       alignment: Alignment.center,
       child: StatefulBuilder(builder: (_, state) {
         return Row(
@@ -1689,8 +1538,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   Widget tablePointItem({int? value}) {
     return Container(
-      decoration:
-          BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       child: StatefulBuilder(builder: (_, state) {
         return NumberBox(
           value: value ?? 0,
@@ -1705,8 +1553,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   Widget tableOperateItem(int index) {
     return GestureDetector(
       child: Container(
-          decoration: BoxDecoration(
-              border: Border.all(color: appTheme.exchangeBgColor)),
+          decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
           padding: const EdgeInsets.symmetric(vertical: 5),
           alignment: Alignment.center,
           child: Text(
@@ -1742,9 +1589,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       child: Container(
         width: 138,
         alignment: Alignment.center,
-        color: selectedIndex == index
-            ? appTheme.commandBarColor
-            : Colors.transparent,
+        color: selectedIndex == index ? appTheme.commandBarColor : Colors.transparent,
         child: Text(
           title,
           textAlign: TextAlign.center,
@@ -1756,18 +1601,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///下单
   Widget tradeContent() {
-    TextEditingController controller =
-        TextEditingController(text: contract.code);
+    TextEditingController controller = TextEditingController(text: contract.code);
     List<Tab> tabs = [
       Tab(
         text: Text(
           '快手下单',
           textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 14,
-              color: appTheme.tradeIndex == 0
-                  ? Colors.yellow
-                  : appTheme.exchangeTextColor),
+          style: TextStyle(fontSize: 14, color: appTheme.tradeIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
         ),
         body: SizedBox(
           width: 388,
@@ -1806,10 +1646,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       width: 58,
                     ),
                     Button(
-                        style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 3))),
+                        style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3))),
                         onPressed: () {
                           open = true;
                           auto = true;
@@ -1842,8 +1679,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       const SizedBox(width: 28),
                       Checkbox(
                         checked: auto,
-                        onChanged: (bool? value) =>
-                            state(() => auto = value ?? true),
+                        onChanged: (bool? value) => state(() => auto = value ?? true),
                       ),
                       const Text("  自动"),
                     ],
@@ -1869,43 +1705,19 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         children: [
                           RichText(
                               text: TextSpan(children: [
-                            TextSpan(
-                                text: "  买：",
-                                style: TextStyle(color: Colors.red)),
-                            TextSpan(
-                                text: "可开 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: tradeBuyCanOpen,
-                                style: TextStyle(color: appTheme.color)),
-                            TextSpan(
-                                text: "  可平 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: tradeBuyCanClose,
-                                style: TextStyle(color: appTheme.color))
+                            TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
+                            TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: tradeBuyCanOpen, style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: tradeBuyCanClose, style: TextStyle(color: appTheme.color))
                           ])),
                           RichText(
                               text: TextSpan(children: [
-                            TextSpan(
-                                text: "  卖：",
-                                style: TextStyle(color: Colors.green)),
-                            TextSpan(
-                                text: "可开 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: tradeSaleCanOpen,
-                                style: TextStyle(color: appTheme.color)),
-                            TextSpan(
-                                text: "  可平 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: tradeSaleCanClose,
-                                style: TextStyle(color: appTheme.color))
+                            TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
+                            TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: tradeSaleCanOpen, style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: tradeSaleCanClose, style: TextStyle(color: appTheme.color))
                           ])),
                         ],
                       )
@@ -1923,8 +1735,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         child: my_combo.EditableComboBox<String>(
                           value: price,
                           mathValue: contract.lastPrice?.toDouble(),
-                          items:
-                              priceList.map<my_combo.ComboBoxItem<String>>((e) {
+                          items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
                             return my_combo.ComboBoxItem<String>(
                               value: e,
                               child: Text('$e'),
@@ -1933,8 +1744,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           onChanged: (v) {
                             tradeSalePrice = getLimitPrice(true).toString();
                             tradeBuyPrice = getLimitPrice(false).toString();
-                            if (globalStateFirst != null)
-                              globalStateFirst!(() {});
+                            if (globalStateFirst != null) globalStateFirst!(() {});
                           },
                           onFieldSubmitted: (String text) {
                             return text;
@@ -1948,12 +1758,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     children: [
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.red, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -1961,15 +1767,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeBuyPrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 135,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -1977,8 +1781,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "买入",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -2003,9 +1806,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             OrderPrice: getLimitPrice(false),
                             StopPrice: 0,
                             OrderQty: num,
-                            PositionEffect: open
-                                ? PositionEffectType.PositionEffect_OPEN
-                                : PositionEffectType.PositionEffect_COVER,
+                            PositionEffect: open ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
                           );
                           showDialog(
                               context: context,
@@ -2016,12 +1817,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       ),
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.green, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -2029,15 +1826,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeSalePrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 135,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -2045,8 +1840,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "卖出",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -2071,9 +1865,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             OrderPrice: getLimitPrice(false),
                             StopPrice: 0,
                             OrderQty: num,
-                            PositionEffect: open
-                                ? PositionEffectType.PositionEffect_OPEN
-                                : PositionEffectType.PositionEffect_COVER,
+                            PositionEffect: open ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
                           );
                           showDialog(
                               context: context,
@@ -2094,11 +1886,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         text: Text(
           '三键下单',
           textAlign: TextAlign.center,
-          style: TextStyle(
-              fontSize: 14,
-              color: appTheme.tradeIndex == 1
-                  ? Colors.yellow
-                  : appTheme.exchangeTextColor),
+          style: TextStyle(fontSize: 14, color: appTheme.tradeIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
         ),
         body: SizedBox(
           width: 388,
@@ -2138,10 +1926,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       width: 58,
                     ),
                     Button(
-                        style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 3))),
+                        style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3))),
                         onPressed: () {
                           num = 1;
                           price = "市价";
@@ -2158,54 +1943,25 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         width: boxWidth,
                         height: 38,
                         margin: const EdgeInsets.fromLTRB(18, 18, 0, 18),
-                        child: NumberBox(
-                            value: num,
-                            min: 1,
-                            max: 10000000,
-                            clearButton: false,
-                            onChanged: (v) => state(() => num = v ?? 1)),
+                        child: NumberBox(value: num, min: 1, max: 10000000, clearButton: false, onChanged: (v) => state(() => num = v ?? 1)),
                       ),
                       Column(
                         children: [
                           RichText(
                               text: TextSpan(children: [
-                            TextSpan(
-                                text: "  买：",
-                                style: TextStyle(color: Colors.red)),
-                            TextSpan(
-                                text: "可开 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: "--",
-                                style: TextStyle(color: appTheme.color)),
-                            TextSpan(
-                                text: "  可平 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: "0",
-                                style: TextStyle(color: appTheme.color))
+                            TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
+                            TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: "0", style: TextStyle(color: appTheme.color))
                           ])),
                           RichText(
                               text: TextSpan(children: [
-                            TextSpan(
-                                text: "  卖：",
-                                style: TextStyle(color: Colors.green)),
-                            TextSpan(
-                                text: "可开 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: "--",
-                                style: TextStyle(color: appTheme.color)),
-                            TextSpan(
-                                text: "  可平 ",
-                                style: TextStyle(
-                                    color: appTheme.exchangeTextColor)),
-                            TextSpan(
-                                text: "0",
-                                style: TextStyle(color: appTheme.color))
+                            TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
+                            TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: "0", style: TextStyle(color: appTheme.color))
                           ])),
                         ],
                       )
@@ -2223,8 +1979,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         child: my_combo.EditableComboBox<String>(
                           value: price,
                           mathValue: contract.lastPrice?.toDouble(),
-                          items:
-                              priceList.map<my_combo.ComboBoxItem<String>>((e) {
+                          items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
                             return my_combo.ComboBoxItem<String>(
                               value: e,
                               child: Text('$e'),
@@ -2233,8 +1988,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           onChanged: (v) {
                             tradeSalePrice = getLimitPrice(true).toString();
                             tradeBuyPrice = getLimitPrice(false).toString();
-                            if (globalStateSecond != null)
-                              globalStateSecond!(() {});
+                            if (globalStateSecond != null) globalStateSecond!(() {});
                           },
                           onFieldSubmitted: (String text) {
                             return text;
@@ -2248,12 +2002,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     children: [
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.red, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -2261,15 +2011,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeBuyPrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 88,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -2277,8 +2025,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "买入",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -2303,8 +2050,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             OrderPrice: getLimitPrice(false),
                             StopPrice: 0,
                             OrderQty: num,
-                            PositionEffect:
-                                PositionEffectType.PositionEffect_OPEN,
+                            PositionEffect: PositionEffectType.PositionEffect_OPEN,
                           );
                           showDialog(
                               context: context,
@@ -2315,12 +2061,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       ),
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.green, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -2328,15 +2070,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeSalePrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 88,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -2344,8 +2084,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "卖出",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -2370,8 +2109,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             OrderPrice: getLimitPrice(false),
                             StopPrice: 0,
                             OrderQty: num,
-                            PositionEffect:
-                                PositionEffectType.PositionEffect_OPEN,
+                            PositionEffect: PositionEffectType.PositionEffect_OPEN,
                           );
                           showDialog(
                               context: context,
@@ -2382,12 +2120,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       ),
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.yellow,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.yellow, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -2395,15 +2129,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeClosePrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 88,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -2411,8 +2143,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "平仓",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -2429,10 +2160,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           } else {
                             limitPrice = getLimitPrice(false);
                           }
-                          int sideType =
-                              mHoldOrder?.orderSide == SideType.SIDE_SELL
-                                  ? SideType.SIDE_BUY
-                                  : SideType.SIDE_SELL;
+                          int sideType = mHoldOrder?.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
                           AddOrder order = AddOrder(
                             name: contract.name,
                             code: contract.code,
@@ -2447,8 +2175,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             OrderPrice: limitPrice,
                             StopPrice: 0,
                             OrderQty: num,
-                            PositionEffect:
-                                PositionEffectType.PositionEffect_COVER,
+                            PositionEffect: PositionEffectType.PositionEffect_COVER,
                           );
                           showDialog(
                               context: context,
@@ -2469,11 +2196,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
           text: Text(
             '传统下单',
             textAlign: TextAlign.center,
-            style: TextStyle(
-                fontSize: 14,
-                color: appTheme.tradeIndex == 2
-                    ? Colors.yellow
-                    : appTheme.exchangeTextColor),
+            style: TextStyle(fontSize: 14, color: appTheme.tradeIndex == 2 ? Colors.yellow : appTheme.exchangeTextColor),
           ),
           body: SizedBox(
             width: 388,
@@ -2513,10 +2236,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         width: 58,
                       ),
                       Button(
-                          style: const ButtonStyle(
-                              padding: WidgetStatePropertyAll(
-                                  EdgeInsets.symmetric(
-                                      horizontal: 10, vertical: 3))),
+                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3))),
                           onPressed: () {
                             dir = true;
                             open = true;
@@ -2596,43 +2316,19 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           children: [
                             RichText(
                                 text: TextSpan(children: [
-                              TextSpan(
-                                  text: "  买：",
-                                  style: TextStyle(color: Colors.red)),
-                              TextSpan(
-                                  text: "可开 ",
-                                  style: TextStyle(
-                                      color: appTheme.exchangeTextColor)),
-                              TextSpan(
-                                  text: "--",
-                                  style: TextStyle(color: appTheme.color)),
-                              TextSpan(
-                                  text: "  可平 ",
-                                  style: TextStyle(
-                                      color: appTheme.exchangeTextColor)),
-                              TextSpan(
-                                  text: "0",
-                                  style: TextStyle(color: appTheme.color))
+                              TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
+                              TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                              TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                              TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                              TextSpan(text: "0", style: TextStyle(color: appTheme.color))
                             ])),
                             RichText(
                                 text: TextSpan(children: [
-                              TextSpan(
-                                  text: "  卖：",
-                                  style: TextStyle(color: Colors.green)),
-                              TextSpan(
-                                  text: "可开 ",
-                                  style: TextStyle(
-                                      color: appTheme.exchangeTextColor)),
-                              TextSpan(
-                                  text: "--",
-                                  style: TextStyle(color: appTheme.color)),
-                              TextSpan(
-                                  text: "  可平 ",
-                                  style: TextStyle(
-                                      color: appTheme.exchangeTextColor)),
-                              TextSpan(
-                                  text: "0",
-                                  style: TextStyle(color: appTheme.color))
+                              TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
+                              TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                              TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                              TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
+                              TextSpan(text: "0", style: TextStyle(color: appTheme.color))
                             ])),
                           ],
                         )
@@ -2650,8 +2346,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           child: my_combo.EditableComboBox<String>(
                             value: price,
                             mathValue: contract.lastPrice?.toDouble(),
-                            items: priceList
-                                .map<my_combo.ComboBoxItem<String>>((e) {
+                            items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
                               return my_combo.ComboBoxItem<String>(
                                 value: e,
                                 child: Text('$e'),
@@ -2660,8 +2355,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             onChanged: (v) {
                               tradeSalePrice = getLimitPrice(true).toString();
                               tradeBuyPrice = getLimitPrice(false).toString();
-                              if (globalStateThird != null)
-                                globalStateThird!(() {});
+                              if (globalStateThird != null) globalStateThird!(() {});
                             },
                             onFieldSubmitted: (String text) {
                               return text;
@@ -2673,10 +2367,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     GestureDetector(
                       child: Container(
                         width: 58,
-                        decoration: BoxDecoration(
-                            color: Colors.red,
-                            borderRadius:
-                                const BorderRadius.all(Radius.circular(5))),
+                        decoration: BoxDecoration(color: Colors.red, borderRadius: const BorderRadius.all(Radius.circular(5))),
                         margin: EdgeInsets.fromLTRB(padWidth, 20, 268, 20),
                         padding: const EdgeInsets.all(8),
                         alignment: Alignment.center,
@@ -2701,14 +2392,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           OrderType: getOrderType(),
                           TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
                           ExpireTime: "",
-                          OrderSide:
-                              dir ? SideType.SIDE_BUY : SideType.SIDE_SELL,
+                          OrderSide: dir ? SideType.SIDE_BUY : SideType.SIDE_SELL,
                           OrderPrice: getLimitPrice(dir),
                           StopPrice: 0,
                           OrderQty: num,
-                          PositionEffect: open
-                              ? PositionEffectType.PositionEffect_OPEN
-                              : PositionEffectType.PositionEffect_COVER,
+                          PositionEffect: open ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
                         );
                         showDialog(
                             context: context,
@@ -2751,8 +2439,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         child: Padding(
       padding: const EdgeInsets.all(15),
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
         child: ListView(
           children: [
             Row(
@@ -2762,36 +2449,24 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   children: [
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: () {
                           appTheme.tradeDetailIndex = 0;
                         },
                         child: Text(
                           "合\n计",
-                          style: TextStyle(
-                              fontSize: 18,
-                              color: appTheme.tradeDetailIndex == 0
-                                  ? Colors.yellow
-                                  : appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                         )),
                     const SizedBox(height: 20),
                     Button(
                       style: const ButtonStyle(
-                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                          shape:
-                              WidgetStatePropertyAll(RoundedRectangleBorder())),
+                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                       onPressed: () {
                         appTheme.tradeDetailIndex = 1;
                       },
                       child: Text(
                         "明\n细",
-                        style: TextStyle(
-                            fontSize: 18,
-                            color: appTheme.tradeDetailIndex == 1
-                                ? Colors.yellow
-                                : appTheme.exchangeTextColor),
+                        style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                       ),
                     ),
                   ],
@@ -2808,92 +2483,63 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             const SizedBox(width: 15),
                             Button(
                                 style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(
-                                        EdgeInsets.symmetric(
-                                            vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder())),
+                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 onPressed: closeAllPos,
                                 child: Text(
                                   "全部平仓",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: appTheme.exchangeTextColor),
+                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                             const SizedBox(width: 15),
                             Button(
                                 style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(
-                                        EdgeInsets.symmetric(
-                                            vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder())),
+                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 onPressed: quickClose,
                                 child: Text(
                                   "快捷平仓",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: appTheme.exchangeTextColor),
+                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                             const SizedBox(width: 15),
                             Button(
                                 style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(
-                                        EdgeInsets.symmetric(
-                                            vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder())),
+                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 onPressed: quickBack,
                                 child: Text(
                                   "快捷反手",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: appTheme.exchangeTextColor),
+                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                             const SizedBox(width: 15),
                             Button(
                                 style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(
-                                        EdgeInsets.symmetric(
-                                            vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder())),
+                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 onPressed: quickLock,
                                 child: Text(
                                   "快捷锁仓",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: appTheme.exchangeTextColor),
+                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                             const SizedBox(width: 15),
                             Button(
                                 onPressed: plSetting,
                                 style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(
-                                        EdgeInsets.symmetric(
-                                            vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(
-                                        RoundedRectangleBorder())),
+                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 child: Text(
                                   "止盈止损",
-                                  style: TextStyle(
-                                      fontSize: 14,
-                                      color: appTheme.exchangeTextColor),
+                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                           ],
                         ),
                       ),
                     Container(
-                      decoration: BoxDecoration(
-                          border: Border.all(color: appTheme.exchangeBgColor)),
+                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                       margin: const EdgeInsets.fromLTRB(15, 0, 0, 5),
                       child: Scrollbar(
                         controller: scrollController,
                         key: UniqueKey(),
-                        style: const ScrollbarThemeData(
-                            thickness: 10,
-                            padding: EdgeInsets.zero,
-                            hoveringPadding: EdgeInsets.zero),
+                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                         child: SingleChildScrollView(
                             controller: scrollController,
                             scrollDirection: Axis.horizontal,
@@ -2905,150 +2551,60 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                     shrinkWrap: true,
                                     itemCount: mHoldList.length + 1,
                                     padding: const EdgeInsets.only(bottom: 10),
-                                    itemBuilder:
-                                        (BuildContext context, int index) {
+                                    itemBuilder: (BuildContext context, int index) {
                                       if (index == 0) {
                                         return Row(
                                           children: [
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableTitleItem("合约代码")),
-                                            Expanded(
-                                                flex: 1,
-                                                child: tableTitleItem("买卖")),
-                                            Expanded(
-                                                flex: 1,
-                                                child: tableTitleItem("数量")),
-                                            Expanded(
-                                                flex: 1,
-                                                child: tableTitleItem("可平")),
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableTitleItem("开仓均价")),
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableTitleItem("计算价格")),
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableTitleItem("浮动盈亏")),
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableTitleItem("保证金占用")),
-                                            Expanded(
-                                                flex: 1,
-                                                child: tableTitleItem("币种")),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tableTitleItem("合约名称")),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tableTitleItem(
-                                                    appTheme.tradeDetailIndex ==
-                                                            0
-                                                        ? "止盈止损"
-                                                        : "持仓编号")),
+                                            Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                            Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                            Expanded(flex: 1, child: tableTitleItem("数量")),
+                                            Expanded(flex: 1, child: tableTitleItem("可平")),
+                                            Expanded(flex: 2, child: tableTitleItem("开仓均价")),
+                                            Expanded(flex: 2, child: tableTitleItem("计算价格")),
+                                            Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
+                                            Expanded(flex: 2, child: tableTitleItem("保证金占用")),
+                                            Expanded(flex: 1, child: tableTitleItem("币种")),
+                                            Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                            Expanded(flex: 3, child: tableTitleItem(appTheme.tradeDetailIndex == 0 ? "止盈止损" : "持仓编号")),
                                           ],
                                         );
                                       } else {
                                         return GestureDetector(
                                           child: Container(
-                                            color: mHoldList[index - 1].selected
-                                                ? Colors.black.withOpacity(0.2)
-                                                : Colors.transparent,
+                                            color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                             child: IntrinsicHeight(
                                                 child: Row(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.stretch,
+                                              crossAxisAlignment: CrossAxisAlignment.stretch,
                                               children: [
-                                                Expanded(
-                                                    flex: 2,
-                                                    child: tableTitleItem(
-                                                        mHoldList[index - 1]
-                                                            .code)),
+                                                Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
                                                 Expanded(
                                                     flex: 1,
-                                                    child: tableTitleItem(
-                                                        mHoldList[index - 1]
-                                                                    .orderSide ==
-                                                                SideType
-                                                                    .SIDE_SELL
-                                                            ? "卖出"
-                                                            : "买入")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child: tableTitleItem(
-                                                        (mHoldList[index - 1]
-                                                                    .quantity ??
-                                                                0)
-                                                            .toString())),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child: tableTitleItem(
-                                                        (mHoldList[index - 1]
-                                                                    .AvailableQty ??
-                                                                0)
-                                                            .toString())),
+                                                    child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].quantity ?? 0).toString())),
+                                                Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].AvailableQty ?? 0).toString())),
                                                 Expanded(
                                                     flex: 2,
                                                     child: tableTitleItem(
-                                                        Utils.d2SBySrc(
-                                                            mHoldList[index - 1]
-                                                                .open,
-                                                            mHoldList[index - 1]
-                                                                .FutureTickSize))),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child: tableTitleItem(
-                                                        (mHoldList[index - 1]
-                                                                    .CalculatePrice ??
-                                                                0)
-                                                            .toString())),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child: tableTitleItem(
-                                                        Utils.d2SBySrc(
-                                                            mHoldList[index - 1]
-                                                                .floatProfit,
-                                                            2))),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child: tableTitleItem(
-                                                        Utils.d2SBySrc(
-                                                            mHoldList[index - 1]
-                                                                .margin,
-                                                            2))),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child: tableTitleItem(
-                                                        mHoldList[index - 1]
-                                                            .CurrencyType)),
+                                                        Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
+                                                Expanded(flex: 2, child: tableTitleItem((mHoldList[index - 1].CalculatePrice ?? 0).toString())),
+                                                Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
+                                                Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
+                                                Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
+                                                Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
                                                 Expanded(
                                                     flex: 3,
-                                                    child: tableTitleItem(
-                                                        mHoldList[index - 1]
-                                                            .name)),
-                                                Expanded(
-                                                    flex: 3,
-                                                    child: appTheme
-                                                                .tradeDetailIndex ==
-                                                            0
-                                                        ? tablePlItem(
-                                                            win: false,
-                                                            lose: false)
-                                                        : tableTitleItem(
-                                                            mHoldList[index - 1]
-                                                                .PositionNo)),
+                                                    child: appTheme.tradeDetailIndex == 0
+                                                        ? tablePlItem(win: false, lose: false)
+                                                        : tableTitleItem(mHoldList[index - 1].PositionNo)),
                                               ],
                                             )),
                                           ),
                                           onTap: () {
-                                            if (mHoldList[index - 1].selected ==
-                                                true) return;
+                                            if (mHoldList[index - 1].selected == true) return;
                                             for (var element in mHoldList) {
                                               element.selected = false;
                                             }
-                                            mHoldList[index - 1].selected =
-                                                true;
+                                            mHoldList[index - 1].selected = true;
                                             mHoldOrder = mHoldList[index - 1];
                                             if (mounted) setState(() {});
                                           },
@@ -3071,36 +2627,24 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   children: [
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: () {
                           appTheme.tradeAllIndex = 0;
                         },
                         child: Text(
                           "可\n撤",
-                          style: TextStyle(
-                              fontSize: 18,
-                              color: appTheme.tradeAllIndex == 0
-                                  ? Colors.yellow
-                                  : appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                         )),
                     const SizedBox(height: 20),
                     Button(
                       style: const ButtonStyle(
-                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                          shape:
-                              WidgetStatePropertyAll(RoundedRectangleBorder())),
+                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                       onPressed: () {
                         appTheme.tradeAllIndex = 1;
                       },
                       child: Text(
                         "全\n部",
-                        style: TextStyle(
-                            fontSize: 18,
-                            color: appTheme.tradeAllIndex == 1
-                                ? Colors.yellow
-                                : appTheme.exchangeTextColor),
+                        style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                       ),
                     ),
                   ],
@@ -3114,46 +2658,32 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         const SizedBox(width: 15),
                         Button(
                             style: const ButtonStyle(
-                                padding: WidgetStatePropertyAll(
-                                    EdgeInsets.symmetric(
-                                        vertical: 5, horizontal: 10)),
-                                shape: WidgetStatePropertyAll(
-                                    RoundedRectangleBorder())),
+                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                             onPressed: delAllHold,
                             child: Text(
                               "全部撤单",
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  color: appTheme.exchangeTextColor),
+                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                             )),
                         const SizedBox(width: 15),
                         Button(
                             onPressed: delHold,
                             style: const ButtonStyle(
-                                padding: WidgetStatePropertyAll(
-                                    EdgeInsets.symmetric(
-                                        vertical: 5, horizontal: 10)),
-                                shape: WidgetStatePropertyAll(
-                                    RoundedRectangleBorder())),
+                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                             child: Text(
                               "撤单",
-                              style: TextStyle(
-                                  fontSize: 14,
-                                  color: appTheme.exchangeTextColor),
+                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                             )),
                       ],
                     ),
                     Container(
-                      decoration: BoxDecoration(
-                          border: Border.all(color: appTheme.exchangeBgColor)),
+                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                       margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
                       child: Scrollbar(
                         key: UniqueKey(),
                         controller: secScrollController,
-                        style: const ScrollbarThemeData(
-                            thickness: 10,
-                            padding: EdgeInsets.zero,
-                            hoveringPadding: EdgeInsets.zero),
+                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                         child: SingleChildScrollView(
                             controller: secScrollController,
                             scrollDirection: Axis.horizontal,
@@ -3165,158 +2695,59 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                     ? ListView.builder(
                                         shrinkWrap: true,
                                         itemCount: mPendList.length + 1,
-                                        itemBuilder:
-                                            (BuildContext context, int index) {
+                                        itemBuilder: (BuildContext context, int index) {
                                           if (index == 0) {
                                             return Row(
                                               children: [
-                                                Expanded(
-                                                    flex: 3,
-                                                    child:
-                                                        tableTitleItem("委托时间")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("合约代码")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("买卖")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("开平")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("价格")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("委托数量")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("成交数量")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("币种")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("订单来源")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("状态")),
-                                                Expanded(
-                                                    flex: 5,
-                                                    child:
-                                                        tableTitleItem("错误信息")),
-                                                Expanded(
-                                                    flex: 4,
-                                                    child:
-                                                        tableTitleItem("委托号")),
-                                                Expanded(
-                                                    flex: 3,
-                                                    child:
-                                                        tableTitleItem("合约名称")),
+                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                Expanded(flex: 1, child: tableTitleItem("价格")),
+                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
                                               ],
                                             );
                                           } else {
                                             return GestureDetector(
                                               child: Container(
-                                                color: mPendList[index - 1]
-                                                        .selected
-                                                    ? Colors.black
-                                                        .withOpacity(0.2)
-                                                    : Colors.transparent,
+                                                color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                                 child: IntrinsicHeight(
                                                     child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .stretch,
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                                   children: [
                                                     Expanded(
                                                         flex: 3,
-                                                        child: tableTitleItem(
-                                                            "${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                        child:
+                                                            tableTitleItem("${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                    Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].code)),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].bs)),
                                                     Expanded(
-                                                        flex: 3,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .code)),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .bs)),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            PositionEffectType
-                                                                .getName(mPendList[
-                                                                        index -
-                                                                            1]
-                                                                    .OpenClose))),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "${mPendList[index - 1].price ?? ""}")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "${mPendList[index - 1].deleNum ?? "0"}")),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            "${mPendList[index - 1].comNum ?? "0"}")),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .CurrencyType)),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            OrderOpType.getName(
-                                                                mPendList[
-                                                                        index -
-                                                                            1]
-                                                                    .orderOpType))),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .state)),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .ErrorText)),
-                                                    Expanded(
-                                                        flex: 5,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .deleNo)),
-                                                    Expanded(
-                                                        flex: 4,
-                                                        child: tableTitleItem(
-                                                            mPendList[index - 1]
-                                                                .name)),
+                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 1, child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].ErrorText)),
+                                                    Expanded(flex: 5, child: tableTitleItem(mPendList[index - 1].deleNo)),
+                                                    Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].name)),
                                                   ],
                                                 )),
                                               ),
                                               onTap: () {
-                                                if (mPendList[index - 1]
-                                                        .selected ==
-                                                    true) return;
+                                                if (mPendList[index - 1].selected == true) return;
                                                 for (var element in mPendList) {
                                                   element.selected = false;
                                                 }
-                                                mPendList[index - 1].selected =
-                                                    true;
+                                                mPendList[index - 1].selected = true;
                                                 if (mounted) setState(() {});
                                               },
                                             );
@@ -3325,157 +2756,58 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                     : ListView.builder(
                                         shrinkWrap: true,
                                         itemCount: mDelList.length + 1,
-                                        itemBuilder:
-                                            (BuildContext context, int index) {
+                                        itemBuilder: (BuildContext context, int index) {
                                           if (index == 0) {
                                             return Row(
                                               children: [
-                                                Expanded(
-                                                    flex: 3,
-                                                    child:
-                                                        tableTitleItem("委托时间")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("合约代码")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("买卖")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("开平")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("价格")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("委托数量")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("成交数量")),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child:
-                                                        tableTitleItem("币种")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("订单来源")),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child:
-                                                        tableTitleItem("状态")),
-                                                Expanded(
-                                                    flex: 5,
-                                                    child:
-                                                        tableTitleItem("错误信息")),
-                                                Expanded(
-                                                    flex: 4,
-                                                    child:
-                                                        tableTitleItem("委托号")),
-                                                Expanded(
-                                                    flex: 3,
-                                                    child:
-                                                        tableTitleItem("合约名称")),
+                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                Expanded(flex: 1, child: tableTitleItem("价格")),
+                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
                                               ],
                                             );
                                           } else {
                                             return GestureDetector(
                                               child: Container(
-                                                color:
-                                                    mDelList[index - 1].selected
-                                                        ? Colors.black
-                                                            .withOpacity(0.2)
-                                                        : Colors.transparent,
+                                                color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                                 child: IntrinsicHeight(
                                                     child: Row(
-                                                  crossAxisAlignment:
-                                                      CrossAxisAlignment
-                                                          .stretch,
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
                                                   children: [
                                                     Expanded(
                                                         flex: 3,
-                                                        child: tableTitleItem(
-                                                            "${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
+                                                        child: tableTitleItem("${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
+                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
+                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
                                                     Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .code)),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .bs)),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            PositionEffectType
-                                                                .getName(mDelList[
-                                                                        index -
-                                                                            1]
-                                                                    .OpenClose))),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "${mDelList[index - 1].price ?? ""}")),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            "${mDelList[index - 1].deleNum ?? "0"}")),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            "${mDelList[index - 1].comNum ?? "0"}")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .CurrencyType)),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            OrderOpType.getName(
-                                                                mDelList[index -
-                                                                        1]
-                                                                    .orderOpType))),
-                                                    Expanded(
-                                                        flex: 2,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .state)),
-                                                    Expanded(
-                                                        flex: 5,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .ErrorText)),
-                                                    Expanded(
-                                                        flex: 4,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .deleNo)),
-                                                    Expanded(
-                                                        flex: 3,
-                                                        child: tableTitleItem(
-                                                            mDelList[index - 1]
-                                                                .name)),
+                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
+                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
+                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
+                                                    Expanded(flex: 5, child: tableTitleItem(mDelList[index - 1].ErrorText)),
+                                                    Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
+                                                    Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
                                                   ],
                                                 )),
                                               ),
                                               onTap: () {
-                                                if (mDelList[index - 1]
-                                                        .selected ==
-                                                    true) return;
+                                                if (mDelList[index - 1].selected == true) return;
                                                 for (var element in mDelList) {
                                                   element.selected = false;
                                                 }
-                                                mDelList[index - 1].selected =
-                                                    true;
+                                                mDelList[index - 1].selected = true;
                                                 if (mounted) setState(() {});
                                               },
                                             );
@@ -3500,8 +2832,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         child: Padding(
       padding: const EdgeInsets.all(15),
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -3509,35 +2840,24 @@ class _TradeState extends State<Trade> with MultiWindowListener {
               children: [
                 Button(
                     style: const ButtonStyle(
-                        padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                        shape:
-                            WidgetStatePropertyAll(RoundedRectangleBorder())),
+                        padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                     onPressed: () {
                       appTheme.tradeAllIndex = 0;
                     },
                     child: Text(
                       "可\n撤",
-                      style: TextStyle(
-                          fontSize: 18,
-                          color: appTheme.tradeAllIndex == 0
-                              ? Colors.yellow
-                              : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                     )),
                 const SizedBox(height: 20),
                 Button(
-                  style: const ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                  style:
+                      const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                   onPressed: () {
                     appTheme.tradeAllIndex = 1;
                   },
                   child: Text(
                     "全\n部",
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: appTheme.tradeAllIndex == 1
-                            ? Colors.yellow
-                            : appTheme.exchangeTextColor),
+                    style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                   ),
                 ),
               ],
@@ -3551,45 +2871,33 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: delAllHold,
                         child: Text(
                           "全部撤单",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         onPressed: delHold,
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         child: Text(
                           "撤单",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                   ],
                 ),
                 Expanded(
                   child: Container(
-                    decoration: BoxDecoration(
-                        border: Border.all(color: appTheme.exchangeBgColor)),
+                    decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
                     child: Scrollbar(
                       controller: scrollController,
                       key: UniqueKey(),
-                      style: const ScrollbarThemeData(
-                          thickness: 10,
-                          padding: EdgeInsets.zero,
-                          hoveringPadding: EdgeInsets.zero),
+                      style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                       child: SingleChildScrollView(
                           controller: scrollController,
                           scrollDirection: Axis.horizontal,
@@ -3601,149 +2909,58 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                   ? ListView.builder(
                                       shrinkWrap: true,
                                       itemCount: mPendList.length + 1,
-                                      itemBuilder:
-                                          (BuildContext context, int index) {
+                                      itemBuilder: (BuildContext context, int index) {
                                         if (index == 0) {
                                           return Row(
                                             children: [
-                                              Expanded(
-                                                  flex: 3,
-                                                  child:
-                                                      tableTitleItem("委托时间")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("合约代码")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("买卖")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("开平")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("价格")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("委托数量")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("成交数量")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("币种")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("订单来源")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem("状态")),
-                                              Expanded(
-                                                  flex: 5,
-                                                  child:
-                                                      tableTitleItem("错误信息")),
-                                              Expanded(
-                                                  flex: 4,
-                                                  child: tableTitleItem("委托号")),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child:
-                                                      tableTitleItem("合约名称")),
+                                              Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 1, child: tableTitleItem("开平")),
+                                              Expanded(flex: 1, child: tableTitleItem("价格")),
+                                              Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                              Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                              Expanded(flex: 1, child: tableTitleItem("币种")),
+                                              Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                              Expanded(flex: 2, child: tableTitleItem("状态")),
+                                              Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                              Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
                                             ],
                                           );
                                         } else {
                                           return GestureDetector(
                                             child: Container(
-                                              color:
-                                                  mPendList[index - 1].selected
-                                                      ? Colors.black
-                                                          .withOpacity(0.2)
-                                                      : Colors.transparent,
+                                              color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                               child: IntrinsicHeight(
                                                   child: Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                                 children: [
                                                   Expanded(
                                                       flex: 3,
-                                                      child: tableTitleItem(
-                                                          "${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                      child: tableTitleItem("${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                  Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].code)),
+                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].bs)),
                                                   Expanded(
-                                                      flex: 3,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .code)),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .bs)),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          PositionEffectType
-                                                              .getName(mPendList[
-                                                                      index - 1]
-                                                                  .OpenClose))),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          "${mPendList[index - 1].price ?? ""}")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          "${mPendList[index - 1].deleNum ?? "0"}")),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          "${mPendList[index - 1].comNum ?? "0"}")),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .CurrencyType)),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          OrderOpType.getName(
-                                                              mPendList[
-                                                                      index - 1]
-                                                                  .orderOpType))),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .state)),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .ErrorText)),
-                                                  Expanded(
-                                                      flex: 5,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .deleNo)),
-                                                  Expanded(
-                                                      flex: 4,
-                                                      child: tableTitleItem(
-                                                          mPendList[index - 1]
-                                                              .name)),
+                                                      flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
+                                                  Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
+                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
+                                                  Expanded(flex: 1, child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
+                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
+                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].ErrorText)),
+                                                  Expanded(flex: 5, child: tableTitleItem(mPendList[index - 1].deleNo)),
+                                                  Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].name)),
                                                 ],
                                               )),
                                             ),
                                             onTap: () {
-                                              if (mPendList[index - 1]
-                                                      .selected ==
-                                                  true) return;
+                                              if (mPendList[index - 1].selected == true) return;
                                               for (var element in mPendList) {
                                                 element.selected = false;
                                               }
-                                              mPendList[index - 1].selected =
-                                                  true;
+                                              mPendList[index - 1].selected = true;
                                               if (mounted) setState(() {});
                                             },
                                           );
@@ -3752,149 +2969,57 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                   : ListView.builder(
                                       shrinkWrap: true,
                                       itemCount: mDelList.length + 1,
-                                      itemBuilder:
-                                          (BuildContext context, int index) {
+                                      itemBuilder: (BuildContext context, int index) {
                                         if (index == 0) {
                                           return Row(
                                             children: [
-                                              Expanded(
-                                                  flex: 3,
-                                                  child:
-                                                      tableTitleItem("委托时间")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("合约代码")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("买卖")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("开平")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("价格")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("委托数量")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("成交数量")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("币种")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem("订单来源")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem("状态")),
-                                              Expanded(
-                                                  flex: 5,
-                                                  child:
-                                                      tableTitleItem("错误信息")),
-                                              Expanded(
-                                                  flex: 4,
-                                                  child: tableTitleItem("委托号")),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child:
-                                                      tableTitleItem("合约名称")),
+                                              Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 1, child: tableTitleItem("开平")),
+                                              Expanded(flex: 1, child: tableTitleItem("价格")),
+                                              Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                              Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                              Expanded(flex: 1, child: tableTitleItem("币种")),
+                                              Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                              Expanded(flex: 2, child: tableTitleItem("状态")),
+                                              Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                              Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
                                             ],
                                           );
                                         } else {
                                           return GestureDetector(
                                             child: Container(
-                                              color:
-                                                  mDelList[index - 1].selected
-                                                      ? Colors.black
-                                                          .withOpacity(0.2)
-                                                      : Colors.transparent,
+                                              color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                               child: IntrinsicHeight(
                                                   child: Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                                 children: [
                                                   Expanded(
                                                       flex: 3,
-                                                      child: tableTitleItem(
-                                                          "${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .code)),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .bs)),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          PositionEffectType
-                                                              .getName(mDelList[
-                                                                      index - 1]
-                                                                  .OpenClose))),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          "${mDelList[index - 1].price ?? ""}")),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          "${mDelList[index - 1].deleNum ?? "0"}")),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          "${mDelList[index - 1].comNum ?? "0"}")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .CurrencyType)),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          OrderOpType.getName(
-                                                              mDelList[
-                                                                      index - 1]
-                                                                  .orderOpType))),
-                                                  Expanded(
-                                                      flex: 2,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .state)),
-                                                  Expanded(
-                                                      flex: 5,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .ErrorText)),
-                                                  Expanded(
-                                                      flex: 4,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .deleNo)),
-                                                  Expanded(
-                                                      flex: 3,
-                                                      child: tableTitleItem(
-                                                          mDelList[index - 1]
-                                                              .name)),
+                                                      child: tableTitleItem("${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
+                                                  Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
+                                                  Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
+                                                  Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
+                                                  Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
+                                                  Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
+                                                  Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
+                                                  Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
+                                                  Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
+                                                  Expanded(flex: 5, child: tableTitleItem(mDelList[index - 1].ErrorText)),
+                                                  Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
+                                                  Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
                                                 ],
                                               )),
                                             ),
                                             onTap: () {
-                                              if (mDelList[index - 1]
-                                                      .selected ==
-                                                  true) return;
+                                              if (mDelList[index - 1].selected == true) return;
                                               for (var element in mDelList) {
                                                 element.selected = false;
                                               }
-                                              mDelList[index - 1].selected =
-                                                  true;
+                                              mDelList[index - 1].selected = true;
                                               if (mounted) setState(() {});
                                             },
                                           );
@@ -3916,19 +3041,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     ScrollController scrollController = ScrollController();
     return Expanded(
         child: ScrollConfiguration(
-      behavior: ScrollConfiguration.of(context).copyWith(
-          scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
       child: Container(
         margin: const EdgeInsets.symmetric(horizontal: 10),
-        decoration:
-            BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+        decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
         child: Scrollbar(
           key: UniqueKey(),
           controller: scrollController,
-          style: const ScrollbarThemeData(
-              thickness: 10,
-              padding: EdgeInsets.zero,
-              hoveringPadding: EdgeInsets.zero),
+          style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
           child: SingleChildScrollView(
               controller: scrollController,
               scrollDirection: Axis.horizontal,
@@ -3959,57 +3079,22 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         } else {
                           return GestureDetector(
                             child: Container(
-                              color: mComList[index - 1].selected
-                                  ? Colors.black.withOpacity(0.2)
-                                  : Colors.transparent,
+                              color: mComList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                               child: IntrinsicHeight(
                                   child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Expanded(
-                                      flex: 1,
-                                      child: tableTitleItem(index.toString())),
-                                  Expanded(
-                                      flex: 3,
-                                      child: tableTitleItem(
-                                          mComList[index - 1].name)),
-                                  Expanded(
-                                      flex: 2,
-                                      child: tableTitleItem(
-                                          mComList[index - 1].code)),
-                                  Expanded(
-                                      flex: 4,
-                                      child: tableTitleItem(
-                                          mComList[index - 1].comNo)),
-                                  Expanded(
-                                      flex: 4,
-                                      child: tableTitleItem(
-                                          mComList[index - 1].deleNo)),
-                                  Expanded(
-                                      flex: 1,
-                                      child: tableTitleItem(
-                                          mComList[index - 1].bs)),
-                                  Expanded(
-                                      flex: 1,
-                                      child: tableTitleItem(
-                                          PositionEffectType.getName(
-                                              mComList[index - 1].OpenClose))),
-                                  Expanded(
-                                      flex: 1,
-                                      child: tableTitleItem(
-                                          "${mComList[index - 1].comNum ?? 0}")),
-                                  Expanded(
-                                      flex: 2,
-                                      child: tableTitleItem(
-                                          "${mComList[index - 1].price ?? 0.0}")),
-                                  Expanded(
-                                      flex: 2,
-                                      child: tableTitleItem(
-                                          "${mComList[index - 1].FeeValue ?? 0.0}")),
-                                  Expanded(
-                                      flex: 4,
-                                      child: tableTitleItem(
-                                          "${mComList[index - 1].date ?? ""} ${mComList[index - 1].time ?? ""}")),
+                                  Expanded(flex: 1, child: tableTitleItem(index.toString())),
+                                  Expanded(flex: 3, child: tableTitleItem(mComList[index - 1].name)),
+                                  Expanded(flex: 2, child: tableTitleItem(mComList[index - 1].code)),
+                                  Expanded(flex: 4, child: tableTitleItem(mComList[index - 1].comNo)),
+                                  Expanded(flex: 4, child: tableTitleItem(mComList[index - 1].deleNo)),
+                                  Expanded(flex: 1, child: tableTitleItem(mComList[index - 1].bs)),
+                                  Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mComList[index - 1].OpenClose))),
+                                  Expanded(flex: 1, child: tableTitleItem("${mComList[index - 1].comNum ?? 0}")),
+                                  Expanded(flex: 2, child: tableTitleItem("${mComList[index - 1].price ?? 0.0}")),
+                                  Expanded(flex: 2, child: tableTitleItem("${mComList[index - 1].FeeValue ?? 0.0}")),
+                                  Expanded(flex: 4, child: tableTitleItem("${mComList[index - 1].date ?? ""} ${mComList[index - 1].time ?? ""}")),
                                 ],
                               )),
                             ),
@@ -4036,8 +3121,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         child: Padding(
       padding: const EdgeInsets.only(left: 15, top: 5, right: 5),
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -4045,35 +3129,24 @@ class _TradeState extends State<Trade> with MultiWindowListener {
               children: [
                 Button(
                     style: const ButtonStyle(
-                        padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                        shape:
-                            WidgetStatePropertyAll(RoundedRectangleBorder())),
+                        padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                     onPressed: () {
                       appTheme.tradeDetailIndex = 0;
                     },
                     child: Text(
                       "合\n计",
-                      style: TextStyle(
-                          fontSize: 18,
-                          color: appTheme.tradeDetailIndex == 0
-                              ? Colors.yellow
-                              : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                     )),
                 const SizedBox(height: 20),
                 Button(
-                  style: const ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.all(10)),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                  style:
+                      const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                   onPressed: () {
                     appTheme.tradeDetailIndex = 1;
                   },
                   child: Text(
                     "明\n细",
-                    style: TextStyle(
-                        fontSize: 18,
-                        color: appTheme.tradeDetailIndex == 1
-                            ? Colors.yellow
-                            : appTheme.exchangeTextColor),
+                    style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                   ),
                 ),
               ],
@@ -4087,87 +3160,63 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: closeAllPos,
                         child: Text(
                           "全部平仓",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: quickClose,
                         child: Text(
                           "快捷平仓",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: quickBack,
                         child: Text(
                           "快捷反手",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: quickLock,
                         child: Text(
                           "快捷锁仓",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         onPressed: plSetting,
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         child: Text(
                           "止盈止损",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                   ],
                 ),
                 Expanded(
                   child: Container(
-                    decoration: BoxDecoration(
-                        border: Border.all(color: appTheme.exchangeBgColor)),
+                    decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
                     child: Scrollbar(
                       key: UniqueKey(),
                       controller: scrollController,
-                      style: const ScrollbarThemeData(
-                          thickness: 10,
-                          padding: EdgeInsets.zero,
-                          hoveringPadding: EdgeInsets.zero),
+                      style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                       child: SingleChildScrollView(
                           controller: scrollController,
                           scrollDirection: Axis.horizontal,
@@ -4178,124 +3227,51 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: ListView.builder(
                                   shrinkWrap: true,
                                   itemCount: mHoldList.length + 1,
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
+                                  itemBuilder: (BuildContext context, int index) {
                                     if (index == 0) {
                                       return Row(
                                         children: [
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("合约代码")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("买卖")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("数量")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("可平")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("开仓均价")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("计算价格")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("浮动盈亏")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("保证金占用")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("币种")),
-                                          Expanded(
-                                              flex: 3,
-                                              child: tableTitleItem("合约名称")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("止盈止损")),
+                                          Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                          Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                          Expanded(flex: 1, child: tableTitleItem("数量")),
+                                          Expanded(flex: 1, child: tableTitleItem("可平")),
+                                          Expanded(flex: 2, child: tableTitleItem("开仓均价")),
+                                          Expanded(flex: 2, child: tableTitleItem("计算价格")),
+                                          Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
+                                          Expanded(flex: 2, child: tableTitleItem("保证金占用")),
+                                          Expanded(flex: 1, child: tableTitleItem("币种")),
+                                          Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                          Expanded(flex: 2, child: tableTitleItem("止盈止损")),
                                         ],
                                       );
                                     } else {
                                       return GestureDetector(
                                         child: Container(
-                                          color: mHoldList[index - 1].selected
-                                              ? Colors.black.withOpacity(0.2)
-                                              : Colors.transparent,
+                                          color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                           child: IntrinsicHeight(
                                               child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
                                             children: [
+                                              Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
+                                              Expanded(
+                                                  flex: 1, child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                              Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].quantity ?? 0}")),
+                                              Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].AvailableQty ?? 0}")),
                                               Expanded(
                                                   flex: 2,
-                                                  child: tableTitleItem(
-                                                      mHoldList[index - 1]
-                                                          .code)),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      mHoldList[index - 1]
-                                                                  .orderSide ==
-                                                              SideType.SIDE_SELL
-                                                          ? "卖出"
-                                                          : "买入")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      "${mHoldList[index - 1].quantity ?? 0}")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      "${mHoldList[index - 1].AvailableQty ?? 0}")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      Utils.d2SBySrc(
-                                                          mHoldList[index - 1]
-                                                              .open,
-                                                          mHoldList[index - 1]
-                                                              .FutureTickSize))),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      "${mHoldList[index - 1].CalculatePrice ?? 0}")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      Utils.d2SBySrc(
-                                                          mHoldList[index - 1]
-                                                              .floatProfit,
-                                                          2))),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      Utils.d2SBySrc(
-                                                          mHoldList[index - 1]
-                                                              .margin,
-                                                          2))),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      mHoldList[index - 1]
-                                                          .CurrencyType)),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child: tableTitleItem(
-                                                      mHoldList[index - 1]
-                                                          .name)),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tablePlItem(
-                                                      win: false, lose: false)),
+                                                  child:
+                                                      tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
+                                              Expanded(flex: 2, child: tableTitleItem("${mHoldList[index - 1].CalculatePrice ?? 0}")),
+                                              Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
+                                              Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
+                                              Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
+                                              Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
+                                              Expanded(flex: 2, child: tablePlItem(win: false, lose: false)),
                                             ],
                                           )),
                                         ),
                                         onTap: () {
-                                          if (mHoldList[index - 1].selected ==
-                                              true) return;
+                                          if (mHoldList[index - 1].selected == true) return;
                                           for (var element in mHoldList) {
                                             element.selected = false;
                                           }
@@ -4358,8 +3334,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           height: boxHeight,
                           margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
                           child: AutoSuggestBox(
-                            controller:
-                                TextEditingController(text: contract.code),
+                            controller: TextEditingController(text: contract.code),
                             items: allContracts.map((e) {
                               return AutoSuggestBoxItem<Contract>(
                                 value: e,
@@ -4517,10 +3492,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         ),
                       ),
                       Button(
-                          style: const ButtonStyle(
-                              padding: WidgetStatePropertyAll(
-                                  EdgeInsets.symmetric(
-                                      horizontal: 12, vertical: 5))),
+                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 12, vertical: 5))),
                           onPressed: () {
                             type = "市价";
                             wtPrice = 0;
@@ -4540,12 +3512,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     children: [
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.red, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -4553,15 +3521,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeBuyPrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 135,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -4569,8 +3535,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "买入",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -4583,8 +3548,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           }
                           int mOrderPriceType = Order_Type.ORDER_TYPE_MARKET,
                               mTimeInForce = 1,
-                              mPositionEffect =
-                                  PositionEffectType.PositionEffect_COVER;
+                              mPositionEffect = PositionEffectType.PositionEffect_COVER;
                           int mTriggerPriceType = 1, mConditionType = 1;
                           if (type == "限价") {
                             mOrderPriceType = Order_Type.ORDER_TYPE_LIMIT;
@@ -4593,8 +3557,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             mTimeInForce = 2;
                           }
                           if (open) {
-                            mPositionEffect =
-                                PositionEffectType.PositionEffect_OPEN;
+                            mPositionEffect = PositionEffectType.PositionEffect_OPEN;
                           }
                           if (selectedPrice == "买价") {
                             mTriggerPriceType = 2;
@@ -4604,31 +3567,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           if (priceType == "<=") {
                             mConditionType = 2;
                           }
-                          reqAddCondition(
-                              contract.exCode,
-                              contract.subComCode,
-                              contract.comType,
-                              contract.subConCode,
-                              mOrderPriceType,
-                              mTimeInForce,
-                              "",
-                              SideType.SIDE_BUY,
-                              wtPrice,
-                              num,
-                              mPositionEffect,
-                              mTriggerPriceType,
-                              mConditionType,
-                              cfPrice);
+                          reqAddCondition(contract.exCode, contract.subComCode, contract.comType, contract.subConCode, mOrderPriceType, mTimeInForce,
+                              "", SideType.SIDE_BUY, wtPrice, num, mPositionEffect, mTriggerPriceType, mConditionType, cfPrice);
                         },
                       ),
                       GestureDetector(
                         child: Container(
-                          decoration: BoxDecoration(
-                              color: Colors.green,
-                              borderRadius:
-                                  const BorderRadius.all(Radius.circular(5))),
-                          margin: const EdgeInsets.symmetric(
-                              vertical: 20, horizontal: 8),
+                          decoration: BoxDecoration(color: Colors.green, borderRadius: const BorderRadius.all(Radius.circular(5))),
+                          margin: const EdgeInsets.symmetric(vertical: 20, horizontal: 8),
                           child: Column(
                             children: [
                               Padding(
@@ -4636,15 +3582,13 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   tradeSalePrice,
                                   maxLines: 1,
-                                  style: const TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: const TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                               Container(
                                 height: 1,
                                 width: 135,
-                                margin:
-                                    const EdgeInsets.symmetric(horizontal: 10),
+                                margin: const EdgeInsets.symmetric(horizontal: 10),
                                 color: Colors.white,
                               ),
                               const Padding(
@@ -4652,8 +3596,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 child: AutoSizeText(
                                   "卖出",
                                   maxLines: 1,
-                                  style: TextStyle(
-                                      color: Colors.white, fontSize: 21),
+                                  style: TextStyle(color: Colors.white, fontSize: 21),
                                 ),
                               ),
                             ],
@@ -4666,8 +3609,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           }
                           int mOrderPriceType = Order_Type.ORDER_TYPE_MARKET,
                               mTimeInForce = 1,
-                              mPositionEffect =
-                                  PositionEffectType.PositionEffect_COVER;
+                              mPositionEffect = PositionEffectType.PositionEffect_COVER;
                           int mTriggerPriceType = 1, mConditionType = 1;
                           if (type == "限价") {
                             mOrderPriceType = Order_Type.ORDER_TYPE_LIMIT;
@@ -4676,8 +3618,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             mTimeInForce = 2;
                           }
                           if (open) {
-                            mPositionEffect =
-                                PositionEffectType.PositionEffect_OPEN;
+                            mPositionEffect = PositionEffectType.PositionEffect_OPEN;
                           }
                           if (selectedPrice == "买价") {
                             mTriggerPriceType = 2;
@@ -4687,21 +3628,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                           if (priceType == "<=") {
                             mConditionType = 2;
                           }
-                          reqAddCondition(
-                              contract.exCode,
-                              contract.subComCode,
-                              contract.comType,
-                              contract.subConCode,
-                              mOrderPriceType,
-                              mTimeInForce,
-                              "",
-                              SideType.SIDE_SELL,
-                              wtPrice,
-                              num,
-                              mPositionEffect,
-                              mTriggerPriceType,
-                              mConditionType,
-                              cfPrice);
+                          reqAddCondition(contract.exCode, contract.subComCode, contract.comType, contract.subConCode, mOrderPriceType, mTimeInForce,
+                              "", SideType.SIDE_SELL, wtPrice, num, mPositionEffect, mTriggerPriceType, mConditionType, cfPrice);
                         },
                       )
                     ],
@@ -4722,8 +3650,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         child: Padding(
       padding: const EdgeInsets.all(5),
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(
-            scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -4736,47 +3663,35 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: () async {
                           await rustDeskWinManager.newCondition("condition");
                         },
                         child: Text(
                           "条件单修改",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                     const SizedBox(width: 15),
                     Button(
                         style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(
-                                EdgeInsets.symmetric(
-                                    vertical: 5, horizontal: 10)),
-                            shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder())),
+                            padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: delCondition,
                         child: Text(
                           "条件单删除",
-                          style: TextStyle(
-                              fontSize: 14, color: appTheme.exchangeTextColor),
+                          style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                         )),
                   ],
                 ),
                 Expanded(
                   child: Container(
-                    decoration: BoxDecoration(
-                        border: Border.all(color: appTheme.exchangeBgColor)),
+                    decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
                     child: Scrollbar(
                       key: UniqueKey(),
                       controller: scrollController,
-                      style: const ScrollbarThemeData(
-                          thickness: 10,
-                          padding: EdgeInsets.zero,
-                          hoveringPadding: EdgeInsets.zero),
+                      style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                       child: SingleChildScrollView(
                           controller: scrollController,
                           scrollDirection: Axis.horizontal,
@@ -4786,53 +3701,27 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: ListView.builder(
                                   shrinkWrap: true,
                                   itemCount: mConditionList.length + 1,
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
+                                  itemBuilder: (BuildContext context, int index) {
                                     if (index == 0) {
                                       return Row(
                                         children: [
-                                          Expanded(
-                                              flex: 3,
-                                              child: tableTitleItem("条件单编号")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("状态")),
-                                          Expanded(
-                                              flex: 6,
-                                              child: tableTitleItem("条件")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("下单类型")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("下单价格")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("买卖")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("开平")),
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("数量")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("有效日期")),
-                                          Expanded(
-                                              flex: 3,
-                                              child: tableTitleItem("备注")),
-                                          Expanded(
-                                              flex: 3,
-                                              child: tableTitleItem("创建时间")),
-                                          Expanded(
-                                              flex: 3,
-                                              child: tableTitleItem("触发时间")),
+                                          Expanded(flex: 3, child: tableTitleItem("条件单编号")),
+                                          Expanded(flex: 2, child: tableTitleItem("状态")),
+                                          Expanded(flex: 6, child: tableTitleItem("条件")),
+                                          Expanded(flex: 2, child: tableTitleItem("下单类型")),
+                                          Expanded(flex: 2, child: tableTitleItem("下单价格")),
+                                          Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                          Expanded(flex: 1, child: tableTitleItem("开平")),
+                                          Expanded(flex: 1, child: tableTitleItem("数量")),
+                                          Expanded(flex: 2, child: tableTitleItem("有效日期")),
+                                          Expanded(flex: 3, child: tableTitleItem("备注")),
+                                          Expanded(flex: 3, child: tableTitleItem("创建时间")),
+                                          Expanded(flex: 3, child: tableTitleItem("触发时间")),
                                         ],
                                       );
                                     } else {
                                       String priceType = "";
-                                      switch (
-                                          mConditionList[index - 1].PriceType) {
+                                      switch (mConditionList[index - 1].PriceType) {
                                         case 1:
                                           priceType = "最新价";
                                           break;
@@ -4845,20 +3734,16 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                       }
                                       String constr =
                                           "${mConditionList[index - 1].ContractName}(${mConditionList[index - 1].CommodityNo}${mConditionList[index - 1].ContractNo})";
-                                      switch (mConditionList[index - 1]
-                                          .ConditionType) {
+                                      switch (mConditionList[index - 1].ConditionType) {
                                         case 1:
-                                          constr =
-                                              "$constr $priceType>=${mConditionList[index - 1].ConditionPrice}";
+                                          constr = "$constr $priceType>=${mConditionList[index - 1].ConditionPrice}";
                                           break;
                                         case 2:
-                                          constr =
-                                              "$constr $priceType<=${mConditionList[index - 1].ConditionPrice}";
+                                          constr = "$constr $priceType<=${mConditionList[index - 1].ConditionPrice}";
                                           break;
                                       }
                                       String status = "";
-                                      switch (
-                                          mConditionList[index - 1].Status) {
+                                      switch (mConditionList[index - 1].Status) {
                                         case 1:
                                           status = "未触发";
                                           break;
@@ -4877,95 +3762,39 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                       }
                                       return GestureDetector(
                                         child: Container(
-                                          color: mConditionList[index - 1]
-                                                  .selected
-                                              ? Colors.black.withOpacity(0.2)
-                                              : Colors.transparent,
+                                          color: mConditionList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                           child: IntrinsicHeight(
                                               child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
                                             children: [
-                                              Expanded(
-                                                  flex: 3,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                          .ConditionOrderNo)),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem(status)),
-                                              Expanded(
-                                                  flex: 6,
-                                                  child:
-                                                      tableTitleItem(constr)),
+                                              Expanded(flex: 3, child: tableTitleItem(mConditionList[index - 1].ConditionOrderNo)),
+                                              Expanded(flex: 2, child: tableTitleItem(status)),
+                                              Expanded(flex: 6, child: tableTitleItem(constr)),
                                               Expanded(
                                                   flex: 2,
                                                   child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                                  .OrderType ==
-                                                              Order_Type
-                                                                  .ORDER_TYPE_MARKET
-                                                          ? "市价"
-                                                          : "限价")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      "${mConditionList[index - 1].OrderPrice ?? 0}")),
+                                                      mConditionList[index - 1].OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : "限价")),
+                                              Expanded(flex: 2, child: tableTitleItem("${mConditionList[index - 1].OrderPrice ?? 0}")),
                                               Expanded(
                                                   flex: 1,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                                  .OrderSide ==
-                                                              SideType.SIDE_SELL
-                                                          ? "卖出"
-                                                          : "买入")),
+                                                  child: tableTitleItem(mConditionList[index - 1].OrderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
                                               Expanded(
                                                   flex: 1,
-                                                  child: tableTitleItem(
-                                                      PositionEffectType.getName(
-                                                          mConditionList[
-                                                                  index - 1]
-                                                              .PositionEffect))),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      "${mConditionList[index - 1].OrderQty ?? 0}")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                                  .TimeInForce ==
-                                                              1
-                                                          ? "当日有效"
-                                                          : "永久有效")),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                          .SubmitResultsMsg)),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                          .CreateAt)),
-                                              Expanded(
-                                                  flex: 3,
-                                                  child: tableTitleItem(
-                                                      mConditionList[index - 1]
-                                                          .UpdateAt)),
+                                                  child: tableTitleItem(PositionEffectType.getName(mConditionList[index - 1].PositionEffect))),
+                                              Expanded(flex: 1, child: tableTitleItem("${mConditionList[index - 1].OrderQty ?? 0}")),
+                                              Expanded(flex: 2, child: tableTitleItem(mConditionList[index - 1].TimeInForce == 1 ? "当日有效" : "永久有效")),
+                                              Expanded(flex: 3, child: tableTitleItem(mConditionList[index - 1].SubmitResultsMsg)),
+                                              Expanded(flex: 3, child: tableTitleItem(mConditionList[index - 1].CreateAt)),
+                                              Expanded(flex: 3, child: tableTitleItem(mConditionList[index - 1].UpdateAt)),
                                             ],
                                           )),
                                         ),
                                         onTap: () {
-                                          if (mConditionList[index - 1]
-                                                  .selected ==
-                                              true) return;
+                                          if (mConditionList[index - 1].selected == true) return;
                                           for (var element in mConditionList) {
                                             element.selected = false;
                                           }
-                                          mConditionList[index - 1].selected =
-                                              true;
+                                          mConditionList[index - 1].selected = true;
                                           if (mounted) setState(() {});
                                         },
                                       );
@@ -4984,10 +3813,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///查询
   Widget queryWidget() {
-    TextEditingController startController =
-        TextEditingController(text: formatter.format(startTime));
-    TextEditingController endController =
-        TextEditingController(text: formatter.format(endTime));
+    TextEditingController startController = TextEditingController(text: formatter.format(startTime));
+    TextEditingController endController = TextEditingController(text: formatter.format(endTime));
     ScrollController scrollController = ScrollController();
     return Expanded(
       child: StatefulBuilder(builder: (_, state) {
@@ -5005,18 +3832,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: queryIndex == 0
-                                                ? Colors.yellow
-                                                : Colors.transparent))),
+                                decoration:
+                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 0 ? Colors.yellow : Colors.transparent))),
                                 child: Text(
                                   "资金状况",
-                                  style: TextStyle(
-                                      color: queryIndex == 0
-                                          ? Colors.yellow
-                                          : appTheme.exchangeTextColor),
+                                  style: TextStyle(color: queryIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                                 ),
                               ),
                               onTap: () => state(() => queryIndex = 0))),
@@ -5025,18 +3845,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: queryIndex == 1
-                                                ? Colors.yellow
-                                                : Colors.transparent))),
+                                decoration:
+                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 1 ? Colors.yellow : Colors.transparent))),
                                 child: Text(
                                   "历史成交",
-                                  style: TextStyle(
-                                      color: queryIndex == 1
-                                          ? Colors.yellow
-                                          : appTheme.exchangeTextColor),
+                                  style: TextStyle(color: queryIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                                 ),
                               ),
                               onTap: () => state(() => queryIndex = 1))),
@@ -5045,18 +3858,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: queryIndex == 2
-                                                ? Colors.yellow
-                                                : Colors.transparent))),
+                                decoration:
+                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 2 ? Colors.yellow : Colors.transparent))),
                                 child: Text(
                                   "结算单",
-                                  style: TextStyle(
-                                      color: queryIndex == 2
-                                          ? Colors.yellow
-                                          : appTheme.exchangeTextColor),
+                                  style: TextStyle(color: queryIndex == 2 ? Colors.yellow : appTheme.exchangeTextColor),
                                 ),
                               ),
                               onTap: () => state(() => queryIndex = 2))),
@@ -5065,18 +3871,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               child: Container(
                                 padding: const EdgeInsets.all(8),
                                 alignment: Alignment.center,
-                                decoration: BoxDecoration(
-                                    border: Border(
-                                        bottom: BorderSide(
-                                            color: queryIndex == 3
-                                                ? Colors.yellow
-                                                : Colors.transparent))),
+                                decoration:
+                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 3 ? Colors.yellow : Colors.transparent))),
                                 child: Text(
                                   "出入金",
-                                  style: TextStyle(
-                                      color: queryIndex == 3
-                                          ? Colors.yellow
-                                          : appTheme.exchangeTextColor),
+                                  style: TextStyle(color: queryIndex == 3 ? Colors.yellow : appTheme.exchangeTextColor),
                                 ),
                               ),
                               onTap: () => state(() => queryIndex = 3))),
@@ -5088,25 +3887,16 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      Text("开始日期:",
-                          style: TextStyle(
-                              color: appTheme.exchangeTextColor, fontSize: 13)),
+                      Text("开始日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)),
                       SizedBox(
                         width: 108,
                         child: TextBox(
-                          decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(0),
-                              border: Border.all(color: Colors.yellow)),
+                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
                           controller: startController,
-                          inputFormatters: [
-                            FilteringTextInputFormatter(RegExp("[0-9 -:]"),
-                                allow: true)
-                          ],
+                          inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
                           suffix: IconButton(
                             icon: const Icon(FluentIcons.calendar),
-                            style: const ButtonStyle(
-                                padding: WidgetStatePropertyAll(
-                                    EdgeInsets.only(right: 3))),
+                            style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
                             onPressed: () async {
                               await showOmniDateTimePicker(
                                 context: context,
@@ -5117,41 +3907,25 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                   maxWidth: 350,
                                   maxHeight: 380,
                                 ),
-                                transitionDuration:
-                                    const Duration(milliseconds: 200),
+                                transitionDuration: const Duration(milliseconds: 200),
                                 barrierDismissible: true,
                               ).then((value) => {
-                                    if (value != null)
-                                      {
-                                        startTime = value,
-                                        startController.text =
-                                            formatter.format(startTime),
-                                        state(() {})
-                                      }
+                                    if (value != null) {startTime = value, startController.text = formatter.format(startTime), state(() {})}
                                   });
                             },
                           ),
                         ),
                       ),
-                      Text("结束日期:",
-                          style: TextStyle(
-                              color: appTheme.exchangeTextColor, fontSize: 13)),
+                      Text("结束日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)),
                       SizedBox(
                           width: 108,
                           child: TextBox(
-                            decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(0),
-                                border: Border.all(color: Colors.yellow)),
+                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
                             controller: endController,
-                            inputFormatters: [
-                              FilteringTextInputFormatter(RegExp("[0-9 -:]"),
-                                  allow: true)
-                            ],
+                            inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
                             suffix: IconButton(
                               icon: const Icon(FluentIcons.calendar),
-                              style: const ButtonStyle(
-                                  padding: WidgetStatePropertyAll(
-                                      EdgeInsets.only(right: 3))),
+                              style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
                               onPressed: () async {
                                 await showOmniDateTimePicker(
                                   context: context,
@@ -5162,17 +3936,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                     maxWidth: 350,
                                     maxHeight: 380,
                                   ),
-                                  transitionDuration:
-                                      const Duration(milliseconds: 200),
+                                  transitionDuration: const Duration(milliseconds: 200),
                                   barrierDismissible: true,
                                 ).then((value) => {
-                                      if (value != null)
-                                        {
-                                          endTime = value,
-                                          endController.text =
-                                              formatter.format(endTime),
-                                          state(() {})
-                                        }
+                                      if (value != null) {endTime = value, endController.text = formatter.format(endTime), state(() {})}
                                     });
                               },
                             ),
@@ -5184,13 +3951,9 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   ),
                   Button(
                       style: ButtonStyle(
-                          backgroundColor:
-                              WidgetStatePropertyAll(Colors.yellow),
-                          padding: const WidgetStatePropertyAll(
-                              EdgeInsets.symmetric(
-                                  vertical: 5, horizontal: 25)),
-                          shape: const WidgetStatePropertyAll(
-                              RoundedRectangleBorder())),
+                          backgroundColor: WidgetStatePropertyAll(Colors.yellow),
+                          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 25)),
+                          shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
                       child: const Text(
                         "查询",
                         style: TextStyle(color: Colors.black),
@@ -5217,21 +3980,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
             Expanded(
               child: queryIndex == 0
                   ? ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(context).copyWith(
-                          scrollbars: false,
-                          physics: const AlwaysScrollableScrollPhysics()),
+                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
                       child: Container(
                         margin: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(
-                            border:
-                                Border.all(color: appTheme.exchangeBgColor)),
+                        decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                         child: Scrollbar(
                           key: UniqueKey(),
                           controller: scrollController,
-                          style: const ScrollbarThemeData(
-                              thickness: 10,
-                              padding: EdgeInsets.zero,
-                              hoveringPadding: EdgeInsets.zero),
+                          style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                           child: SingleChildScrollView(
                               controller: scrollController,
                               scrollDirection: Axis.horizontal,
@@ -5242,155 +3998,53 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                   child: ListView.builder(
                                       shrinkWrap: true,
                                       itemCount: capitals.length + 1,
-                                      itemBuilder:
-                                          (BuildContext context, int index) {
+                                      itemBuilder: (BuildContext context, int index) {
                                         if (index == 0) {
                                           return Row(
                                             children: [
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("初期资金")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("期末资金")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("用户权益")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("可用资金")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("保证金占用")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("出入金")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("平仓盈亏")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child:
-                                                      tableTitleItem("浮动盈亏")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("手续费")),
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem("风险度")),
+                                              Expanded(flex: 1, child: tableTitleItem("初期资金")),
+                                              Expanded(flex: 1, child: tableTitleItem("期末资金")),
+                                              Expanded(flex: 1, child: tableTitleItem("用户权益")),
+                                              Expanded(flex: 1, child: tableTitleItem("可用资金")),
+                                              Expanded(flex: 1, child: tableTitleItem("保证金占用")),
+                                              Expanded(flex: 1, child: tableTitleItem("出入金")),
+                                              Expanded(flex: 1, child: tableTitleItem("平仓盈亏")),
+                                              Expanded(flex: 1, child: tableTitleItem("浮动盈亏")),
+                                              Expanded(flex: 1, child: tableTitleItem("手续费")),
+                                              Expanded(flex: 1, child: tableTitleItem("风险度")),
                                             ],
                                           );
                                         } else {
                                           return GestureDetector(
                                             child: Container(
-                                              color:
-                                                  capitals[index - 1].selected
-                                                      ? Colors.black
-                                                          .withOpacity(0.2)
-                                                      : Colors.transparent,
+                                              color: capitals[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                               child: IntrinsicHeight(
                                                   child: Row(
-                                                crossAxisAlignment:
-                                                    CrossAxisAlignment.stretch,
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                                 children: [
                                                   Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .TermInitial
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
+                                                      flex: 1, child: tableTitleItem(capitals[index - 1].TermInitial?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].TermEnd?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Equity?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Available1?.toStringAsFixed(2) ?? "0")),
                                                   Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .TermEnd
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
+                                                      flex: 1, child: tableTitleItem(capitals[index - 1].OccupyDeposit?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].CashValue?.toStringAsFixed(2) ?? "0")),
                                                   Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .Equity
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
+                                                      flex: 1, child: tableTitleItem(capitals[index - 1].CloseProfit?.toStringAsFixed(2) ?? "0")),
                                                   Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .Available1
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .OccupyDeposit
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .CashValue
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .CloseProfit
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .PositionFloat
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .Fee
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
-                                                  Expanded(
-                                                      flex: 1,
-                                                      child: tableTitleItem(
-                                                          capitals[index - 1]
-                                                                  .Equity
-                                                                  ?.toStringAsFixed(
-                                                                      2) ??
-                                                              "0")),
+                                                      flex: 1, child: tableTitleItem(capitals[index - 1].PositionFloat?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Fee?.toStringAsFixed(2) ?? "0")),
+                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Equity?.toStringAsFixed(2) ?? "0")),
                                                 ],
                                               )),
                                             ),
                                             onTap: () {
-                                              if (capitals[index - 1]
-                                                      .selected ==
-                                                  true) return;
+                                              if (capitals[index - 1].selected == true) return;
                                               for (var element in capitals) {
                                                 element.selected = false;
                                               }
-                                              capitals[index - 1].selected =
-                                                  true;
+                                              capitals[index - 1].selected = true;
                                               if (mounted) setState(() {});
                                             },
                                           );
@@ -5406,11 +4060,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             Container(
                               margin: const EdgeInsets.all(10),
                               child: RichText(
-                                text: const TextSpan(children: [
-                                  TextSpan(text: "账户："),
-                                  TextSpan(text: "姓名："),
-                                  TextSpan(text: "日期：")
-                                ]),
+                                text: const TextSpan(children: [TextSpan(text: "账户："), TextSpan(text: "姓名："), TextSpan(text: "日期：")]),
                               ),
                             ),
                             Row(
@@ -5418,103 +4068,69 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 const SizedBox(width: 10),
                                 Button(
                                     style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(
-                                            EdgeInsets.symmetric(
-                                                vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder())),
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                     onPressed: () {},
                                     child: Text(
                                       "资金状况",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                     )),
                                 const SizedBox(width: 15),
                                 Button(
                                     style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(
-                                            EdgeInsets.symmetric(
-                                                vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder())),
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                     onPressed: () {},
                                     child: Text(
                                       "成交记录",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                     )),
                                 const SizedBox(width: 15),
                                 Button(
                                     style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(
-                                            EdgeInsets.symmetric(
-                                                vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder())),
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                     onPressed: () {},
                                     child: Text(
                                       "平仓明细",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                     )),
                                 const SizedBox(width: 15),
                                 Button(
                                     style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(
-                                            EdgeInsets.symmetric(
-                                                vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder())),
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                     onPressed: () {},
                                     child: Text(
                                       "持仓明细",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                     )),
                                 const SizedBox(width: 15),
                                 Button(
                                     onPressed: () {},
                                     style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(
-                                            EdgeInsets.symmetric(
-                                                vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(
-                                            RoundedRectangleBorder())),
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                     child: Text(
                                       "持仓汇总",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                     )),
                               ],
                             ),
                             Expanded(
                                 child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(context).copyWith(
-                                  scrollbars: false,
-                                  physics:
-                                      const AlwaysScrollableScrollPhysics()),
+                              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
                               child: Container(
                                 margin: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color: appTheme.exchangeBgColor)),
+                                decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                                 child: Scrollbar(
                                   key: UniqueKey(),
                                   controller: scrollController,
-                                  style: const ScrollbarThemeData(
-                                      thickness: 10,
-                                      padding: EdgeInsets.zero,
-                                      hoveringPadding: EdgeInsets.zero),
+                                  style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                                   child: SingleChildScrollView(
                                       controller: scrollController,
                                       scrollDirection: Axis.horizontal,
-                                      physics:
-                                          const AlwaysScrollableScrollPhysics(),
+                                      physics: const AlwaysScrollableScrollPhysics(),
                                       child: Container(
                                           width: 0.8.sw,
                                           alignment: Alignment.topLeft,
@@ -5522,52 +4138,20 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                               shrinkWrap: true,
                                               itemCount: 1,
                                               // itemCount: data.length + 1,
-                                              itemBuilder:
-                                                  (BuildContext context,
-                                                      int index) {
+                                              itemBuilder: (BuildContext context, int index) {
                                                 // if (index == 0) {
                                                 return Row(
                                                   children: [
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "初期资金")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "期末资金")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "用户权益")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "可用资金")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "保证金占用")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "出入金")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "平仓盈亏")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "浮动盈亏")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "手续费")),
-                                                    Expanded(
-                                                        flex: 1,
-                                                        child: tableTitleItem(
-                                                            "风险度")),
+                                                    Expanded(flex: 1, child: tableTitleItem("初期资金")),
+                                                    Expanded(flex: 1, child: tableTitleItem("期末资金")),
+                                                    Expanded(flex: 1, child: tableTitleItem("用户权益")),
+                                                    Expanded(flex: 1, child: tableTitleItem("可用资金")),
+                                                    Expanded(flex: 1, child: tableTitleItem("保证金占用")),
+                                                    Expanded(flex: 1, child: tableTitleItem("出入金")),
+                                                    Expanded(flex: 1, child: tableTitleItem("平仓盈亏")),
+                                                    Expanded(flex: 1, child: tableTitleItem("浮动盈亏")),
+                                                    Expanded(flex: 1, child: tableTitleItem("手续费")),
+                                                    Expanded(flex: 1, child: tableTitleItem("风险度")),
                                                   ],
                                                 );
                                                 // }
@@ -5609,73 +4193,40 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       : queryIndex == 3
                           ? Container(
                               margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
-                              decoration: BoxDecoration(
-                                  border: Border.all(
-                                      color: appTheme.exchangeBgColor)),
+                              decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                               alignment: Alignment.topLeft,
                               child: ListView.builder(
                                   shrinkWrap: true,
                                   itemCount: withdrawalRecord.length + 1,
-                                  itemBuilder:
-                                      (BuildContext context, int index) {
+                                  itemBuilder: (BuildContext context, int index) {
                                     if (index == 0) {
                                       return Row(
                                         children: [
-                                          Expanded(
-                                              flex: 1,
-                                              child: tableTitleItem("时间")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("入金")),
-                                          Expanded(
-                                              flex: 2,
-                                              child: tableTitleItem("出金")),
+                                          Expanded(flex: 1, child: tableTitleItem("时间")),
+                                          Expanded(flex: 2, child: tableTitleItem("入金")),
+                                          Expanded(flex: 2, child: tableTitleItem("出金")),
                                         ],
                                       );
                                     } else {
                                       return GestureDetector(
                                         child: Container(
-                                          color: withdrawalRecord[index - 1]
-                                                  .selected
-                                              ? Colors.black.withOpacity(0.2)
-                                              : Colors.transparent,
+                                          color: withdrawalRecord[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                           child: IntrinsicHeight(
                                               child: Row(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.stretch,
+                                            crossAxisAlignment: CrossAxisAlignment.stretch,
                                             children: [
-                                              Expanded(
-                                                  flex: 1,
-                                                  child: tableTitleItem(
-                                                      withdrawalRecord[
-                                                              index - 1]
-                                                          .Time
-                                                          .toString())),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      withdrawalRecord[
-                                                              index - 1]
-                                                          .Currency)),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child: tableTitleItem(
-                                                      withdrawalRecord[
-                                                              index - 1]
-                                                          .Currency))
+                                              Expanded(flex: 1, child: tableTitleItem(withdrawalRecord[index - 1].Time.toString())),
+                                              Expanded(flex: 2, child: tableTitleItem(withdrawalRecord[index - 1].Currency)),
+                                              Expanded(flex: 2, child: tableTitleItem(withdrawalRecord[index - 1].Currency))
                                             ],
                                           )),
                                         ),
                                         onTap: () {
-                                          if (withdrawalRecord[index - 1]
-                                                  .selected ==
-                                              true) return;
-                                          for (var element
-                                              in withdrawalRecord) {
+                                          if (withdrawalRecord[index - 1].selected == true) return;
+                                          for (var element in withdrawalRecord) {
                                             element.selected = false;
                                           }
-                                          withdrawalRecord[index - 1].selected =
-                                              true;
+                                          withdrawalRecord[index - 1].selected = true;
                                           if (mounted) setState(() {});
                                         },
                                       );
@@ -5703,19 +4254,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       margin: const EdgeInsets.all(8),
                       width: 68,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          border: Border(
-                              right: BorderSide(
-                                  width: 3,
-                                  color: settingIndex == 0
-                                      ? Colors.yellow
-                                      : Colors.transparent))),
+                      decoration:
+                          BoxDecoration(border: Border(right: BorderSide(width: 3, color: settingIndex == 0 ? Colors.yellow : Colors.transparent))),
                       child: Text(
                         "止盈止损",
-                        style: TextStyle(
-                            color: settingIndex == 0
-                                ? Colors.yellow
-                                : appTheme.exchangeTextColor),
+                        style: TextStyle(color: settingIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
                       ),
                     ),
                     onTap: () => state(() => settingIndex = 0)),
@@ -5724,19 +4267,11 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                       margin: const EdgeInsets.all(8),
                       width: 68,
                       alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                          border: Border(
-                              right: BorderSide(
-                                  width: 3,
-                                  color: settingIndex == 1
-                                      ? Colors.yellow
-                                      : Colors.transparent))),
+                      decoration:
+                          BoxDecoration(border: Border(right: BorderSide(width: 3, color: settingIndex == 1 ? Colors.yellow : Colors.transparent))),
                       child: Text(
                         "系统",
-                        style: TextStyle(
-                            color: settingIndex == 1
-                                ? Colors.yellow
-                                : appTheme.exchangeTextColor),
+                        style: TextStyle(color: settingIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
                       ),
                     ),
                     onTap: () => state(() => settingIndex = 1)),
@@ -5757,27 +4292,18 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               itemBuilder: (BuildContext context, int index) {
                                 return GestureDetector(
                                   child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 8, horizontal: 28),
+                                    padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 28),
                                     decoration: BoxDecoration(
-                                        border: Border(
-                                            bottom: BorderSide(
-                                                width: 2,
-                                                color: exchangeIndex == index
-                                                    ? Colors.yellow
-                                                    : Colors.transparent))),
+                                        border:
+                                            Border(bottom: BorderSide(width: 2, color: exchangeIndex == index ? Colors.yellow : Colors.transparent))),
                                     child: Text(
                                       exchangeList[index].exchangeNo ?? "--",
-                                      style: TextStyle(
-                                          color: exchangeIndex == index
-                                              ? Colors.yellow
-                                              : appTheme.exchangeTextColor),
+                                      style: TextStyle(color: exchangeIndex == index ? Colors.yellow : appTheme.exchangeTextColor),
                                     ),
                                   ),
                                   onTap: () => state(() {
                                     exchangeIndex = index;
-                                    commodityList = Utils.getVariety(
-                                        exchangeList[index].exchangeNo);
+                                    commodityList = Utils.getVariety(exchangeList[index].exchangeNo);
                                   }),
                                 );
                               }),
@@ -5790,30 +4316,14 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                   if (index == 0) {
                                     return Row(
                                       children: [
-                                        Expanded(
-                                            flex: 3,
-                                            child: tableTitleItem("名称")),
-                                        Expanded(
-                                            flex: 3,
-                                            child: tableTitleItem("代码")),
-                                        Expanded(
-                                            flex: 4,
-                                            child: tableTitleItem("止损策略")),
-                                        Expanded(
-                                            flex: 4,
-                                            child: tableTitleItem("有效期")),
-                                        Expanded(
-                                            flex: 3,
-                                            child: tableTitleItem("跳价单位")),
-                                        Expanded(
-                                            flex: 3,
-                                            child: tableTitleItem("止盈跳点数")),
-                                        Expanded(
-                                            flex: 3,
-                                            child: tableTitleItem("止损跳点数")),
-                                        Expanded(
-                                            flex: 2,
-                                            child: tableTitleItem("操作")),
+                                        Expanded(flex: 3, child: tableTitleItem("名称")),
+                                        Expanded(flex: 3, child: tableTitleItem("代码")),
+                                        Expanded(flex: 4, child: tableTitleItem("止损策略")),
+                                        Expanded(flex: 4, child: tableTitleItem("有效期")),
+                                        Expanded(flex: 3, child: tableTitleItem("跳价单位")),
+                                        Expanded(flex: 3, child: tableTitleItem("止盈跳点数")),
+                                        Expanded(flex: 3, child: tableTitleItem("止损跳点数")),
+                                        Expanded(flex: 2, child: tableTitleItem("操作")),
                                       ],
                                     );
                                   } else {
@@ -5822,42 +4332,16 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                         color: Colors.transparent,
                                         child: IntrinsicHeight(
                                             child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.stretch,
+                                          crossAxisAlignment: CrossAxisAlignment.stretch,
                                           children: [
-                                            Expanded(
-                                                flex: 3,
-                                                child: tableTitleItem(
-                                                    commodityList[index - 1]
-                                                        .shortName)),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tableTitleItem(
-                                                    commodityList[index - 1]
-                                                        .commodityNo)),
-                                            Expanded(
-                                                flex: 4,
-                                                child:
-                                                    tableRadioItem("限价", "追踪")),
-                                            Expanded(
-                                                flex: 4,
-                                                child:
-                                                    tableRadioItem("当日", "永久")),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tableTitleItem(
-                                                    commodityList[index - 1]
-                                                        .commodityTickSize
-                                                        ?.toString())),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tablePointItem()),
-                                            Expanded(
-                                                flex: 3,
-                                                child: tablePointItem()),
-                                            Expanded(
-                                                flex: 2,
-                                                child: tableOperateItem(index)),
+                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].shortName)),
+                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].commodityNo)),
+                                            Expanded(flex: 4, child: tableRadioItem("限价", "追踪")),
+                                            Expanded(flex: 4, child: tableRadioItem("当日", "永久")),
+                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].commodityTickSize?.toString())),
+                                            Expanded(flex: 3, child: tablePointItem()),
+                                            Expanded(flex: 3, child: tablePointItem()),
+                                            Expanded(flex: 2, child: tableOperateItem(index)),
                                           ],
                                         )),
                                       ),
@@ -5877,8 +4361,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         settingItem("是否显示精简模式", false),
                         settingItem("是否弹出交易弹窗", true),
                         settingItem("默认下单类型", true, yes: "限价", no: "市价"),
-                        settingTypeItem("默认下单面板", 0,
-                            yes: "快手下单", no: "三键下单", or: "传统下单"),
+                        settingTypeItem("默认下单面板", 0, yes: "快手下单", no: "三键下单", or: "传统下单"),
                         settingNotItem("成交提示音", "系统提示音"),
                       ],
                     ),
@@ -5887,9 +4370,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
             Container(
               margin: const EdgeInsets.fromLTRB(0, 5, 15, 0),
               child: Button(
-                  style: const ButtonStyle(
-                      padding: WidgetStatePropertyAll(
-                          EdgeInsets.symmetric(vertical: 5, horizontal: 15))),
+                  style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 15))),
                   onPressed: () {},
                   child: const Text("保存")),
             )
@@ -5899,53 +4380,31 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     );
   }
 
-  Widget settingItem(String title, bool checked,
-      {String? yes, String? no, String? or}) {
+  Widget settingItem(String title, bool checked, {String? yes, String? no, String? or}) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Expanded(child: Text(title, maxLines: 1)),
-          Expanded(
-              child: RadioButton(
-                  checked: checked,
-                  content: Text(yes ?? "是"),
-                  onChanged: (v) {})),
-          Expanded(
-              child: RadioButton(
-                  checked: !checked,
-                  content: Text(no ?? "否"),
-                  onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: checked, content: Text(yes ?? "是"), onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: !checked, content: Text(no ?? "否"), onChanged: (v) {})),
           Expanded(child: Container()),
         ],
       ),
     );
   }
 
-  Widget settingTypeItem(String title, int index,
-      {String? yes, String? no, String? or}) {
+  Widget settingTypeItem(String title, int index, {String? yes, String? no, String? or}) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 20),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Expanded(child: Text(title)),
-          Expanded(
-              child: RadioButton(
-                  checked: index == 0,
-                  content: Text(yes ?? "是"),
-                  onChanged: (v) {})),
-          Expanded(
-              child: RadioButton(
-                  checked: index == 1,
-                  content: Text(no ?? "否"),
-                  onChanged: (v) {})),
-          Expanded(
-              child: RadioButton(
-                  checked: index == 2,
-                  content: Text(or ?? "或"),
-                  onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: index == 0, content: Text(yes ?? "是"), onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: index == 1, content: Text(no ?? "否"), onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: index == 2, content: Text(or ?? "或"), onChanged: (v) {})),
         ],
       ),
     );
@@ -5958,9 +4417,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Expanded(child: Text(title)),
-          Expanded(
-              child: RadioButton(
-                  checked: true, content: Text(content), onChanged: (v) {})),
+          Expanded(child: RadioButton(checked: true, content: Text(content), onChanged: (v) {})),
           Expanded(flex: 2, child: Container()),
         ],
       ),
