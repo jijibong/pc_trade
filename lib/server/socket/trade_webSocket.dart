@@ -4,7 +4,6 @@ import 'package:fixnum/fixnum.dart';
 import 'package:web_socket_client/web_socket_client.dart';
 
 import '../../config/config.dart';
-import '../../model/broker/quote_address.dart';
 import '../../model/delegation/res_comm_order.dart';
 import '../../model/delegation/res_del_order.dart';
 import '../../model/pb/trade/cmd.pb.dart';
@@ -13,19 +12,15 @@ import '../../model/quote/order_type.dart';
 import '../../model/quote/position_effect_type.dart';
 import '../../model/quote/time_in_force_type.dart';
 import '../../model/quote/trade_operation.dart';
-import '../../model/socket_packet/operation.dart';
 import '../../model/trade/fund.dart';
 import '../../model/trade/res_float_profit.dart';
 import '../../model/trade/res_hold_order.dart';
 import '../../model/user/user.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
-import '../../util/http/http.dart';
-import '../../util/info_bar/info_bar.dart';
+// import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
-import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
-import '../login/login.dart';
 import '../trade/deal.dart';
 
 class TradeWebSocketServer {
@@ -36,17 +31,20 @@ class TradeWebSocketServer {
 
   void initSocket(String? url) async {
     const backoff = ConstantBackoff(Duration(seconds: 10));
-    socket = WebSocket(Uri.parse('ws://$url:${Config.TradePort}/'), timeout: const Duration(seconds: 10), backoff: backoff, binaryType: 'arraybuffer');
+    socket =
+        WebSocket(Uri.parse('ws://$url:${Config.TradePort}/'), timeout: const Duration(seconds: 10), backoff: backoff, binaryType: 'arraybuffer');
     socket?.messages.listen((message) {
       onReceivedMsg(message);
     });
     socket?.connection.listen((state) {
       if ((state == const Connected() || state == const Reconnected()) && UserUtils.currentUser != null && UserUtils.currentUser!.token != null) {
         CDFYReqUserAuthField authReq = CDFYReqUserAuthField(token: UserUtils.currentUser!.token);
-        cmd c = cmd(option: Option.REQ_OPT_AUTH, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: authReq.writeToBuffer());
+        cmd c =
+            cmd(option: Option.REQ_OPT_AUTH, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: authReq.writeToBuffer());
         socket?.send(c.writeToBuffer());
       } else {
-        logger.f("trade state:$state");
+        // InfoBarUtils.showErrorBar("trade state:$state");
+        logger.w("trade state:$state");
       }
     });
   }
@@ -221,7 +219,7 @@ class TradeWebSocketServer {
       case Option.ON_ACCOUNT_POSITION_UPDATE: // 持仓变化通知
         try {
           CDFYRspPositionDetail rph = CDFYRspPositionDetail.fromBuffer(c.data);
-          logger.i("持仓变化通知: $rph");
+          // logger.i("持仓变化通知: $rph");
           ResHoldOrder rho = ResHoldOrder(
             CommodityNo: rph.commodityNo,
             CommodityType: rph.commodityType,
@@ -301,8 +299,8 @@ class TradeWebSocketServer {
       int PositionEffect = PositionEffectType.PositionEffect_OPEN;
       // String ClientOrderId = DeviceUtil.createLocalOrderId();
 
-      await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice, StopPrice,
-          OrderQty, PositionEffect, "");
+      await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+          StopPrice, OrderQty, PositionEffect, "");
 
       SpUtils.remove(fill.orderLocalID);
     }

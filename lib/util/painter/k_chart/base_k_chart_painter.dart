@@ -169,6 +169,6 @@ abstract class BaseKChartPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(BaseKChartPainter oldDelegate) {
-    return true;
+    return false;
   }
 }

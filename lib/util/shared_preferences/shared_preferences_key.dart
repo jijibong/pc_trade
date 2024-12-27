@@ -4,14 +4,11 @@ class SpKey {
   ///风险揭示书
   static String readRisk = "readRisk";
 
-  ///引导蒙层
-  static String viewContract = "viewContract";
-  static String selectContract = "selectContract";
-
   ///登陆信息
   static String broker = "broker";
   static String account = "account";
   static String password = "password";
+  static String savePwd = "savePwd";
   static String currentUser = "currentUser";
   static String baseUrl = "baseUrl";
 

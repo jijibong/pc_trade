@@ -55,6 +55,7 @@ class QuoteLogic extends GetxController {
   }
 
   loadData() async {
+    if (mExchangeList.isNotEmpty && mContractList.isNotEmpty) return;
     List<Exchange> list = await Utils.getMyExchange(true);
     if (list.isNotEmpty) {
       mExchangeList.clear();
@@ -73,7 +74,7 @@ class QuoteLogic extends GetxController {
   }
 
   ///切换交易所
-  void switchExchange(int index) {
+  void switchExchange(int index) async {
     unSubscriptionQuote();
     selectedExchange.value = mExchangeList[index];
     mExchangeList.refresh();
@@ -126,7 +127,7 @@ class QuoteLogic extends GetxController {
   }
 
   ///获取合约数据
-  void getContract() async {
+  getContract() async {
     mContractList.clear();
     mContractList.addAll(await Utils.getContractWithMain(selectedExchange.value.exchangeNo!));
     refreshData();

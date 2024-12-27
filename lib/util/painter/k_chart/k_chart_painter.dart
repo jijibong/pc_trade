@@ -447,7 +447,6 @@ class ChartPainter extends BaseKChartPainter {
       startX = mPointWidth * i + timeMarginLeft + leftMarginSpace;
       nextX = mPointWidth * num + timeMarginLeft + rightMarginSpace;
       if (i >= mOHLCData.length) break;
-
       if (i < mOHLCData.length) {
         int next = (i + 1) >= mOHLCData.length ? mOHLCData.length - 1 : i + 1;
         closeY = (max - (mOHLCData[i].close ?? 0)) * rate;
@@ -460,8 +459,8 @@ class ChartPainter extends BaseKChartPainter {
     }
     //绘制成交量
     if (mVolData != null && isDrawTimeDown) {
-      mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, leftMarginSpace, rightMarginSpace,
-          MARGINBOTTOM, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
+      mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, leftMarginSpace,
+          rightMarginSpace, MARGINBOTTOM, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
     }
 
     //绘制十字线
@@ -564,8 +563,8 @@ class ChartPainter extends BaseKChartPainter {
 
     //绘制布林线
     if (isDrawBollinger && mBollingerData != null) {
-      mBollingerData?.drawBollinger(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD);
+      mBollingerData?.drawBollinger(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL,
+          BaseKChartPainter.MARGINLEFT, leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD);
     }
   }
 
@@ -675,7 +674,8 @@ class ChartPainter extends BaseKChartPainter {
       if (Port.GoldenList[i].isSelect == false && isShow && code == chartCode) {
         double startY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].startPrice, this, mMaxPrice, mMinPrice);
         double endY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].endPrice, this, mMaxPrice, mMinPrice);
-        double startX = (KUtils.getKNumber(Port.GoldenList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
+        double startX =
+            (KUtils.getKNumber(Port.GoldenList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
         double endX = (KUtils.getKNumber(Port.GoldenList[i].endDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
 
         canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paintG);
@@ -689,7 +689,8 @@ class ChartPainter extends BaseKChartPainter {
     for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
       if (i == 1 || i == DEFAULT_UPER_LATITUDE_NUM) {
         textPaint
-          ..text = TextSpan(text: Utils.getPointNum(mMinPrice + perPrice * i), style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text =
+              TextSpan(text: Utils.getPointNum(mMinPrice + perPrice * i), style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(BaseKChartPainter.MARGINLEFT, UPER_CHART_BOTTOM - latitudeSpacing * i));
@@ -803,8 +804,8 @@ class ChartPainter extends BaseKChartPainter {
     timeStr = Utils.getHourTime(Utils.timeMillisToString(Utils.StringToTime10(startStr)));
     x = timeMarginLeft + leftMarginSpace - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
     y = kChartViewHeight - MARGINBOTTOM;
-    canvas.drawLine(
-        Offset(timeMarginLeft + leftMarginSpace, 0), Offset(timeMarginLeft + leftMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint..strokeWidth = 1.5);
+    canvas.drawLine(Offset(timeMarginLeft + leftMarginSpace, 0), Offset(timeMarginLeft + leftMarginSpace, kChartViewHeight - MARGINBOTTOM),
+        girdPaint..strokeWidth = 1.5);
     textPaint
       ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
       ..textDirection = TextDirection.ltr
@@ -814,14 +815,15 @@ class ChartPainter extends BaseKChartPainter {
     //最后一个时间
     timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
     x = kChartViewWidth - rightMarginSpace - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
-    canvas.drawLine(Offset(kChartViewWidth - rightMarginSpace, 0), Offset(kChartViewWidth - rightMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint);
+    canvas.drawLine(
+        Offset(kChartViewWidth - rightMarginSpace, 0), Offset(kChartViewWidth - rightMarginSpace, kChartViewHeight - MARGINBOTTOM), girdPaint);
     textPaint
       ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(x, y));
-    canvas.drawLine(
-        Offset(timeMarginLeft, kChartViewHeight - MARGINBOTTOM), Offset(kChartViewWidth - timeMarginRight, kChartViewHeight - MARGINBOTTOM), girdPaint);
+    canvas.drawLine(Offset(timeMarginLeft, kChartViewHeight - MARGINBOTTOM),
+        Offset(kChartViewWidth - timeMarginRight, kChartViewHeight - MARGINBOTTOM), girdPaint);
   }
 
   List<OHLCEntity> getOHLCData() {
@@ -930,11 +932,7 @@ class ChartPainter extends BaseKChartPainter {
     }
   }
 
-  static int getMaxPeriod(
-    bool isDrawCost,
-    bool isDrawBollinger,
-    bool isDrawFall
-  ) {
+  static int getMaxPeriod(bool isDrawCost, bool isDrawBollinger, bool isDrawFall) {
     int max = 0;
     if (isDrawCost) {
       // 均线线周期

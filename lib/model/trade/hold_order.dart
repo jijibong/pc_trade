@@ -50,7 +50,7 @@ class HoldOrder {
   int? quote_volume;
   List<OHLCEntity>? fsList;
   List<ResHoldOrder>? detailList;
-  Map<String, String>? noMap;
+  Map? noMap;
   Color? color;
   bool selected = false;
 

@@ -80,11 +80,11 @@ class WebSocketServer {
           break;
         case Option.OPT_SubKline:
           SubKlineResp subKlineResp = SubKlineResp.fromBuffer(c.data);
-          logger.i("SubKline Response: $subKlineResp");
+          // logger.i("SubKline Response: $subKlineResp");
           break;
         case Option.OPT_UnSubKline:
           UnSubKlineResp unSubKlineResp = UnSubKlineResp.fromBuffer(c.data);
-          logger.i("UnSubKline Response: $unSubKlineResp");
+          // logger.i("UnSubKline Response: $unSubKlineResp");
           break;
         case Option.OPT_RtnQuote:
           GZipDecoder gzip = GZipDecoder();
@@ -138,6 +138,7 @@ class WebSocketServer {
     // logger.i("解析行情");
     try {
       QuoteData response = QuoteData.fromBuffer(bytes);
+      // logger.f(response);
       String excd = response.contract.commodity.exchangeNo;
       String comcode = response.contract.commodity.commodityNo;
       String scode1 = response.contract.contractNo1;
@@ -190,7 +191,6 @@ class WebSocketServer {
       contract.change = response.qChangeValue;
       contract.amplitude = response.qSwing;
       contract.delegateBuy = response.qTotalBidQty;
-
       ///Todo无数据
       contract.delegateSale = response.qTotalAskQty;
 
@@ -238,8 +238,11 @@ class WebSocketServer {
           if (isAuth) {
             for (var element in event.json) {
               SubQuoteReq subQuoteReq = SubQuoteReq(key: element.trim());
-              cmd cm =
-                  cmd(option: Option.OPT_SubQuote, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: subQuoteReq.writeToBuffer());
+              cmd cm = cmd(
+                  option: Option.OPT_SubQuote,
+                  reqId: Int64(1),
+                  dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+                  data: subQuoteReq.writeToBuffer());
               socket.send(cm.writeToBuffer());
             }
           }
@@ -249,7 +252,10 @@ class WebSocketServer {
             for (var element in event.json) {
               UnSubQuoteReq unSubQuoteReq = UnSubQuoteReq(key: element.trim());
               cmd cm = cmd(
-                  option: Option.OPT_UnSubQuote, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: unSubQuoteReq.writeToBuffer());
+                  option: Option.OPT_UnSubQuote,
+                  reqId: Int64(1),
+                  dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+                  data: unSubQuoteReq.writeToBuffer());
               socket.send(cm.writeToBuffer());
             }
           }
@@ -258,7 +264,11 @@ class WebSocketServer {
           for (var element in event.json) {
             logger.i("成交逐笔：$element");
             SubFillReq subFillReq = SubFillReq(key: element.trim());
-            cmd cm = cmd(option: Option.OPT_SubFill, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: subFillReq.writeToBuffer());
+            cmd cm = cmd(
+                option: Option.OPT_SubFill,
+                reqId: Int64(1),
+                dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+                data: subFillReq.writeToBuffer());
             socket.send(cm.writeToBuffer());
           }
           break;
@@ -266,8 +276,11 @@ class WebSocketServer {
           for (var element in event.json) {
             logger.i("取消订阅成交逐笔：$element");
             UnSubFillReq unSubFillReq = UnSubFillReq(key: element.trim());
-            cmd cm =
-                cmd(option: Option.OPT_UnSubFill, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: unSubFillReq.writeToBuffer());
+            cmd cm = cmd(
+                option: Option.OPT_UnSubFill,
+                reqId: Int64(1),
+                dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+                data: unSubFillReq.writeToBuffer());
             socket.send(cm.writeToBuffer());
           }
           break;
@@ -304,7 +317,11 @@ class WebSocketServer {
               break;
           }
           SubKlineReq subKlineReq = SubKlineReq(key: event.json.first, line: line);
-          cmd cm = cmd(option: Option.OPT_SubKline, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: subKlineReq.writeToBuffer());
+          cmd cm = cmd(
+              option: Option.OPT_SubKline,
+              reqId: Int64(1),
+              dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+              data: subKlineReq.writeToBuffer());
           socket.send(cm.writeToBuffer());
           break;
         case Operation.RecvUnSubKlineData:
@@ -340,13 +357,20 @@ class WebSocketServer {
               break;
           }
           UnSubKlineReq subKlineReq = UnSubKlineReq(key: event.json.first, line: line);
-          cmd cm =
-              cmd(option: Option.OPT_UnSubKline, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: subKlineReq.writeToBuffer());
+          cmd cm = cmd(
+              option: Option.OPT_UnSubKline,
+              reqId: Int64(1),
+              dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+              data: subKlineReq.writeToBuffer());
           socket.send(cm.writeToBuffer());
           break;
         case Operation.RevLoginOut:
           UnSubAllReq unSubAllReq = UnSubAllReq();
-          cmd cm = cmd(option: Option.OPT_UnSubAll, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: unSubAllReq.writeToBuffer());
+          cmd cm = cmd(
+              option: Option.OPT_UnSubAll,
+              reqId: Int64(1),
+              dateTime: Int64(DateTime.now().microsecondsSinceEpoch),
+              data: unSubAllReq.writeToBuffer());
           socket.send(cm.writeToBuffer());
           break;
       }

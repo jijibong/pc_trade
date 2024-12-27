@@ -1,7 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:trade/page/quote/quote_data.dart';
@@ -11,13 +11,10 @@ import 'package:trade/util/event_bus/eventBus_utils.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
-import '../../config/common.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../server/quote/market.dart';
 import '../../util/event_bus/events.dart';
-import '../../util/log/log.dart';
-import '../../util/style/paint.dart';
 import '../../util/theme/theme.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
@@ -118,59 +115,61 @@ class _QuoteState extends State<Quote> {
   Widget build(BuildContext context) {
     appTheme = context.watch<AppTheme>();
     return ScaffoldPage(
-      padding: EdgeInsets.zero,
-      content: Row(
-        children: [
-          SizedBox(
-            height: 1.sh,
-            width: Common.optionWidgetWidth,
-            child: ListView(
-              shrinkWrap: true,
-              scrollDirection: Axis.vertical,
-              children: [
-                GestureDetector(
-                  child: Container(
-                      width: Common.optionWidgetWidth,
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      alignment: Alignment.center,
-                      child: CustomPaint(
-                        painter: TrapeziumPainter(color: appTheme.selectIndex == 0 ? appTheme.commandBarColor : Colors.transparent),
-                        child: Text(
-                          '自\n选\n界\n面',
-                          style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 0 ? Colors.yellow : appTheme.color),
-                        ),
-                      )),
-                  onTap: () {
-                    appTheme.viewIndex = 0;
-                    appTheme.selectIndex = 0;
-                  },
-                ),
-                GestureDetector(
-                  child: Container(
-                      width: Common.optionWidgetWidth,
-                      padding: const EdgeInsets.symmetric(vertical: 30),
-                      alignment: Alignment.center,
-                      child: CustomPaint(
-                        painter: TrapeziumPainter(color: appTheme.selectIndex == 1 ? appTheme.commandBarColor : Colors.transparent),
-                        child: Text(
-                          '国\n际\n期\n货',
-                          style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 1 ? Colors.yellow : appTheme.color),
-                        ),
-                      )),
-                  onTap: () {
-                    appTheme.viewIndex = 0;
-                    appTheme.selectIndex = 1;
-                  },
-                ),
-              ],
-            ),
-          ),
-          Expanded(child: item()
-              // MultiSplitView(axis: Axis.vertical, resizable: false, controller: _controller, builder: (BuildContext context, Area area) => area.data),
-              ),
-        ],
-      ),
-    );
+        padding: EdgeInsets.zero,
+        content:
+            // Row(
+            //   children: [
+            //     SizedBox(
+            //       height: 1.sh,
+            //       width: Common.optionWidgetWidth,
+            //       child: ListView(
+            //         shrinkWrap: true,
+            //         scrollDirection: Axis.vertical,
+            //         children: [
+            //           GestureDetector(
+            //             child: Container(
+            //                 width: Common.optionWidgetWidth,
+            //                 padding: const EdgeInsets.symmetric(vertical: 30),
+            //                 alignment: Alignment.center,
+            //                 child: CustomPaint(
+            //                   painter: TrapeziumPainter(color: appTheme.selectIndex == 0 ? appTheme.commandBarColor : Colors.transparent),
+            //                   child: Text(
+            //                     '自\n选\n界\n面',
+            //                     style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 0 ? Colors.yellow : appTheme.color),
+            //                   ),
+            //                 )),
+            //             onTap: () {
+            //               appTheme.viewIndex = 0;
+            //               appTheme.selectIndex = 0;
+            //             },
+            //           ),
+            //           GestureDetector(
+            //             child: Container(
+            //                 width: Common.optionWidgetWidth,
+            //                 padding: const EdgeInsets.symmetric(vertical: 30),
+            //                 alignment: Alignment.center,
+            //                 child: CustomPaint(
+            //                   painter: TrapeziumPainter(color: appTheme.selectIndex == 1 ? appTheme.commandBarColor : Colors.transparent),
+            //                   child: Text(
+            //                     '国\n际\n期\n货',
+            //                     style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 1 ? Colors.yellow : appTheme.color),
+            //                   ),
+            //                 )),
+            //             onTap: () {
+            //               appTheme.viewIndex = 0;
+            //               appTheme.selectIndex = 1;
+            //             },
+            //           ),
+            //         ],
+            //       ),
+            //     ),
+            // Expanded(child:
+            item()
+        // MultiSplitView(axis: Axis.vertical, resizable: false, controller: _controller, builder: (BuildContext context, Area area) => area.data),
+        // ),
+        //   ],
+        // ),
+        );
   }
 
   Widget item() {
@@ -180,26 +179,48 @@ class _QuoteState extends State<Quote> {
         children: [
           Expanded(child: appTheme.viewIndex == 0 ? const QuoteDatas() : QuoteDetails(logic.selectedContract.value)),
           SizedBox(
-              height: 35,
-              child: ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: logic.mExchangeList.length,
-                // shrinkWrap: true,
-                itemBuilder: (BuildContext context, int index) {
-                  return GestureDetector(
+              height: 38,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: logic.mExchangeList.length,
+                      // shrinkWrap: true,
+                      itemBuilder: (BuildContext context, int index) {
+                        return GestureDetector(
+                          onTap: () {
+                            appTheme.viewIndex = 0;
+                            appTheme.selectIndex = 1;
+                            logic.switchExchange(index);
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            color: logic.mExchangeList[index] == logic.selectedExchange.value ? appTheme.exchangeBgColor : Colors.transparent,
+                            child: Text(
+                              logic.mExchangeList[index].exchangeName ?? "",
+                              style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  GestureDetector(
                     onTap: () {
-                      logic.switchExchange(index);
+                      appTheme.viewIndex = 0;
+                      appTheme.selectIndex = 0;
                     },
                     child: Container(
                       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      color: logic.mExchangeList[index] == logic.selectedExchange.value ? appTheme.exchangeBgColor : Colors.transparent,
+                      color: appTheme.selectIndex == 0 ? appTheme.exchangeBgColor : Colors.transparent,
                       child: Text(
-                        logic.mExchangeList[index].exchangeName ?? "",
+                        '自选界面',
                         style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
                       ),
                     ),
-                  );
-                },
+                  )
+                ],
               )),
         ],
       );

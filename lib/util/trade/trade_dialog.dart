@@ -25,7 +25,9 @@ class TradeDialog {
     final appTheme = AppTheme();
     return ContentDialog(
       style: ContentDialogThemeData(
-          padding: EdgeInsets.zero, bodyPadding: EdgeInsets.zero, decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
+          padding: EdgeInsets.zero,
+          bodyPadding: EdgeInsets.zero,
+          decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
       content: Container(
         height: 300,
         color: Common.dialogContentColor,
@@ -180,8 +182,8 @@ class TradeDialog {
   }
 
   /// 下单
-  void addOrder(String name, String ExchangeNo, String CommodityNo, String ContractNo, int CommodityType, int OrderType, int TimeInForce, String ExpireTime,
-      int OrderSide, double OrderPrice, double StopPrice, int OrderQty, int PositionEffect, bool needBackHand) async {
+  void addOrder(String name, String ExchangeNo, String CommodityNo, String ContractNo, int CommodityType, int OrderType, int TimeInForce,
+      String ExpireTime, int OrderSide, double OrderPrice, double StopPrice, int OrderQty, int PositionEffect, bool needBackHand) async {
     String str = name;
     str += OrderSide == SideType.SIDE_SELL ? "卖" : "买";
     str += PositionEffect == PositionEffectType.PositionEffect_OPEN ? "开" : "平";
@@ -194,8 +196,8 @@ class TradeDialog {
     // if (needBackHand) {
     //   await SpUtils.set(localOrderId, TradeOperation.BackHand);
     // }
-    await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice, StopPrice,
-            OrderQty, PositionEffect, "")
+    await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+            StopPrice, OrderQty, PositionEffect, "")
         .then((value) {
       if (value) {
         // InfoBarUtils.showSuccessBar("$msg服务器已接收订单");

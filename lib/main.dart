@@ -7,8 +7,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:local_notifier/local_notifier.dart';
 import 'package:provider/provider.dart';
 import 'package:system_theme/system_theme.dart';
+import 'package:trade/page/draw/draw_tool.dart';
 import 'package:trade/page/home/home.dart';
 import 'package:trade/page/secondary/condition.dart';
 import 'package:trade/page/secondary/pl_page.dart';
@@ -46,8 +48,8 @@ Future<void> main(List<String> args) async {
       argument['windowId'] = kWindowId;
       kWindowType = type.windowType;
       switch (kWindowType) {
-        case WindowType.RemoteDesktop:
-          desktopType = DesktopType.remote;
+        case WindowType.Trade:
+          desktopType = DesktopType.trade;
           runMultiWindow(
             argument,
             kAppTypeDesktopRemote,
@@ -67,6 +69,13 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopCondition,
           );
           break;
+        case WindowType.Draw:
+          desktopType = DesktopType.draw;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopDraw,
+          );
+          break;
         default:
           break;
       }
@@ -80,12 +89,15 @@ Future<void> main(List<String> args) async {
 
       await initEnv(kAppTypeMain);
       await bind.mainCheckConnectStatus();
-      // gFFI.serverModel.startService();
       bind.pluginSyncUi(syncTo: kAppTypeMain);
       bind.pluginListReload();
 
       runApp(const MyApp());
 
+      await localNotifier.setup(
+        appName: Common.appName,
+        shortcutPolicy: ShortcutPolicy.requireCreate,
+      );
       windowManager.waitUntilReadyToShow().then((_) async {
         await windowManager.setTitleBarStyle(
           TitleBarStyle.hidden,
@@ -142,7 +154,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(700, 380))
+        ..setFrame(const Offset(0, 0) & const Size(820, 380))
         ..setTitle("止盈止损")
         ..center()
         ..show();
@@ -161,6 +173,20 @@ void runMultiWindow(
         ..center()
         ..show();
       break;
+    case kAppTypeDesktopDraw:
+      _runDrawApp(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & const Size(160, 380))
+        ..setTitle("画线工具箱")
+        ..center()
+        ..show();
+      break;
     default:
       exit(0);
   }
@@ -169,7 +195,7 @@ void runMultiWindow(
 void _runTradeApp(
   String title,
   Map<String, dynamic> argument,
-) {
+) async {
   runApp(RefreshWrapper(
     builder: (context) => ScreenUtilInit(
         designSize: const Size(360, 690),
@@ -214,7 +240,7 @@ void _runTradeApp(
 void _runPLApp(
   String title,
   Map<String, dynamic> argument,
-) {
+) async {
   runApp(RefreshWrapper(
     builder: (context) => AnimatedFluentTheme(
       data: FluentThemeData(visualDensity: VisualDensity.standard),
@@ -232,7 +258,8 @@ void _runPLApp(
             visualDensity: VisualDensity.standard,
           ),
           home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)], child: PlPage(params: argument)),
+              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+              child: PlPage(params: argument)),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -273,6 +300,46 @@ void _runConditionApp(
           home: MultiProvider(
               providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
               child: ConditionPage(params: argument)),
+        ),
+        localizationsDelegates: const [
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        builder: (context, child) {
+          child = _keepScaleBuilder(context, child);
+          return child;
+        },
+      ),
+    ),
+  ));
+}
+
+void _runDrawApp(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => AnimatedFluentTheme(
+      data: FluentThemeData(visualDensity: VisualDensity.standard),
+      child: GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: title,
+        home: FluentApp(
+          debugShowCheckedModeBanner: false,
+          darkTheme: FluentThemeData(
+            brightness: Brightness.dark,
+            visualDensity: VisualDensity.standard,
+          ),
+          themeMode: _appTheme.mode,
+          theme: FluentThemeData(
+            visualDensity: VisualDensity.standard,
+          ),
+          home: MultiProvider(
+              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+              child: DrawTool(params: argument)),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,

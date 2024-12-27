@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
@@ -16,7 +18,6 @@ import '../../model/quote/contract.dart';
 import '../../model/trade/hold_order.dart';
 import '../../model/user/user.dart';
 import '../../server/pl/pl.dart';
-import '../../server/user/user.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
@@ -25,8 +26,6 @@ import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
-import '../../util/utils/market_util.dart';
-import '../../util/utils/utils.dart';
 
 /// multi-tab desktop remote screen
 class PlPage extends StatefulWidget {
@@ -47,7 +46,8 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   Contract mContract = Contract();
   String setplLast = "---";
   String tips = "(温馨提示：右键添加删除止盈止损)";
-
+  final contextController = FlyoutController();
+  final contextAttachKey = GlobalKey();
   late AppTheme appTheme;
 
   int windowId() {
@@ -69,7 +69,6 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   initData({String? holdString}) async {
     holdString ??= widget.params["hold"];
-    logger.i(holdString);
     if (holdString != null) {
       hold = HoldOrder.fromJson(jsonDecode(holdString));
       // Contract? contract = MarketUtils.getVariety(hold.exCode, hold.code, hold.comType);
@@ -91,9 +90,13 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   /// 查询止盈止损
   void queryPLRecord() async {
     await PLServer.getHisPLRecord(hold.exCode, hold.subComCode, hold.subConCode, hold.comType, hold.orderSide).then((value) {
-      if (value != null) {
+      if (value != null && value.isNotEmpty) {
+        // logger.i(value);
         mPlRecordList.clear();
         mPlRecordList.addAll(value);
+        if (mounted) setState(() {});
+      } else {
+        mPlRecordList.add(PLRecord(RealQty: 1));
         if (mounted) setState(() {});
       }
     });
@@ -219,7 +222,16 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
     //     maxQty = hold.quantity ?? 0;
     //   }
     // }
-    if (mounted) setState(() {});
+    // if (mounted) setState(() {});
+  }
+
+  String? _format(num? value) {
+    if (value == null) return null;
+    if (value is int) {
+      return value.toString();
+    }
+    final mul = math.pow(10, 2);
+    return NumberFormat().format((value * mul).roundToDouble() / mul);
   }
 
   void startDragging(bool isMainWindow) {
@@ -259,7 +271,8 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
       // logger.i("fromWindowId:$fromWindowId;method:${call.method};arguments:${call.arguments}");
       if (call.method == kWindowEventNewPL) {
         windowOnTop(windowId());
-        String holdString = call.arguments;
+        Map<String, dynamic> map = jsonDecode(call.arguments);
+        String holdString = map["hold"];
         initData(holdString: holdString);
       }
     });
@@ -322,55 +335,121 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                   children: [
                     RichText(
                         text: TextSpan(children: [
-                      TextSpan(text: "为(${widget.params["contractId"] ?? ""}买入)设置止盈止损"),
+                      TextSpan(text: "为(${widget.params["contractId"] ?? ""}${widget.params["contractId"] ?? ""}  )设置止盈止损"),
                       TextSpan(text: tips, style: TextStyle(color: Colors.red))
                     ]))
                   ],
                 ),
                 Expanded(
-                    child: ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: 1,
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        itemBuilder: (BuildContext context, int index) {
-                          if (index == 0) {
-                            return Row(
-                              children: [
-                                Expanded(flex: 6, child: tableItem("设置时间")),
-                                Expanded(flex: 3, child: tableItem("数量")),
-                                Expanded(flex: 5, child: tableItem("止盈价格")),
-                                Expanded(flex: 10, child: tableItem("止损价格")),
-                                Expanded(flex: 10, child: tableItem("有效期")),
-                              ],
-                            );
-                          } else {
-                            return GestureDetector(
-                              child: Container(
-                                color: mPlRecordList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                child: IntrinsicHeight(
-                                    child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                  children: [
-                                    Expanded(flex: 6, child: tableItem(mPlRecordList[index - 1].CreateAt)),
-                                    Expanded(flex: 3, child: tableItem("${mPlRecordList[index - 1].RealQty ?? 0}")),
-                                    Expanded(flex: 5, child: tableItem("${mPlRecordList[index - 1].StopWin ?? 0.0}")),
-                                    Expanded(flex: 10, child: tableItem("${mPlRecordList[index - 1].StopLoss ?? 0.0}")),
-                                    Expanded(flex: 10, child: tableItem(mPlRecordList[index - 1].CloseTime)),
-                                  ],
-                                )),
-                              ),
-                              onTap: () {
-                                if (mPlRecordList[index - 1].selected == true) return;
-                                for (var element in mPlRecordList) {
-                                  element.selected = false;
-                                }
-                                mPlRecordList[index - 1].selected = true;
-                                mPlRecord = mPlRecordList[index - 1];
+                  child: GestureDetector(
+                    child: FlyoutTarget(
+                      key: contextAttachKey,
+                      controller: contextController,
+                      child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: mPlRecordList.length + 1,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          itemBuilder: (BuildContext context, int index) {
+                            if (index == 0) {
+                              return Row(
+                                children: [
+                                  Expanded(flex: 7, child: tableItem("设置时间")),
+                                  Expanded(flex: 3, child: tableItem("数量")),
+                                  Expanded(flex: 4, child: tableItem("止盈价格")),
+                                  Expanded(flex: 10, child: tableItem("止损价格")),
+                                  Expanded(flex: 10, child: tableItem("有效期")),
+                                ],
+                              );
+                            } else {
+                              return GestureDetector(
+                                child: Container(
+                                  color: mPlRecordList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                  child: IntrinsicHeight(
+                                      child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(flex: 7, child: tableItem(mPlRecordList[index - 1].CreateAt)),
+                                      Expanded(flex: 3, child: numItem(mPlRecordList[index - 1].RealQty ?? 0)),
+                                      Expanded(flex: 4, child: priceItem(mPlRecordList[index - 1].StopWin ?? 0.0)),
+                                      Expanded(
+                                          flex: 10, child: typeItem(mPlRecordList[index - 1].StopLoss ?? 0.0, mPlRecordList[index - 1].State ?? 0)),
+                                      Expanded(flex: 10, child: validItem(mPlRecordList[index - 1].CloseType ?? 0, mPlRecordList[index - 1].State)),
+                                    ],
+                                  )),
+                                ),
+                                onTap: () {
+                                  if (mPlRecordList[index - 1].selected == true) return;
+                                  for (var element in mPlRecordList) {
+                                    element.selected = false;
+                                  }
+                                  mPlRecordList[index - 1].selected = true;
+                                  mPlRecord = mPlRecordList[index - 1];
+                                  if (mounted) setState(() {});
+                                },
+                                onSecondaryTapUp: (d) {
+                                  final targetContext = contextAttachKey.currentContext;
+                                  if (targetContext == null) return;
+                                  final box = targetContext.findRenderObject() as RenderBox;
+                                  final position = box.localToGlobal(
+                                    d.localPosition,
+                                    ancestor: Navigator.of(context).context.findRenderObject(),
+                                  );
+                                  contextController.showFlyout(
+                                    barrierColor: Colors.black.withOpacity(0.1),
+                                    position: position,
+                                    builder: (context) {
+                                      return MenuFlyout(items: [
+                                        MenuFlyoutItem(
+                                          text: const Text('添加'),
+                                          onPressed: () {
+                                            mPlRecordList.add(PLRecord());
+                                            if (mounted) setState(() {});
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                            text: const Text('删除'),
+                                            onPressed: () {
+                                              mPlRecordList.removeAt(index - 1);
+                                            }),
+                                      ]);
+                                    },
+                                  );
+                                },
+                              );
+                            }
+                          }),
+                    ),
+                    onSecondaryTapUp: (d) {
+                      final targetContext = contextAttachKey.currentContext;
+                      if (targetContext == null) return;
+                      final box = targetContext.findRenderObject() as RenderBox;
+                      final position = box.localToGlobal(
+                        d.localPosition,
+                        ancestor: Navigator.of(context).context.findRenderObject(),
+                      );
+                      contextController.showFlyout(
+                        barrierColor: Colors.black.withOpacity(0.1),
+                        position: position,
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('添加'),
+                              onPressed: () {
+                                mPlRecordList.add(PLRecord());
                                 if (mounted) setState(() {});
                               },
-                            );
-                          }
-                        })),
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('删除'),
+                                onPressed: () {
+                                  Flyout.of(context).close();
+                                }),
+                          ]);
+                        },
+                      );
+                    },
+                  ),
+                ),
                 Row(
                   children: [
                     Text("修改完成后，请点击保存", style: TextStyle(color: Colors.red)),
@@ -416,18 +495,154 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
       decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
-      child: AnimatedFluentTheme(
-        data: FluentThemeData(),
-        child: Tooltip(
-            message: text ?? "--",
-            style: const TooltipThemeData(preferBelow: true),
-            child: Text(
-              text ?? "--",
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white),
-            )),
+      child: Text(
+        text ?? "",
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(color: Colors.white),
       ),
     );
+  }
+
+  Widget numItem(int num) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      alignment: Alignment.center,
+      child: numberSelect(num, 1),
+    );
+  }
+
+  Widget priceItem(double num) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      alignment: Alignment.center,
+      child: numberSelect(num, 0.01),
+    );
+  }
+
+  Widget typeItem(double num, int state) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      alignment: Alignment.center,
+      child: StatefulBuilder(builder: (context, setter) {
+        return Row(
+          children: [
+            const SizedBox(
+              width: 3,
+            ),
+            RadioButton(
+                checked: state == 0,
+                content: const Text("止损价"),
+                onChanged: (e) {
+                  state = 0;
+                  setter(() {});
+                }),
+            const SizedBox(
+              width: 3,
+            ),
+            RadioButton(
+                checked: state == 1,
+                content: const Text("点差价"),
+                onChanged: (e) {
+                  state = 1;
+                  setter(() {});
+                }),
+            numberSelect(num, 0.01),
+          ],
+        );
+      }),
+    );
+  }
+
+  Widget validItem(int type, int? state) {
+    return Container(
+        decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        alignment: Alignment.center,
+        child: StatefulBuilder(builder: (context, setter) {
+          return Row(
+            children: [
+              const SizedBox(
+                width: 3,
+              ),
+              RadioButton(
+                  checked: type == PLCloseType.Today,
+                  content: const Text("当日有效"),
+                  onChanged: (e) {
+                    type = PLCloseType.Today;
+                    setter(() {});
+                  }),
+              const SizedBox(
+                width: 3,
+              ),
+              RadioButton(
+                  checked: type == PLCloseType.Permanent,
+                  content: const Text("永久有效"),
+                  onChanged: (e) {
+                    type = PLCloseType.Permanent;
+                    setter(() {});
+                  }),
+              const SizedBox(
+                width: 5,
+              ),
+              if (state != null)
+                ToggleSwitch(
+                  checked: state == 1,
+                  onChanged: (bool value) {
+                    if (value) {
+                      state = 1;
+                    } else {
+                      state = 0;
+                    }
+                    setter(() {});
+                  },
+                ),
+            ],
+          );
+        }));
+  }
+
+  Widget numberSelect(num value, num smallChange) {
+    TextEditingController controller = TextEditingController(text: "   $value");
+    return StatefulBuilder(builder: (context, setter) {
+      return Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          SizedBox(
+            width: 28,
+            child: TextBox(
+              controller: controller,
+              // padding: EdgeInsets.zero,
+              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.zero, border: Border.all(color: Colors.transparent)),
+            ),
+          ),
+          Column(
+            children: [
+              IconButton(
+                icon: const Icon(FluentIcons.chevron_up, size: 8),
+                iconButtonMode: IconButtonMode.small,
+                onPressed: () {
+                  value = value + smallChange;
+                  controller.text = _format(value) ?? '';
+                  setter(() {});
+                },
+              ),
+              IconButton(
+                icon: const Icon(FluentIcons.chevron_down, size: 8),
+                iconButtonMode: IconButtonMode.small,
+                onPressed: () {
+                  value = math.max(0, value - smallChange);
+                  controller.text = _format(value) ?? '';
+                  setter(() {});
+                },
+              ),
+            ],
+          )
+        ],
+      );
+    });
   }
 }

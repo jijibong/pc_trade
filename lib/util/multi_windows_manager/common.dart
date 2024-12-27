@@ -201,7 +201,7 @@ String getWindowName({WindowType? overrideType}) {
       return name;
     case WindowType.PL:
       return "止盈止损设置";
-    case WindowType.RemoteDesktop:
+    case WindowType.Trade:
       return "交易";
     default:
       break;
@@ -307,7 +307,7 @@ Future<bool> restoreWindowPosition(WindowType type, {int? windowId, String? peer
   String? pos;
   // No need to check mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs)
   // Though "open in tabs" is true and the new window restore peer position, it's ok.
-  if (type == WindowType.RemoteDesktop && windowId != null && peerId != null) {
+  if (type == WindowType.Trade && windowId != null && peerId != null) {
     final peerPos = bind.mainGetPeerFlutterOptionSync(id: peerId, k: windowFramePrefix + type.name);
     if (peerPos.isNotEmpty) {
       pos = peerPos;
@@ -321,7 +321,7 @@ Future<bool> restoreWindowPosition(WindowType type, {int? windowId, String? peer
     debugPrint("no window position saved, ignoring position restoration");
     return false;
   }
-  if (type == WindowType.RemoteDesktop) {
+  if (type == WindowType.Trade) {
     if (!isRemotePeerPos && windowId != null) {
       if (lpos.offsetWidth != null) {
         lpos.offsetWidth = lpos.offsetWidth! + windowId * kNewWindowOffset;
@@ -494,7 +494,7 @@ Future<void> saveWindowPosition(WindowType type, {int? windowId}) async {
 
   await bind.setLocalFlutterOption(k: windowFramePrefix + type.name, v: pos.toString());
 
-  if (type == WindowType.RemoteDesktop && windowId != null) {
+  if (type == WindowType.Trade && windowId != null) {
     await _saveSessionWindowPosition(type, windowId, isMaximized, isFullscreen, pos);
   }
 }
@@ -532,9 +532,10 @@ Future<void> onActiveWindowChanged() async {
 
 enum DesktopType {
   main,
-  remote,
+  trade,
   pl,
   condition,
+  draw,
 }
 
 class OffsetDevicePixelRatio {

@@ -235,11 +235,13 @@ class Utils {
   /// 获取商品下的合约
   static List<Contract> getComContract(Contract contract) {
     List<Contract> conList = [];
-    List? tmp = MarketUtils.commodityList.where((element) => element.commodityNo == contract.subComCode && element.exchangeNo == contract.exCode).toList();
+    List? tmp =
+        MarketUtils.commodityList.where((element) => element.commodityNo == contract.subComCode && element.exchangeNo == contract.exCode).toList();
     if (tmp.isNotEmpty) {
       Commodity product = tmp.first;
       List<Contract> contractList = MarketUtils.contractList
-          .where((element) => element.exCode == product.exchangeNo && element.subComCode == product.commodityNo && element.comType == product.commodityType)
+          .where((element) =>
+              element.exCode == product.exchangeNo && element.subComCode == product.commodityNo && element.comType == product.commodityType)
           .toList();
       contractList.sort((a, b) => a.name!.compareTo(b.name!));
 
@@ -855,11 +857,19 @@ class Utils {
     }
     if (isAdd) {
       Option option = Option(
-          excd: mContract.exCode, scode: mContract.code, comCode: mContract.subComCode, comType: mContract.comType, userId: userId, isMain: mContract.isMain);
+          excd: mContract.exCode,
+          scode: mContract.code,
+          comCode: mContract.subComCode,
+          comType: mContract.comType,
+          userId: userId,
+          isMain: mContract.isMain);
       tmp.add(option);
     } else {
       tmp.removeWhere((element) =>
-          element.excd == mContract.exCode && element.scode == mContract.code && element.comType == mContract.comType && element.isMain == mContract.isMain);
+          element.excd == mContract.exCode &&
+          element.scode == mContract.code &&
+          element.comType == mContract.comType &&
+          element.isMain == mContract.isMain);
     }
     SpUtils.set(SpKey.option, jsonEncode(tmp));
   }

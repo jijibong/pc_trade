@@ -92,6 +92,12 @@ dependencies:
   #表格 https://pub-web.flutter-io.cn/packages/pluto_grid
 #  pluto_grid: ^8.0.0
   device_info_plus: ^10.1.2
+  #本地通知 https://pub.dev/packages/local_notifier
+  local_notifier: ^0.1.6
+  #webview https://pub-web.flutter-io.cn/packages/webview_windows
+  webview_windows: ^0.4.0
+  #表格 https://pub.dev/packages/scrollable_table_view
+  scrollable_table_view: ^2.0.3
   #窗口管理 https://pub-web.flutter-io.cn/packages/window_manager
   #  window_manager: ^0.3.9
   window_manager:
@@ -185,11 +191,11 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/custom-fonts/#from-packages
-msix_config:
-  display_name: "FCS.HK行情交易系统(模拟)"
-  publisher_display_name: "元泓"
-  msix_version: 1.0.0.0
-  logo_path: assets/images/jmaster.ico
+#msix_config:
+#  display_name: "FCS.HK行情交易系统(模拟)"
+#  publisher_display_name: "元泓"
+#  msix_version: 1.0.0.0
+#  logo_path: assets/images/jmaster.ico
 
 flutter_icons:
   image_path: "assets/images/jmaster.ico"
@@ -197,3 +203,9 @@ flutter_icons:
   windows:
     generate: true
 
+msix_config:
+  display_name: FCS.HK
+  publisher_display_name: yuanhong
+  msix_version: 1.0.0.0
+  logo_path: "assets/images/jmaster.ico"
+  install_certificate: true

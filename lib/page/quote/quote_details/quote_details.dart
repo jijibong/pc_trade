@@ -72,6 +72,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   String highPrice = "--";
   String lowPrice = "--";
   String volume = "--";
+  bool showPanKou = true;
 
   KPeriod kPeriod = KPeriod();
   List<OHLCEntity> mOHLCData = [];
@@ -841,6 +842,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (kPeriod.period != null && kPeriod.period! >= 0) {
       if (kPeriod.cusType == 1) {
         await MarketServer.queryKline(contract!, kPeriod.period ?? KTime.FS, 0, 500).then((value) {
+          if (kPeriod.period == null || kPeriod.period! < 0) return;
           if (value != null) {
             SWITHING_TIME = true;
             setOHLCData(value);
@@ -906,9 +908,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   /// 矫正K线
-  void correctKline(int count) {
+  void correctKline(int count) async {
     if (kPeriod.cusType == 1) {
-      MarketServer.queryKline(contract!, kPeriod.period ?? KTime.FS, 0, count).then((value) {
+      await MarketServer.queryKline(contract!, kPeriod.period ?? KTime.FS, 0, count).then((value) {
         if (value != null) {
           correctData(value);
         } else {
@@ -916,7 +918,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         }
       });
     } else {
-      MarketServer.customKline(contract!, kPeriod, 0, count).then((value) {
+      await MarketServer.customKline(contract!, kPeriod, 0, count).then((value) {
         if (value != null) {
           correctData(value);
         } else {
@@ -1257,6 +1259,39 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   void listener() {
+    ///K线缩放
+    EventBusUtil.getInstance().on<ScaleKLine>().listen((event) {
+      if (isDrawTime) {
+        return;
+      }
+      if (mOHLCData.isEmpty) {
+        return;
+      }
+      int showNum = mShowDataNum;
+
+      if (!event.enlarge) {
+        mCandleWidth = mCandleWidth * 0.8;
+      } else if (event.enlarge) {
+        mCandleWidth = mCandleWidth * 1.2;
+      }
+      if (mCandleWidth > mChartWidth / MIN_CANDLE_NUM * 0.8) {
+        mCandleWidth = mChartWidth / MIN_CANDLE_NUM * 0.8;
+      }
+      if (mCandleWidth < 2) {
+        mCandleWidth = 2;
+      }
+      mShowDataNum = (mChartWidth ~/ mCandleWidth) - 1; //减1是为了最后一根不超出右边界线
+      if (mShowDataNum > mOHLCData.length) {
+        mShowDataNum = MIN_CANDLE_NUM > mOHLCData.length ? MIN_CANDLE_NUM : mOHLCData.length;
+      }
+      if (mDataStartIndext + showNum == mOHLCData.length) {
+        //如果缩放之前，K线在最新数据，保持最右边数据不动（显示到最新数据）
+        mDataStartIndext = mOHLCData.length - mShowDataNum;
+      }
+      setCurrentData();
+      if (mounted) setState(() {});
+    });
+
     ///行情变化
     EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
@@ -1413,7 +1448,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [Expanded(child: kChart(painter)), dataWidget()],
+      children: [Expanded(child: kChart(painter)), if (showPanKou) dataWidget()],
     );
   }
 
@@ -1585,7 +1620,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               }
             },
             child: GestureDetector(
-              behavior: HitTestBehavior.translucent,
+              onTap: null,
+              behavior: HitTestBehavior.opaque,
               onDoubleTapDown: (event) {
                 isDrawCrossLine = !isDrawCrossLine;
               },
@@ -1671,6 +1707,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           }),
                       MenuFlyoutSubItem(
                         text: const Text('切换画面'),
+                        leading: const Icon(
+                          FluentIcons.accept,
+                          color: Colors.transparent,
+                        ),
                         items: (context) => [
                           MenuFlyoutItem(
                               text: const Text('报价页面'),
@@ -1700,6 +1740,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ),
                       MenuFlyoutSubItem(
                         text: const Text('技术指标'),
+                        leading: const Icon(
+                          FluentIcons.accept,
+                          color: Colors.transparent,
+                        ),
                         items: (context) => [
                           MenuFlyoutSubItem(
                             text: const Text('趋势分析指标（主图）'),
@@ -1804,7 +1848,15 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ),
                       MenuFlyoutItem(
                         text: const Text('显示盘口数据'),
-                        onPressed: Flyout.of(context).close,
+                        leading: Icon(
+                          FluentIcons.accept,
+                          color: showPanKou ? Colors.green : Colors.transparent,
+                        ),
+                        onPressed: () {
+                          showPanKou = !showPanKou;
+                          if (mounted) setState(() {});
+                          Flyout.of(context).close;
+                        },
                       ),
                       MenuFlyoutItem(
                         text: const Text('增加副图'),
@@ -1852,62 +1904,276 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ),
                       MenuFlyoutSubItem(
                         text: const Text('周期切换'),
+                        leading: const Icon(
+                          FluentIcons.accept,
+                          color: Colors.transparent,
+                        ),
                         items: (context) => [
                           MenuFlyoutItem(
                             text: const Text('日线'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 1;
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('周线'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 2;
+                              KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('月线'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 3;
+                              KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('年线'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 4;
+                              KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('任意天'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 5;
+                              // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                              // if (kPeriod == fs) return;
+                              // subscriptionKlineData(false);
+                              // kPeriod = fs;
+                              // mOHLCData.clear();
+                              // SWITHING_TIME = true;
+                              // isDrawTime = false;
+                              // requestAllData();
+                              // subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('1分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 6;
+                              KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('3分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 7;
+                              KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('5分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 8;
+                              KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('10分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 9;
+                              KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('15分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 10;
+                              KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('30分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 11;
+                              KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('60分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 12;
+                              KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('120分钟'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 13;
+                              KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                              if (kPeriod == fs) return;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                            },
                           ),
                           MenuFlyoutItem(
                             text: const Text('任意分'),
-                            onPressed: Flyout.of(context).close,
+                            leading: Icon(
+                              FluentIcons.radio_btn_on,
+                              color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                            ),
+                            onPressed: () {
+                              appTheme.selectCommandBarIndex = 14;
+                              // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                              // if (kPeriod == fs) return;
+                              // subscriptionKlineData(false);
+                              // kPeriod = fs;
+                              // mOHLCData.clear();
+                              // SWITHING_TIME = true;
+                              // isDrawTime = false;
+                              // requestAllData();
+                              // subscriptionKlineData(true);
+                            },
                           ),
                         ],
                       ),
@@ -2031,7 +2297,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                           icon: const Icon(FluentIcons.query_list),
                                           style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
                                           onPressed: () {
-                                            logger.i("onPressed");
                                             menuController.showFlyout(
                                               autoModeConfiguration: FlyoutAutoConfiguration(
                                                 preferredMode: FlyoutPlacementMode.topLeft,
@@ -2221,7 +2486,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                           icon: const Icon(FluentIcons.query_list),
                                           style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
                                           onPressed: () {
-                                            logger.i("onPressed");
                                             menuController1.showFlyout(
                                               autoModeConfiguration: FlyoutAutoConfiguration(
                                                 preferredMode: FlyoutPlacementMode.topLeft,
@@ -2416,7 +2680,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                                 preferredMode: FlyoutPlacementMode.topLeft,
                                               ),
                                               builder: (context) {
-                                                logger.i("onPressed");
                                                 return MenuFlyout(items: [
                                                   MenuFlyoutItem(
                                                     text: const Text('VOL'),
@@ -2601,7 +2864,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                           icon: const Icon(FluentIcons.query_list),
                                           style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
                                           onPressed: () {
-                                            logger.i("onPressed");
                                             menuController3.showFlyout(
                                               autoModeConfiguration: FlyoutAutoConfiguration(
                                                 preferredMode: FlyoutPlacementMode.topLeft,

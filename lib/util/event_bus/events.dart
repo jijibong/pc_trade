@@ -29,16 +29,27 @@ class LoginEvent {}
 
 class LoginSuccess {}
 
+class SwitchExchange {
+  int index;
+  SwitchExchange(this.index);
+}
+
 ///显示交易窗口
 class ShowTrade {
   bool show;
   ShowTrade(this.show);
 }
 
-///显示交易窗口
+///显示K线
 class GoKChart {
   bool go;
   GoKChart(this.go);
+}
+
+///K线放大/缩小
+class ScaleKLine {
+  bool enlarge;
+  ScaleKLine(this.enlarge);
 }
 
 ///显示盘口数据

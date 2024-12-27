@@ -5,6 +5,8 @@ import 'package:fluent_ui/src/controls/form/pickers/pickers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
+
+import '../log/log.dart';
 part 'editable_combo_box.dart';
 
 const Duration _kComboBoxMenuDuration = Duration(milliseconds: 300);

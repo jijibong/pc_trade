@@ -40,6 +40,13 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
+  Color _drawColor = Colors.white;
+  Color get drawColor => _drawColor;
+  set drawColor(Color drawColor) {
+    _drawColor = drawColor;
+    notifyListeners();
+  }
+
   ThemeMode _mode = ThemeMode.dark;
   ThemeMode get mode => _mode;
   set mode(ThemeMode mode) {

@@ -11,6 +11,7 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../util/event_bus/eventBus_utils.dart';
+import '../../util/log/log.dart';
 import '../../util/theme/theme.dart';
 
 class QuoteDatas extends StatefulWidget {
@@ -129,7 +130,8 @@ class _QuoteDatasState extends State<QuoteDatas> {
                                     contentItem(logic.mOptionalList[index].lastPriceString, color: logic.mOptionalList[index].lastPriceColor),
                                     contentItem(logic.mOptionalList[index].buyPriceString, color: logic.mOptionalList[index].buyPriceColor),
                                     contentItem(logic.mOptionalList[index].salePriceString, color: logic.mOptionalList[index].salePriceColor),
-                                    contentItem("${(logic.mOptionalList[index].delegateBuy ?? 0).toInt()}", color: logic.mOptionalList[index].delegateBuyColor),
+                                    contentItem("${(logic.mOptionalList[index].delegateBuy ?? 0).toInt()}",
+                                        color: logic.mOptionalList[index].delegateBuyColor),
                                     contentItem("${(logic.mOptionalList[index].delegateSale ?? 0).toInt()}",
                                         color: logic.mOptionalList[index].delegateSaleColor),
                                     contentItem("${(logic.mOptionalList[index].volume ?? 0).toInt()}",
@@ -208,16 +210,21 @@ class _QuoteDatasState extends State<QuoteDatas> {
                                         contentItem(
                                             "${(logic.mContractList[index].delegateSale != null ? logic.mContractList[index].delegateSale!.toInt() : "--")}",
                                             color: logic.mContractList[index].delegateSaleColor),
-                                        contentItem("${(logic.mContractList[index].volume != null ? logic.mContractList[index].volume!.toInt() : "--")}",
-                                            flex: 1.2, color: logic.mContractList[index].volumeColor),
-                                        contentItem("${(logic.mContractList[index].position != null ? logic.mContractList[index].position!.toInt() : "--")}",
-                                            flex: 1.2, color: logic.mContractList[index].positionColor),
+                                        contentItem(
+                                            "${(logic.mContractList[index].volume != null ? logic.mContractList[index].volume!.toInt() : "--")}",
+                                            flex: 1.2,
+                                            color: logic.mContractList[index].volumeColor),
+                                        contentItem(
+                                            "${(logic.mContractList[index].position != null ? logic.mContractList[index].position!.toInt() : "--")}",
+                                            flex: 1.2,
+                                            color: logic.mContractList[index].positionColor),
                                         contentItem(logic.mContractList[index].changeString, color: logic.mContractList[index].changeColor),
                                         contentItem("${logic.mContractList[index].preSettlePrice ?? "--"}", flex: 1.2, color: appTheme.color),
                                         contentItem("${logic.mContractList[index].openPrice ?? "--"}", color: logic.mContractList[index].openColor),
                                         contentItem(logic.mContractList[index].high, color: logic.mContractList[index].highColor),
                                         contentItem(logic.mContractList[index].low, color: logic.mContractList[index].lowColor),
-                                        contentItem(logic.mContractList[index].changePerString, flex: 1.2, color: logic.mContractList[index].changeColor),
+                                        contentItem(logic.mContractList[index].changePerString,
+                                            flex: 1.2, color: logic.mContractList[index].changeColor),
                                         contentItem(
                                             logic.mContractList[index].timeStr != null && logic.mContractList[index].timeStr!.length > 19
                                                 ? logic.mContractList[index].timeStr!.substring(10, 19)

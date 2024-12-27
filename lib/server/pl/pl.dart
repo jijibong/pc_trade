@@ -25,7 +25,6 @@ class PLServer {
         data = await SignData().signData(jsonEncode(map), Config.queryPL);
       }
       Response response = await HttpUtils.getInstance().post(Config.queryPL, data: data);
-      logger.w(response);
       if (response.data["code"] == 0) {
         List<PLRecord> pLRecords = [];
         List<dynamic> list = response.data["data"] ?? [];

@@ -7,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart' hide Condition;
 import 'package:intl/intl.dart';
-import 'package:logger/logger.dart';
 import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:trade/model/user/user.dart';
@@ -21,6 +20,7 @@ import '../../model/delegation/comOrder.dart';
 import '../../model/delegation/delegateOrder.dart';
 import '../../model/delegation/order_state.dart';
 import '../../model/delegation/res_comm_order.dart';
+import '../../model/pl/pl.dart';
 import '../../model/position/add_order.dart';
 import '../../model/position/position.dart';
 import '../../model/quote/commodity.dart';
@@ -45,6 +45,7 @@ import '../../server/condition/condition.dart';
 import '../../server/delegation/delegation.dart';
 import '../../server/delegation/transaction.dart';
 import '../../server/login/login.dart';
+import '../../server/pl/pl.dart';
 import '../../server/position/position.dart';
 import '../../server/socket/trade_webSocket.dart';
 import '../../server/socket/webSocket.dart';
@@ -76,7 +77,7 @@ class Trade extends StatefulWidget {
   State<Trade> createState() => _TradeState();
 }
 
-class _TradeState extends State<Trade> with MultiWindowListener {
+class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAliveClientMixin {
   String mineAllAssets = "--";
   String mineAvailFunds = "--";
   String mineOccMargin = "--";
@@ -97,14 +98,15 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   double padWidth = 20;
   String price = "市价";
   List priceList = ["对手价", "排队价", "市价", "最新价", "超价"];
-  // bool lock = false;
-
+  bool lock = false;
+  TextEditingController lockTextEditingController = TextEditingController();
   List<Contract> allContracts = [];
   ResInitMargin? mInitMargin; //合约初始保证金
   HoldOrder? mHoldOrder; //当前品种所属持仓单
   List<DelegateOrder> mPendList = [];
   List<DelegateOrder> mDelList = [];
   List<HoldOrder> mHoldList = [];
+  List<HoldOrder> mHoldDetailList = [];
   List<HoldOrder> mCloseList = [];
   List<Condition> mConditionList = [];
   List<Exchange> exchangeList = [];
@@ -131,10 +133,22 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   DateTime endTime = DateTime.now();
   int settingIndex = 0;
   int exchangeIndex = 0;
+  int tradeDetailIndex = 0;
+  int tradeAllIndex = 0;
   bool inputting = false;
   void Function(void Function())? globalStateFirst;
   void Function(void Function())? globalStateSecond;
   void Function(void Function())? globalStateThird;
+  ScrollController aController = ScrollController(keepScrollOffset: true);
+  ScrollController bController = ScrollController(keepScrollOffset: true);
+  ScrollController cController = ScrollController(keepScrollOffset: true);
+  ScrollController dController = ScrollController(keepScrollOffset: true);
+  ScrollController eController = ScrollController(keepScrollOffset: true);
+  ScrollController fController = ScrollController(keepScrollOffset: true);
+  ScrollController gController = ScrollController(keepScrollOffset: true);
+
+  @override
+  bool get wantKeepAlive => true;
 
   int windowId() {
     return widget.params["windowId"];
@@ -143,7 +157,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   initData() async {
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventNewRemoteDesktop) {
+        lock = false;
+        lockTextEditingController.clear();
         windowOnTop(windowId());
+        if (mounted) setState(() {});
       } else if (call.method == kWindowEventNewContract) {
         if (contract.code != null) {
           unSubscriptionQuote();
@@ -154,6 +171,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         refreshData();
         subscriptionQuote();
         queryInitMargin();
+        bsCondition();
       } else if (call.method == kWindowEventSwitchMode) {
         var mode = ThemeMode.light;
         if (call.arguments == 1) {
@@ -187,6 +205,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
       refreshData();
       subscriptionQuote();
       queryInitMargin();
+      bsCondition();
       if (mounted) setState(() {});
     }
 
@@ -275,8 +294,12 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     });
 
     ///订单状态变化
-    EventBusUtil.getInstance().on<DelRecordEvent>().listen((event) {
+    EventBusUtil.getInstance().on<DelRecordEvent>().listen((event) async {
       if (!LoginServer.isLogin) return;
+      // InfoBarUtils.showErrorBar(event.res.ErrorText!);
+      // if (event.res.ErrorCode != 0) {
+      await rustDeskWinManager.call(WindowType.Main, kWindowLocalNotifier, {"errorCode": event.res.ErrorCode, "errorText": event.res.ErrorText});
+      // }
       switch (event.res.OrderState) {
         case OrderState.ORDER_STATE_FAIL:
         case OrderState.ORDER_STATE_ACCEPT:
@@ -538,18 +561,18 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     //     exist++;
     //   }
     // }
-    int buynum = 0, salenum = 0;
-    for (HoldOrder order in mHoldList) {
+    int buyNum = 0, saleNum = 0;
+    for (HoldOrder order in mHoldDetailList) {
       if (isSameContract(order, contract)) {
         if (order.orderSide == SideType.SIDE_SELL) {
-          salenum = order.quantity ?? 0;
+          saleNum = order.quantity ?? 0;
         } else {
-          buynum = order.quantity ?? 0;
+          buyNum = order.quantity ?? 0;
         }
       }
     }
-    tradeBuyCanClose = salenum.toString();
-    tradeSaleCanClose = buynum.toString();
+    tradeBuyCanClose = saleNum.toString();
+    tradeSaleCanClose = buyNum.toString();
     if (mounted) setState(() {});
   }
 
@@ -562,11 +585,32 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     return isSame;
   }
 
+  void switchCon() {
+    if (mHoldOrder == null) return;
+    if (!isSameContract(mHoldOrder!, contract)) {
+      Contract? con = MarketUtils.getVariety(mHoldOrder!.exCode, mHoldOrder!.code, mHoldOrder!.comType);
+      if (con == null) {
+        InfoBarUtils.showWarningBar("当前合约已过期");
+        return;
+      }
+      if (contract.code != null) {
+        unSubscriptionQuote();
+      }
+      inputting = false;
+      contract = con;
+      // refreshData();
+      subscriptionQuote();
+      queryInitMargin();
+      bsCondition();
+    }
+  }
+
   /// 请求持仓单
   void requestHold() async {
     await PositionServer.queryPosition().then((value) {
       if (value != null) {
         mHoldList.clear();
+        mHoldDetailList.clear();
         for (var res in value) {
           HoldOrder hold = HoldOrder(
               name: res.ContractName,
@@ -591,15 +635,87 @@ class _TradeState extends State<Trade> with MultiWindowListener {
           } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
             hold.YPosition = res.PositionQty;
           }
-
           List<ResHoldOrder> details = [];
           details.add(res);
           hold.detailList = details;
           hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
-
+          queryPLRecord(hold);
           mHoldList.add(hold);
         }
-        bsCondition();
+
+        for (var res in value) {
+          bool isExist = false;
+          int position = -1;
+
+          for (var hold in mHoldDetailList) {
+            if (isSameOrder(hold, res)) {
+              position = mHoldDetailList.indexOf(hold);
+              isExist = true;
+              break;
+            }
+          }
+          if (isExist) {
+            //已存在
+            mHoldDetailList[position].detailList?.add(res);
+            mHoldDetailList[position].noMap?[res.PositionNo ?? ""] = res.PositionNo ?? "";
+            //重新计算此单的均价和数量
+            List<ResHoldOrder> details = mHoldDetailList[position].detailList ?? [];
+            int qty = 0;
+            int availableQty = 0;
+            double price = 0;
+            double margin = 0;
+            double profit = 0;
+
+            for (var detail in details) {
+              qty = qty + (detail.PositionQty ?? 0);
+              availableQty = availableQty + (detail.AvailableQty ?? 0);
+              profit = profit + (detail.PositionProfit ?? 0);
+              price = price + (detail.PositionPrice ?? 0) * (detail.PositionQty ?? 0);
+              margin = margin + (detail.MarginValue ?? 0) * (detail.PositionQty ?? 0);
+            }
+
+            price = price / qty;
+            mHoldDetailList[position].quantity = qty;
+            mHoldDetailList[position].AvailableQty = availableQty;
+            mHoldDetailList[position].open = price;
+            mHoldDetailList[position].margin = margin;
+            mHoldDetailList[position].floatProfit = profit;
+            if (res.PositionType == PositionType.POSITION_TODAY) {
+              mHoldDetailList[position].TPosition = (mHoldDetailList[position].TPosition ?? 0) + (res.PositionQty ?? 0);
+            } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
+              mHoldDetailList[position].YPosition = (mHoldDetailList[position].YPosition ?? 0) + (res.PositionQty ?? 0);
+            }
+          } else {
+            HoldOrder hold = HoldOrder(
+                name: res.ContractName,
+                code: "${res.CommodityNo}${res.ContractNo}",
+                exCode: res.ExchangeNo,
+                comType: res.CommodityType,
+                subComCode: res.CommodityNo,
+                subConCode: res.ContractNo,
+                orderSide: res.MatchSide,
+                quantity: res.PositionQty,
+                open: res.PositionPrice,
+                margin: (res.MarginValue ?? 0) * (res.PositionQty ?? 0),
+                floatProfit: res.PositionProfit,
+                FutureContractSize: res.ContractSize,
+                FutureTickSize: res.CommodityTickSize,
+                CurrencyType: res.TradeCurrency,
+                PositionNo: res.PositionNo,
+                CalculatePrice: res.CalculatePrice,
+                AvailableQty: res.AvailableQty);
+            if (res.PositionType == PositionType.POSITION_TODAY) {
+              hold.TPosition = res.PositionQty;
+            } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
+              hold.YPosition = res.PositionQty;
+            }
+            List<ResHoldOrder> details = [];
+            details.add(res);
+            hold.detailList = details;
+            hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
+            mHoldDetailList.add(hold);
+          }
+        }
         if (mounted) setState(() {});
       }
     });
@@ -890,6 +1006,31 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     return count;
   }
 
+  /// 查询止盈止损
+  Future<int> queryPLRecord(HoldOrder hold) async {
+    int i = 0, j = 0;
+    await PLServer.getHisPLRecord(hold.exCode, hold.subComCode, hold.subConCode, hold.comType, hold.orderSide).then((value) {
+      if (value != null && value.isNotEmpty) {
+        for (PLRecord v in value) {
+          if (v.StopWin != 0) {
+            i = 1;
+          }
+          if (v.StopLoss != 0 || v.FloatLoss != 0) {
+            j = 1;
+          }
+        }
+      }
+    });
+    if (i == 1 && j == 1) {
+      return 1;
+    } else if (i == 1) {
+      return 2;
+    } else if (j == 1) {
+      return 3;
+    }
+    return 0;
+  }
+
   /// 全平
   void closeAll() async {
     if (closeIndex < mCloseList.length) {
@@ -1060,7 +1201,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///撤单
   void delHold() async {
-    if (appTheme.tradeAllIndex == 0) {
+    if ((selectedIndex == 0 && tradeAllIndex == 0) || (selectedIndex == 2 && appTheme.tradeAllIndex == 0)) {
       for (var hold in mPendList) {
         if (hold.selected) {
           await DealServer.cancelOrder(hold.deleNo ?? "").then((value) {
@@ -1160,7 +1301,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         ),
                         onPressed: () async {
                           Get.back();
-                          if (appTheme.tradeAllIndex == 0) {
+                          if ((selectedIndex == 0 && tradeAllIndex == 0) || (selectedIndex == 2 && appTheme.tradeAllIndex == 0)) {
                             for (var hold in mPendList) {
                               await DealServer.cancelOrder(hold.deleNo ?? "").then((value) {
                                 if (value) {
@@ -1301,6 +1442,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   @override
   void initState() {
     DesktopMultiWindow.addListener(this);
+    LoginServer.isLogin = true;
     initData();
     listener();
     loadTradeData();
@@ -1320,146 +1462,222 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     appTheme = context.watch<AppTheme>();
     UserUtils.appContext = context;
     return Container(
-      color: appTheme.commandBarColor,
-      child: NavigationView(
-        appBar: NavigationAppBar(
-          automaticallyImplyLeading: false,
-          height: 30,
-          title: GestureDetector(
-              onPanStart: (_) => startDragging(false),
-              onPanCancel: () {
-                if (isMacOS) {
-                  setMovable(false, false);
-                }
-              },
-              onPanEnd: (_) {
-                if (isMacOS) {
-                  setMovable(false, false);
-                }
-              },
-              child: Row(
-                children: [
-                  Expanded(
-                      child: RichText(
-                    text: TextSpan(children: [
-                      TextSpan(text: UserUtils.currentUser?.nick ?? "", style: TextStyle(color: Colors.yellow)),
-                      TextSpan(text: "您好，您的可用资金：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineAvailFunds, style: TextStyle(color: Colors.yellow)),
-                      TextSpan(text: "   用户权益：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineAllAssets, style: TextStyle(color: Colors.yellow)),
-                      TextSpan(text: "   平仓盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineCloseProfit, style: TextStyle(color: Colors.red)),
-                      TextSpan(text: "   手续费：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineFee, style: TextStyle(color: Colors.yellow)),
-                      TextSpan(text: "   浮动盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineFloatPrice, style: TextStyle(color: Colors.red)),
-                      TextSpan(text: "   占用保证金：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: mineOccMargin, style: TextStyle(color: Colors.yellow)),
-                      TextSpan(text: "   风险度：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                      TextSpan(text: "$mineRiskDegree%", style: TextStyle(color: Colors.red)),
-                    ]),
-                  ))
-                ],
-              )),
-          actions: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-            Button(
-              onPressed: () {
-                inputting = false;
-                if (selectedIndex == 0) {
-                  requestHold();
-                  requestDelOrder();
-                  requestCancelDelOrder();
-                } else if (selectedIndex == 1) {
-                  qryCondition(0);
-                } else if (selectedIndex == 2) {
-                  requestDelOrder();
-                  requestCancelDelOrder();
-                } else if (selectedIndex == 3) {
-                  requestComOrder();
-                } else if (selectedIndex == 4) {
-                  requestHold();
-                }
-              },
-              style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
-                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
-              child: const Text('刷新', textAlign: TextAlign.center),
-            ),
-            const SizedBox(
-              width: 3,
-            ),
-            Button(
-              onPressed: () {
-                // lock = true;
-                // if (mounted) setState(() {});
-              },
-              style: ButtonStyle(
-                  backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
-                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
-              child: const Text('锁定', textAlign: TextAlign.center),
-            ),
-            const SizedBox(
-              width: 3,
-            ),
-            IconButton(
-                icon: const Icon(FluentIcons.minimum_value, size: 22),
-                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
-                onPressed: () {
-                  WindowController.fromWindowId(widget.params["windowId"]).minimize();
-                }),
-            IconButton(
-                icon: const Icon(FluentIcons.sign_out, size: 22),
-                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
-                onPressed: () async {
-                  Future.delayed(Duration.zero, () async {
-                    await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, null);
-                    await WindowController.fromWindowId(kWindowId!).close();
-                  });
-                  // EventBusUtil.getInstance().fire(LoginEvent(false));
-                }),
-          ]),
-        ),
-        content: Row(
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                tabItem("交易", 0),
-                tabItem("云条件单", 1),
-                tabItem("当日委托", 2),
-                tabItem("当日成交", 3),
-                tabItem("持仓", 4),
-                tabItem("查询", 5),
-                tabItem("交易设置", 6),
-              ],
-            ),
-            Container(
-              color: appTheme.commandBarColor,
-              margin: const EdgeInsets.only(left: 5),
-              child: selectedIndex == 0 || selectedIndex == 2 || selectedIndex == 3 || selectedIndex == 4
-                  ? tradeContent()
-                  : selectedIndex == 1
-                      ? cloudConditionContent()
-                      : null,
-            ),
-            selectedIndex == 0
-                ? tradeDetails()
-                : selectedIndex == 1
-                    ? cloudConditionDetails()
-                    : selectedIndex == 2
-                        ? orderDetails()
-                        : selectedIndex == 3
-                            ? dealDetails()
-                            : selectedIndex == 4
-                                ? posDetails()
-                                : selectedIndex == 5
-                                    ? queryWidget()
-                                    : selectedIndex == 6
-                                        ? settingWidget()
-                                        : Container()
-          ],
+      width: 1.sw,
+      decoration: BoxDecoration(
+        color: appTheme.commandBarColor,
+        image: const DecorationImage(
+          image: AssetImage('assets/images/tradelogin_bg.png'),
+          fit: BoxFit.fill, // 完全填充
         ),
       ),
+      child: lock
+          ? Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("交易账号："),
+                    SizedBox(
+                      width: 150,
+                      child: TextBox(
+                        controller: TextEditingController(text: UserUtils.currentUser?.account ?? ""),
+                      ),
+                    )
+                  ],
+                ),
+                const SizedBox(
+                  height: 10,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text("交易密码："),
+                    SizedBox(
+                        width: 150,
+                        child: TextBox(
+                          obscureText: true,
+                          controller: lockTextEditingController,
+                        ))
+                  ],
+                ),
+                const SizedBox(
+                  height: 15,
+                ),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Button(
+                        style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
+                        child: const Text("解锁"),
+                        onPressed: () async {
+                          String? pwd = await SpUtils.getString(SpKey.password);
+                          if (lockTextEditingController.text == pwd) {
+                            lock = false;
+                            lockTextEditingController.clear();
+                            if (mounted) setState(() {});
+                          } else {
+                            InfoBarUtils.showErrorBar("密码错误");
+                          }
+                        }),
+                    const SizedBox(
+                      width: 30,
+                    ),
+                    Button(
+                        style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
+                        child: const Text("退出"),
+                        onPressed: () {
+                          Future.delayed(Duration.zero, () async {
+                            await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, {"id": kWindowId!});
+                            await WindowController.fromWindowId(kWindowId!).hide();
+                            await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+                          });
+                        }),
+                  ],
+                )
+              ],
+            )
+          : NavigationView(
+              appBar: NavigationAppBar(
+                automaticallyImplyLeading: false,
+                height: 30,
+                title: GestureDetector(
+                    onPanStart: (_) => startDragging(false),
+                    onPanCancel: () {
+                      if (isMacOS) {
+                        setMovable(false, false);
+                      }
+                    },
+                    onPanEnd: (_) {
+                      if (isMacOS) {
+                        setMovable(false, false);
+                      }
+                    },
+                    child: Row(
+                      children: [
+                        Expanded(
+                            child: RichText(
+                          text: TextSpan(children: [
+                            TextSpan(text: UserUtils.currentUser?.nick ?? "", style: TextStyle(color: Colors.yellow)),
+                            TextSpan(text: "您好，您的可用资金：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineAvailFunds, style: TextStyle(color: Colors.yellow)),
+                            TextSpan(text: "   用户权益：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineAllAssets, style: TextStyle(color: Colors.yellow)),
+                            TextSpan(text: "   平仓盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineCloseProfit, style: TextStyle(color: Colors.red)),
+                            TextSpan(text: "   手续费：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineFee, style: TextStyle(color: Colors.yellow)),
+                            TextSpan(text: "   浮动盈亏：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineFloatPrice, style: TextStyle(color: Colors.red)),
+                            TextSpan(text: "   占用保证金：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: mineOccMargin, style: TextStyle(color: Colors.yellow)),
+                            TextSpan(text: "   风险度：", style: TextStyle(color: appTheme.exchangeTextColor)),
+                            TextSpan(text: "$mineRiskDegree%", style: TextStyle(color: Colors.red)),
+                          ]),
+                        ))
+                      ],
+                    )),
+                actions: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                  Button(
+                    onPressed: () {
+                      inputting = false;
+                      if (selectedIndex == 0) {
+                        requestHold();
+                        requestDelOrder();
+                        requestCancelDelOrder();
+                      } else if (selectedIndex == 1) {
+                        qryCondition(0);
+                      } else if (selectedIndex == 2) {
+                        requestDelOrder();
+                        requestCancelDelOrder();
+                      } else if (selectedIndex == 3) {
+                        requestComOrder();
+                      } else if (selectedIndex == 4) {
+                        requestHold();
+                      }
+                    },
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
+                    child: const Text('刷新', textAlign: TextAlign.center),
+                  ),
+                  const SizedBox(
+                    width: 3,
+                  ),
+                  Button(
+                    onPressed: () {
+                      lock = true;
+                      if (mounted) setState(() {});
+                    },
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(appTheme.commandBarColor),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 3, horizontal: 8))),
+                    child: const Text('锁定', textAlign: TextAlign.center),
+                  ),
+                  const SizedBox(
+                    width: 3,
+                  ),
+                  IconButton(
+                      icon: const Icon(FluentIcons.minimum_value, size: 22),
+                      style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
+                      onPressed: () {
+                        WindowController.fromWindowId(widget.params["windowId"]).minimize();
+                      }),
+                  IconButton(
+                      icon: const Icon(FluentIcons.sign_out, size: 22),
+                      style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
+                      onPressed: () async {
+                        Future.delayed(Duration.zero, () async {
+                          await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, {"id": kWindowId!});
+                          // await WindowController.fromWindowId(kWindowId!).close();
+                          await WindowController.fromWindowId(kWindowId!).hide();
+                          await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+                        });
+                        // EventBusUtil.getInstance().fire(LoginEvent(false));
+                      }),
+                ]),
+              ),
+              content: Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      tabItem("交易", 0),
+                      tabItem("云条件单", 1),
+                      tabItem("当日委托", 2),
+                      tabItem("当日成交", 3),
+                      tabItem("持仓", 4),
+                      tabItem("查询", 5),
+                      tabItem("交易设置", 6),
+                    ],
+                  ),
+                  Container(
+                    color: appTheme.commandBarColor,
+                    margin: const EdgeInsets.only(left: 5),
+                    child: selectedIndex == 0 || selectedIndex == 2 || selectedIndex == 3 || selectedIndex == 4
+                        ? tradeContent()
+                        : selectedIndex == 1
+                            ? cloudConditionContent()
+                            : null,
+                  ),
+                  selectedIndex == 0
+                      ? tradeDetails()
+                      : selectedIndex == 1
+                          ? cloudConditionDetails()
+                          : selectedIndex == 2
+                              ? orderDetails()
+                              : selectedIndex == 3
+                                  ? dealDetails()
+                                  : selectedIndex == 4
+                                      ? posDetails()
+                                      : selectedIndex == 5
+                                          ? queryWidget()
+                                          : selectedIndex == 6
+                                              ? settingWidget()
+                                              : Container()
+                ],
+              ),
+            ),
     );
   }
 
@@ -1742,6 +1960,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             );
                           }).toList(),
                           onChanged: (v) {
+                            price = v!;
                             tradeSalePrice = getLimitPrice(true).toString();
                             tradeBuyPrice = getLimitPrice(false).toString();
                             if (globalStateFirst != null) globalStateFirst!(() {});
@@ -1986,6 +2205,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                             );
                           }).toList(),
                           onChanged: (v) {
+                            price = v!;
                             tradeSalePrice = getLimitPrice(true).toString();
                             tradeBuyPrice = getLimitPrice(false).toString();
                             if (globalStateSecond != null) globalStateSecond!(() {});
@@ -2353,6 +2573,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                               );
                             }).toList(),
                             onChanged: (v) {
+                              price = v!;
                               tradeSalePrice = getLimitPrice(true).toString();
                               tradeBuyPrice = getLimitPrice(false).toString();
                               if (globalStateThird != null) globalStateThird!(() {});
@@ -2433,401 +2654,475 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///持仓、委托、可撤
   Widget tradeDetails() {
-    ScrollController scrollController = ScrollController();
-    ScrollController secScrollController = ScrollController();
     return Expanded(
         child: Padding(
       padding: const EdgeInsets.all(15),
-      child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
-        child: ListView(
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
+      child: Column(
+        children: [
+          Expanded(
+            child: StatefulBuilder(
+              builder: (_, state) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Button(
+                    Column(
+                      children: [
+                        Button(
+                            style: const ButtonStyle(
+                                padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                            onPressed: () {
+                              tradeDetailIndex = 0;
+                              state(() {});
+                            },
+                            child: Text(
+                              "合\n计",
+                              style: TextStyle(fontSize: 18, color: tradeDetailIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
+                            )),
+                        const SizedBox(height: 20),
+                        Button(
+                          style: const ButtonStyle(
+                              padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                          onPressed: () {
+                            tradeDetailIndex = 1;
+                            state(() {});
+                          },
+                          child: Text(
+                            "明\n细",
+                            style: TextStyle(fontSize: 18, color: tradeDetailIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Expanded(
+                        child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (tradeDetailIndex == 0)
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              children: [
+                                const SizedBox(width: 15),
+                                Button(
+                                    style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                                    onPressed: closeAllPos,
+                                    child: Text(
+                                      "全部平仓",
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                    )),
+                                const SizedBox(width: 15),
+                                Button(
+                                    style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                                    onPressed: quickClose,
+                                    child: Text(
+                                      "快捷平仓",
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                    )),
+                                const SizedBox(width: 15),
+                                Button(
+                                    style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                                    onPressed: quickBack,
+                                    child: Text(
+                                      "快捷反手",
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                    )),
+                                const SizedBox(width: 15),
+                                Button(
+                                    style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                                    onPressed: quickLock,
+                                    child: Text(
+                                      "快捷锁仓",
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                    )),
+                                const SizedBox(width: 15),
+                                Button(
+                                    onPressed: plSetting,
+                                    style: const ButtonStyle(
+                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                                    child: Text(
+                                      "止盈止损",
+                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                    )),
+                              ],
+                            ),
+                          ),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                            margin: const EdgeInsets.fromLTRB(15, 0, 0, 5),
+                            child: Scrollbar(
+                              controller: aController,
+                              key: UniqueKey(),
+                              style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
+                              child: SingleChildScrollView(
+                                controller: aController,
+                                scrollDirection: Axis.horizontal,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: SizedBox(
+                                  width: 0.8.sw,
+                                  child: ListView.builder(
+                                      shrinkWrap: true,
+                                      controller: ScrollController(keepScrollOffset: true),
+                                      itemCount: tradeDetailIndex == 0 ? mHoldDetailList.length + 1 : mHoldList.length + 1,
+                                      padding: const EdgeInsets.only(bottom: 10),
+                                      itemBuilder: (BuildContext context, int index) {
+                                        if (index == 0) {
+                                          return Row(
+                                            children: [
+                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 1, child: tableTitleItem("数量")),
+                                              Expanded(flex: 1, child: tableTitleItem("可平")),
+                                              Expanded(flex: 2, child: tableTitleItem("开仓均价")),
+                                              Expanded(flex: 2, child: tableTitleItem("计算价格")),
+                                              Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
+                                              Expanded(flex: 2, child: tableTitleItem("保证金占用")),
+                                              Expanded(flex: 1, child: tableTitleItem("币种")),
+                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                              Expanded(flex: 3, child: tableTitleItem(tradeDetailIndex == 0 ? "止盈止损" : "持仓编号")),
+                                            ],
+                                          );
+                                        } else {
+                                          if (tradeDetailIndex == 0) {
+                                            return GestureDetector(
+                                              child: Container(
+                                                color: mHoldDetailList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                child: IntrinsicHeight(
+                                                    child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(flex: 2, child: tableTitleItem(mHoldDetailList[index - 1].code)),
+                                                    Expanded(
+                                                        flex: 1,
+                                                        child:
+                                                            tableTitleItem(mHoldDetailList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                    Expanded(flex: 1, child: tableTitleItem((mHoldDetailList[index - 1].quantity ?? 0).toString())),
+                                                    Expanded(
+                                                        flex: 1, child: tableTitleItem((mHoldDetailList[index - 1].AvailableQty ?? 0).toString())),
+                                                    Expanded(
+                                                        flex: 2,
+                                                        child: tableTitleItem(Utils.d2SBySrc(
+                                                            mHoldDetailList[index - 1].open, mHoldDetailList[index - 1].FutureTickSize))),
+                                                    Expanded(
+                                                        flex: 2, child: tableTitleItem((mHoldDetailList[index - 1].CalculatePrice ?? 0).toString())),
+                                                    Expanded(
+                                                        flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index - 1].floatProfit, 2))),
+                                                    Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index - 1].margin, 2))),
+                                                    Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index - 1].name)),
+                                                    Expanded(
+                                                        flex: 3,
+                                                        child: tradeDetailIndex == 0
+                                                            ? tablePlItem(win: false, lose: false)
+                                                            : tableTitleItem(mHoldDetailList[index - 1].PositionNo)),
+                                                  ],
+                                                )),
+                                              ),
+                                              onTap: () {
+                                                if (mHoldDetailList[index - 1].selected == true) return;
+                                                for (var element in mHoldDetailList) {
+                                                  element.selected = false;
+                                                }
+                                                mHoldDetailList[index - 1].selected = true;
+                                                mHoldOrder = mHoldDetailList[index - 1];
+                                                switchCon();
+                                                state(() {});
+                                              },
+                                            );
+                                          } else {
+                                            return GestureDetector(
+                                              child: Container(
+                                                color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                child: IntrinsicHeight(
+                                                    child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
+                                                    Expanded(
+                                                        flex: 1,
+                                                        child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                    Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].quantity ?? 0).toString())),
+                                                    Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].AvailableQty ?? 0).toString())),
+                                                    Expanded(
+                                                        flex: 2,
+                                                        child: tableTitleItem(
+                                                            Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
+                                                    Expanded(flex: 2, child: tableTitleItem((mHoldList[index - 1].CalculatePrice ?? 0).toString())),
+                                                    Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
+                                                    Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
+                                                    Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
+                                                    Expanded(
+                                                        flex: 3,
+                                                        child: tradeDetailIndex == 0
+                                                            ? tablePlItem(win: false, lose: false)
+                                                            : tableTitleItem(mHoldList[index - 1].PositionNo)),
+                                                  ],
+                                                )),
+                                              ),
+                                              onTap: () {
+                                                if (mHoldList[index - 1].selected == true) return;
+                                                for (var element in mHoldList) {
+                                                  element.selected = false;
+                                                }
+                                                mHoldList[index - 1].selected = true;
+                                                mHoldOrder = mHoldList[index - 1];
+                                                switchCon();
+                                                state(() {});
+                                              },
+                                            );
+                                          }
+                                        }
+                                      }),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ))
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(
+            height: 15,
+          ),
+          Expanded(
+            child: StatefulBuilder(builder: (_, state) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Column(
+                    children: [
+                      Button(
+                          style: const ButtonStyle(
+                              padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
+                          onPressed: () {
+                            tradeAllIndex = 0;
+                            state(() {});
+                          },
+                          child: Text(
+                            "可\n撤",
+                            style: TextStyle(fontSize: 18, color: tradeAllIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
+                          )),
+                      const SizedBox(height: 20),
+                      Button(
                         style: const ButtonStyle(
                             padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         onPressed: () {
-                          appTheme.tradeDetailIndex = 0;
+                          tradeAllIndex = 1;
+                          state(() {});
                         },
                         child: Text(
-                          "合\n计",
-                          style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
-                        )),
-                    const SizedBox(height: 20),
-                    Button(
-                      style: const ButtonStyle(
-                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                      onPressed: () {
-                        appTheme.tradeDetailIndex = 1;
-                      },
-                      child: Text(
-                        "明\n细",
-                        style: TextStyle(fontSize: 18, color: appTheme.tradeDetailIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
+                          "全\n部",
+                          style: TextStyle(fontSize: 18, color: tradeAllIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-                Expanded(
+                    ],
+                  ),
+                  Expanded(
                     child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (appTheme.tradeDetailIndex == 0)
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
                           children: [
                             const SizedBox(width: 15),
                             Button(
                                 style: const ButtonStyle(
                                     padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
                                     shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                onPressed: closeAllPos,
+                                onPressed: delAllHold,
                                 child: Text(
-                                  "全部平仓",
+                                  "全部撤单",
                                   style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                             const SizedBox(width: 15),
                             Button(
-                                style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                onPressed: quickClose,
-                                child: Text(
-                                  "快捷平仓",
-                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                )),
-                            const SizedBox(width: 15),
-                            Button(
-                                style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                onPressed: quickBack,
-                                child: Text(
-                                  "快捷反手",
-                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                )),
-                            const SizedBox(width: 15),
-                            Button(
-                                style: const ButtonStyle(
-                                    padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                    shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                onPressed: quickLock,
-                                child: Text(
-                                  "快捷锁仓",
-                                  style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                )),
-                            const SizedBox(width: 15),
-                            Button(
-                                onPressed: plSetting,
+                                onPressed: delHold,
                                 style: const ButtonStyle(
                                     padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
                                     shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                                 child: Text(
-                                  "止盈止损",
+                                  "撤单",
                                   style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
                                 )),
                           ],
                         ),
-                      ),
-                    Container(
-                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
-                      margin: const EdgeInsets.fromLTRB(15, 0, 0, 5),
-                      child: Scrollbar(
-                        controller: scrollController,
-                        key: UniqueKey(),
-                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                        child: SingleChildScrollView(
-                            controller: scrollController,
-                            scrollDirection: Axis.horizontal,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            child: SizedBox(
-                                width: 0.8.sw,
-                                height: 168,
-                                child: ListView.builder(
-                                    shrinkWrap: true,
-                                    itemCount: mHoldList.length + 1,
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    itemBuilder: (BuildContext context, int index) {
-                                      if (index == 0) {
-                                        return Row(
-                                          children: [
-                                            Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                            Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                            Expanded(flex: 1, child: tableTitleItem("数量")),
-                                            Expanded(flex: 1, child: tableTitleItem("可平")),
-                                            Expanded(flex: 2, child: tableTitleItem("开仓均价")),
-                                            Expanded(flex: 2, child: tableTitleItem("计算价格")),
-                                            Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
-                                            Expanded(flex: 2, child: tableTitleItem("保证金占用")),
-                                            Expanded(flex: 1, child: tableTitleItem("币种")),
-                                            Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                            Expanded(flex: 3, child: tableTitleItem(appTheme.tradeDetailIndex == 0 ? "止盈止损" : "持仓编号")),
-                                          ],
-                                        );
-                                      } else {
-                                        return GestureDetector(
-                                          child: Container(
-                                            color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                            child: IntrinsicHeight(
-                                                child: Row(
-                                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                                              children: [
-                                                Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
-                                                Expanded(
-                                                    flex: 1,
-                                                    child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
-                                                Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].quantity ?? 0).toString())),
-                                                Expanded(flex: 1, child: tableTitleItem((mHoldList[index - 1].AvailableQty ?? 0).toString())),
-                                                Expanded(
-                                                    flex: 2,
-                                                    child: tableTitleItem(
-                                                        Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
-                                                Expanded(flex: 2, child: tableTitleItem((mHoldList[index - 1].CalculatePrice ?? 0).toString())),
-                                                Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
-                                                Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
-                                                Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
-                                                Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
-                                                Expanded(
-                                                    flex: 3,
-                                                    child: appTheme.tradeDetailIndex == 0
-                                                        ? tablePlItem(win: false, lose: false)
-                                                        : tableTitleItem(mHoldList[index - 1].PositionNo)),
-                                              ],
-                                            )),
-                                          ),
-                                          onTap: () {
-                                            if (mHoldList[index - 1].selected == true) return;
-                                            for (var element in mHoldList) {
-                                              element.selected = false;
-                                            }
-                                            mHoldList[index - 1].selected = true;
-                                            mHoldOrder = mHoldList[index - 1];
-                                            if (mounted) setState(() {});
-                                          },
-                                        );
-                                      }
-                                    }))),
-                      ),
-                    ),
-                  ],
-                ))
-              ],
-            ),
-            const SizedBox(
-              height: 15,
-            ),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Column(
-                  children: [
-                    Button(
-                        style: const ButtonStyle(
-                            padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        onPressed: () {
-                          appTheme.tradeAllIndex = 0;
-                        },
-                        child: Text(
-                          "可\n撤",
-                          style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
-                        )),
-                    const SizedBox(height: 20),
-                    Button(
-                      style: const ButtonStyle(
-                          padding: WidgetStatePropertyAll(EdgeInsets.all(10)), shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                      onPressed: () {
-                        appTheme.tradeAllIndex = 1;
-                      },
-                      child: Text(
-                        "全\n部",
-                        style: TextStyle(fontSize: 18, color: appTheme.tradeAllIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
-                      ),
-                    ),
-                  ],
-                ),
-                Expanded(
-                    child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const SizedBox(width: 15),
-                        Button(
-                            style: const ButtonStyle(
-                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                            onPressed: delAllHold,
-                            child: Text(
-                              "全部撤单",
-                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                            )),
-                        const SizedBox(width: 15),
-                        Button(
-                            onPressed: delHold,
-                            style: const ButtonStyle(
-                                padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                            child: Text(
-                              "撤单",
-                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                            )),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                            margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
+                            constraints: const BoxConstraints(minHeight: 168),
+                            child: StatefulBuilder(builder: (_, state) {
+                              return Scrollbar(
+                                key: UniqueKey(),
+                                controller: bController,
+                                style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
+                                child: SingleChildScrollView(
+                                    controller: bController,
+                                    scrollDirection: Axis.horizontal,
+                                    physics: const AlwaysScrollableScrollPhysics(),
+                                    child: SizedBox(
+                                        width: 1.sw,
+                                        // height: 168,
+                                        child: tradeAllIndex == 0
+                                            ? ListView.builder(
+                                                shrinkWrap: true,
+                                                itemCount: mPendList.length + 1,
+                                                itemBuilder: (BuildContext context, int index) {
+                                                  if (index == 0) {
+                                                    return Row(
+                                                      children: [
+                                                        Expanded(flex: 4, child: tableTitleItem("委托时间")),
+                                                        Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                        Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                        Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                        Expanded(flex: 2, child: tableTitleItem("价格")),
+                                                        Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                        Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                        Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                        Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                        Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                        Expanded(flex: 4, child: tableTitleItem("错误信息")),
+                                                        Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                        Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                                      ],
+                                                    );
+                                                  } else {
+                                                    return GestureDetector(
+                                                      child: Container(
+                                                        color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                        child: IntrinsicHeight(
+                                                            child: Row(
+                                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                          children: [
+                                                            Expanded(
+                                                                flex: 4,
+                                                                child: tableTitleItem(
+                                                                    "${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                            Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].code)),
+                                                            Expanded(flex: 1, child: tableTitleItem(mPendList[index - 1].bs)),
+                                                            Expanded(
+                                                                flex: 1,
+                                                                child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
+                                                            Expanded(flex: 1, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
+                                                            Expanded(
+                                                                flex: 2,
+                                                                child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
+                                                            Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
+                                                            Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].ErrorText)),
+                                                            Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].deleNo)),
+                                                            Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].name)),
+                                                          ],
+                                                        )),
+                                                      ),
+                                                      onTap: () {
+                                                        if (mPendList[index - 1].selected == true) return;
+                                                        for (var element in mPendList) {
+                                                          element.selected = false;
+                                                        }
+                                                        mPendList[index - 1].selected = true;
+                                                        state(() {});
+                                                      },
+                                                    );
+                                                  }
+                                                })
+                                            : ListView.builder(
+                                                shrinkWrap: true,
+                                                itemCount: mDelList.length + 1,
+                                                itemBuilder: (BuildContext context, int index) {
+                                                  if (index == 0) {
+                                                    return Row(
+                                                      children: [
+                                                        Expanded(flex: 4, child: tableTitleItem("委托时间")),
+                                                        Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                        Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                        Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                        Expanded(flex: 2, child: tableTitleItem("价格")),
+                                                        Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                        Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                        Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                        Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                        Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                        Expanded(flex: 4, child: tableTitleItem("错误信息")),
+                                                        Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                        Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                                      ],
+                                                    );
+                                                  } else {
+                                                    return GestureDetector(
+                                                      child: Container(
+                                                        color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                        child: IntrinsicHeight(
+                                                            child: Row(
+                                                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                          children: [
+                                                            Expanded(
+                                                                flex: 4,
+                                                                child: tableTitleItem(
+                                                                    "${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
+                                                            Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
+                                                            Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
+                                                            Expanded(
+                                                                flex: 1,
+                                                                child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
+                                                            Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
+                                                            Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
+                                                            Expanded(
+                                                                flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
+                                                            Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
+                                                            Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].ErrorText)),
+                                                            Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
+                                                            Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
+                                                          ],
+                                                        )),
+                                                      ),
+                                                      onTap: () {
+                                                        if (mDelList[index - 1].selected == true) return;
+                                                        for (var element in mDelList) {
+                                                          element.selected = false;
+                                                        }
+                                                        mDelList[index - 1].selected = true;
+                                                        state(() {});
+                                                      },
+                                                    );
+                                                  }
+                                                }))),
+                              );
+                            }),
+                          ),
+                        )
                       ],
                     ),
-                    Container(
-                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
-                      margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
-                      child: Scrollbar(
-                        key: UniqueKey(),
-                        controller: secScrollController,
-                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                        child: SingleChildScrollView(
-                            controller: secScrollController,
-                            scrollDirection: Axis.horizontal,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            child: SizedBox(
-                                width: 1.sw,
-                                height: 168,
-                                child: appTheme.tradeAllIndex == 0
-                                    ? ListView.builder(
-                                        shrinkWrap: true,
-                                        itemCount: mPendList.length + 1,
-                                        itemBuilder: (BuildContext context, int index) {
-                                          if (index == 0) {
-                                            return Row(
-                                              children: [
-                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
-                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                                Expanded(flex: 1, child: tableTitleItem("开平")),
-                                                Expanded(flex: 1, child: tableTitleItem("价格")),
-                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
-                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
-                                                Expanded(flex: 1, child: tableTitleItem("币种")),
-                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
-                                                Expanded(flex: 2, child: tableTitleItem("状态")),
-                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
-                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
-                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                              ],
-                                            );
-                                          } else {
-                                            return GestureDetector(
-                                              child: Container(
-                                                color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                                child: IntrinsicHeight(
-                                                    child: Row(
-                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                  children: [
-                                                    Expanded(
-                                                        flex: 3,
-                                                        child:
-                                                            tableTitleItem("${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
-                                                    Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].code)),
-                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].bs)),
-                                                    Expanded(
-                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
-                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
-                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
-                                                    Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
-                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
-                                                    Expanded(flex: 1, child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
-                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
-                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].ErrorText)),
-                                                    Expanded(flex: 5, child: tableTitleItem(mPendList[index - 1].deleNo)),
-                                                    Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].name)),
-                                                  ],
-                                                )),
-                                              ),
-                                              onTap: () {
-                                                if (mPendList[index - 1].selected == true) return;
-                                                for (var element in mPendList) {
-                                                  element.selected = false;
-                                                }
-                                                mPendList[index - 1].selected = true;
-                                                if (mounted) setState(() {});
-                                              },
-                                            );
-                                          }
-                                        })
-                                    : ListView.builder(
-                                        shrinkWrap: true,
-                                        itemCount: mDelList.length + 1,
-                                        itemBuilder: (BuildContext context, int index) {
-                                          if (index == 0) {
-                                            return Row(
-                                              children: [
-                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
-                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                                Expanded(flex: 1, child: tableTitleItem("开平")),
-                                                Expanded(flex: 1, child: tableTitleItem("价格")),
-                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
-                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
-                                                Expanded(flex: 1, child: tableTitleItem("币种")),
-                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
-                                                Expanded(flex: 2, child: tableTitleItem("状态")),
-                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
-                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
-                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                              ],
-                                            );
-                                          } else {
-                                            return GestureDetector(
-                                              child: Container(
-                                                color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                                child: IntrinsicHeight(
-                                                    child: Row(
-                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                  children: [
-                                                    Expanded(
-                                                        flex: 3,
-                                                        child: tableTitleItem("${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
-                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
-                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
-                                                    Expanded(
-                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
-                                                    Expanded(flex: 1, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
-                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
-                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
-                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
-                                                    Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
-                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
-                                                    Expanded(flex: 5, child: tableTitleItem(mDelList[index - 1].ErrorText)),
-                                                    Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
-                                                    Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
-                                                  ],
-                                                )),
-                                              ),
-                                              onTap: () {
-                                                if (mDelList[index - 1].selected == true) return;
-                                                for (var element in mDelList) {
-                                                  element.selected = false;
-                                                }
-                                                mDelList[index - 1].selected = true;
-                                                if (mounted) setState(() {});
-                                              },
-                                            );
-                                          }
-                                        }))),
-                      ),
-                    ),
-                  ],
-                ))
-              ],
-            ),
-          ],
-        ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
+        // ),
       ),
     ));
   }
 
   ///委托、可撤
   Widget orderDetails() {
-    ScrollController scrollController = ScrollController();
     return Expanded(
         child: Padding(
       padding: const EdgeInsets.all(15),
@@ -2894,138 +3189,142 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   child: Container(
                     decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
-                    child: Scrollbar(
-                      controller: scrollController,
-                      key: UniqueKey(),
-                      style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                      child: SingleChildScrollView(
-                          controller: scrollController,
-                          scrollDirection: Axis.horizontal,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: SizedBox(
-                              width: 1.sw,
-                              height: 168,
-                              child: appTheme.tradeAllIndex == 0
-                                  ? ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: mPendList.length + 1,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        if (index == 0) {
-                                          return Row(
-                                            children: [
-                                              Expanded(flex: 3, child: tableTitleItem("委托时间")),
-                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                              Expanded(flex: 1, child: tableTitleItem("开平")),
-                                              Expanded(flex: 1, child: tableTitleItem("价格")),
-                                              Expanded(flex: 2, child: tableTitleItem("委托数量")),
-                                              Expanded(flex: 2, child: tableTitleItem("成交数量")),
-                                              Expanded(flex: 1, child: tableTitleItem("币种")),
-                                              Expanded(flex: 2, child: tableTitleItem("订单来源")),
-                                              Expanded(flex: 2, child: tableTitleItem("状态")),
-                                              Expanded(flex: 5, child: tableTitleItem("错误信息")),
-                                              Expanded(flex: 4, child: tableTitleItem("委托号")),
-                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                            ],
-                                          );
-                                        } else {
-                                          return GestureDetector(
-                                            child: Container(
-                                              color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                              child: IntrinsicHeight(
-                                                  child: Row(
-                                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Expanded(
-                                                      flex: 3,
-                                                      child: tableTitleItem("${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
-                                                  Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].code)),
-                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].bs)),
-                                                  Expanded(
-                                                      flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
-                                                  Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
-                                                  Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
-                                                  Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
-                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
-                                                  Expanded(flex: 1, child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
-                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
-                                                  Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].ErrorText)),
-                                                  Expanded(flex: 5, child: tableTitleItem(mPendList[index - 1].deleNo)),
-                                                  Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].name)),
-                                                ],
-                                              )),
-                                            ),
-                                            onTap: () {
-                                              if (mPendList[index - 1].selected == true) return;
-                                              for (var element in mPendList) {
-                                                element.selected = false;
-                                              }
-                                              mPendList[index - 1].selected = true;
-                                              if (mounted) setState(() {});
-                                            },
-                                          );
-                                        }
-                                      })
-                                  : ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: mDelList.length + 1,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        if (index == 0) {
-                                          return Row(
-                                            children: [
-                                              Expanded(flex: 3, child: tableTitleItem("委托时间")),
-                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                              Expanded(flex: 1, child: tableTitleItem("开平")),
-                                              Expanded(flex: 1, child: tableTitleItem("价格")),
-                                              Expanded(flex: 2, child: tableTitleItem("委托数量")),
-                                              Expanded(flex: 2, child: tableTitleItem("成交数量")),
-                                              Expanded(flex: 1, child: tableTitleItem("币种")),
-                                              Expanded(flex: 2, child: tableTitleItem("订单来源")),
-                                              Expanded(flex: 2, child: tableTitleItem("状态")),
-                                              Expanded(flex: 5, child: tableTitleItem("错误信息")),
-                                              Expanded(flex: 4, child: tableTitleItem("委托号")),
-                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                            ],
-                                          );
-                                        } else {
-                                          return GestureDetector(
-                                            child: Container(
-                                              color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                              child: IntrinsicHeight(
-                                                  child: Row(
-                                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Expanded(
-                                                      flex: 3,
-                                                      child: tableTitleItem("${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
-                                                  Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
-                                                  Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
-                                                  Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
-                                                  Expanded(flex: 1, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
-                                                  Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
-                                                  Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
-                                                  Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
-                                                  Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
-                                                  Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
-                                                  Expanded(flex: 5, child: tableTitleItem(mDelList[index - 1].ErrorText)),
-                                                  Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
-                                                  Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
-                                                ],
-                                              )),
-                                            ),
-                                            onTap: () {
-                                              if (mDelList[index - 1].selected == true) return;
-                                              for (var element in mDelList) {
-                                                element.selected = false;
-                                              }
-                                              mDelList[index - 1].selected = true;
-                                              if (mounted) setState(() {});
-                                            },
-                                          );
-                                        }
-                                      }))),
-                    ),
+                    child: StatefulBuilder(builder: (_, state) {
+                      return Scrollbar(
+                        controller: cController,
+                        key: UniqueKey(),
+                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
+                        child: SingleChildScrollView(
+                            controller: cController,
+                            scrollDirection: Axis.horizontal,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                                width: 1.sw,
+                                height: 168,
+                                child: appTheme.tradeAllIndex == 0
+                                    ? ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount: mPendList.length + 1,
+                                        itemBuilder: (BuildContext context, int index) {
+                                          if (index == 0) {
+                                            return Row(
+                                              children: [
+                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                Expanded(flex: 1, child: tableTitleItem("价格")),
+                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                              ],
+                                            );
+                                          } else {
+                                            return GestureDetector(
+                                              child: Container(
+                                                color: mPendList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                child: IntrinsicHeight(
+                                                    child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(
+                                                        flex: 3,
+                                                        child:
+                                                            tableTitleItem("${mPendList[index - 1].date ?? ""} ${mPendList[index - 1].time ?? ""}")),
+                                                    Expanded(flex: 3, child: tableTitleItem(mPendList[index - 1].code)),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].bs)),
+                                                    Expanded(
+                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index - 1].OpenClose))),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].price ?? ""}")),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mPendList[index - 1].deleNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mPendList[index - 1].comNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 1, child: tableTitleItem(OrderOpType.getName(mPendList[index - 1].orderOpType))),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].state)),
+                                                    Expanded(flex: 2, child: tableTitleItem(mPendList[index - 1].ErrorText)),
+                                                    Expanded(flex: 5, child: tableTitleItem(mPendList[index - 1].deleNo)),
+                                                    Expanded(flex: 4, child: tableTitleItem(mPendList[index - 1].name)),
+                                                  ],
+                                                )),
+                                              ),
+                                              onTap: () {
+                                                if (mPendList[index - 1].selected == true) return;
+                                                for (var element in mPendList) {
+                                                  element.selected = false;
+                                                }
+                                                mPendList[index - 1].selected = true;
+                                                state(() {});
+                                              },
+                                            );
+                                          }
+                                        })
+                                    : ListView.builder(
+                                        shrinkWrap: true,
+                                        itemCount: mDelList.length + 1,
+                                        itemBuilder: (BuildContext context, int index) {
+                                          if (index == 0) {
+                                            return Row(
+                                              children: [
+                                                Expanded(flex: 3, child: tableTitleItem("委托时间")),
+                                                Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                                Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                                Expanded(flex: 1, child: tableTitleItem("开平")),
+                                                Expanded(flex: 1, child: tableTitleItem("价格")),
+                                                Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                                Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                                Expanded(flex: 1, child: tableTitleItem("币种")),
+                                                Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                                Expanded(flex: 2, child: tableTitleItem("状态")),
+                                                Expanded(flex: 5, child: tableTitleItem("错误信息")),
+                                                Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                                Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                              ],
+                                            );
+                                          } else {
+                                            return GestureDetector(
+                                              child: Container(
+                                                color: mDelList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                child: IntrinsicHeight(
+                                                    child: Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                  children: [
+                                                    Expanded(
+                                                        flex: 3,
+                                                        child: tableTitleItem("${mDelList[index - 1].date ?? ""} ${mDelList[index - 1].time ?? ""}")),
+                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].code)),
+                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].bs)),
+                                                    Expanded(
+                                                        flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index - 1].OpenClose))),
+                                                    Expanded(flex: 1, child: tableTitleItem("${mDelList[index - 1].price ?? ""}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].deleNum ?? "0"}")),
+                                                    Expanded(flex: 2, child: tableTitleItem("${mDelList[index - 1].comNum ?? "0"}")),
+                                                    Expanded(flex: 1, child: tableTitleItem(mDelList[index - 1].CurrencyType)),
+                                                    Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index - 1].orderOpType))),
+                                                    Expanded(flex: 2, child: tableTitleItem(mDelList[index - 1].state)),
+                                                    Expanded(flex: 5, child: tableTitleItem(mDelList[index - 1].ErrorText)),
+                                                    Expanded(flex: 4, child: tableTitleItem(mDelList[index - 1].deleNo)),
+                                                    Expanded(flex: 3, child: tableTitleItem(mDelList[index - 1].name)),
+                                                  ],
+                                                )),
+                                              ),
+                                              onTap: () {
+                                                if (mDelList[index - 1].selected == true) return;
+                                                for (var element in mDelList) {
+                                                  element.selected = false;
+                                                }
+                                                mDelList[index - 1].selected = true;
+                                                state(() {});
+                                              },
+                                            );
+                                          }
+                                        }))),
+                      );
+                    }),
                   ),
                 ),
               ],
@@ -3038,7 +3337,6 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///成交
   Widget dealDetails() {
-    ScrollController scrollController = ScrollController();
     return Expanded(
         child: ScrollConfiguration(
       behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
@@ -3047,10 +3345,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
         child: Scrollbar(
           key: UniqueKey(),
-          controller: scrollController,
+          controller: dController,
           style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
           child: SingleChildScrollView(
-              controller: scrollController,
+              controller: dController,
               scrollDirection: Axis.horizontal,
               physics: const AlwaysScrollableScrollPhysics(),
               child: Container(
@@ -3116,7 +3414,6 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///持仓
   Widget posDetails() {
-    ScrollController scrollController = ScrollController();
     return Expanded(
         child: Padding(
       padding: const EdgeInsets.only(left: 15, top: 5, right: 5),
@@ -3213,76 +3510,121 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                   child: Container(
                     decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
-                    child: Scrollbar(
-                      key: UniqueKey(),
-                      controller: scrollController,
-                      style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                      child: SingleChildScrollView(
-                          controller: scrollController,
-                          scrollDirection: Axis.horizontal,
-                          physics: const AlwaysScrollableScrollPhysics(),
-                          child: SizedBox(
-                              width: 0.8.sw,
-                              height: 168,
-                              child: ListView.builder(
-                                  shrinkWrap: true,
-                                  itemCount: mHoldList.length + 1,
-                                  itemBuilder: (BuildContext context, int index) {
-                                    if (index == 0) {
-                                      return Row(
-                                        children: [
-                                          Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                          Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                          Expanded(flex: 1, child: tableTitleItem("数量")),
-                                          Expanded(flex: 1, child: tableTitleItem("可平")),
-                                          Expanded(flex: 2, child: tableTitleItem("开仓均价")),
-                                          Expanded(flex: 2, child: tableTitleItem("计算价格")),
-                                          Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
-                                          Expanded(flex: 2, child: tableTitleItem("保证金占用")),
-                                          Expanded(flex: 1, child: tableTitleItem("币种")),
-                                          Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                          Expanded(flex: 2, child: tableTitleItem("止盈止损")),
-                                        ],
-                                      );
-                                    } else {
-                                      return GestureDetector(
-                                        child: Container(
-                                          color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                          child: IntrinsicHeight(
-                                              child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
-                                              Expanded(
-                                                  flex: 1, child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
-                                              Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].quantity ?? 0}")),
-                                              Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].AvailableQty ?? 0}")),
-                                              Expanded(
-                                                  flex: 2,
-                                                  child:
-                                                      tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
-                                              Expanded(flex: 2, child: tableTitleItem("${mHoldList[index - 1].CalculatePrice ?? 0}")),
-                                              Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
-                                              Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
-                                              Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
-                                              Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
-                                              Expanded(flex: 2, child: tablePlItem(win: false, lose: false)),
-                                            ],
-                                          )),
-                                        ),
-                                        onTap: () {
-                                          if (mHoldList[index - 1].selected == true) return;
-                                          for (var element in mHoldList) {
-                                            element.selected = false;
-                                          }
-                                          mHoldList[index - 1].selected = true;
-                                          mHoldOrder = mHoldList[index - 1];
-                                          if (mounted) setState(() {});
-                                        },
-                                      );
-                                    }
-                                  }))),
-                    ),
+                    child: StatefulBuilder(builder: (_, state) {
+                      return Scrollbar(
+                        key: UniqueKey(),
+                        controller: eController,
+                        style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
+                        child: SingleChildScrollView(
+                            controller: eController,
+                            scrollDirection: Axis.horizontal,
+                            physics: const AlwaysScrollableScrollPhysics(),
+                            child: SizedBox(
+                                width: 0.8.sw,
+                                height: 168,
+                                child: ListView.builder(
+                                    shrinkWrap: true,
+                                    itemCount: appTheme.tradeDetailIndex == 0 ? mHoldDetailList.length + 1 : mHoldList.length + 1,
+                                    itemBuilder: (BuildContext context, int index) {
+                                      if (index == 0) {
+                                        return Row(
+                                          children: [
+                                            Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                            Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                            Expanded(flex: 1, child: tableTitleItem("数量")),
+                                            Expanded(flex: 1, child: tableTitleItem("可平")),
+                                            Expanded(flex: 2, child: tableTitleItem("开仓均价")),
+                                            Expanded(flex: 2, child: tableTitleItem("计算价格")),
+                                            Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
+                                            Expanded(flex: 2, child: tableTitleItem("保证金占用")),
+                                            Expanded(flex: 1, child: tableTitleItem("币种")),
+                                            Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                            Expanded(flex: 2, child: tableTitleItem("止盈止损")),
+                                          ],
+                                        );
+                                      } else {
+                                        if (appTheme.tradeDetailIndex == 0) {
+                                          return GestureDetector(
+                                            child: Container(
+                                              color: mHoldDetailList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                              child: IntrinsicHeight(
+                                                  child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Expanded(flex: 2, child: tableTitleItem(mHoldDetailList[index - 1].code)),
+                                                  Expanded(
+                                                      flex: 1,
+                                                      child:
+                                                          tableTitleItem(mHoldDetailList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mHoldDetailList[index - 1].quantity ?? 0}")),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mHoldDetailList[index - 1].AvailableQty ?? 0}")),
+                                                  Expanded(
+                                                      flex: 2,
+                                                      child: tableTitleItem(Utils.d2SBySrc(
+                                                          mHoldDetailList[index - 1].open, mHoldDetailList[index - 1].FutureTickSize))),
+                                                  Expanded(flex: 2, child: tableTitleItem("${mHoldDetailList[index - 1].CalculatePrice ?? 0}")),
+                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index - 1].floatProfit, 2))),
+                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index - 1].margin, 2))),
+                                                  Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index - 1].CurrencyType)),
+                                                  Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index - 1].name)),
+                                                  Expanded(flex: 2, child: tablePlItem(win: false, lose: false)),
+                                                ],
+                                              )),
+                                            ),
+                                            onTap: () {
+                                              if (mHoldDetailList[index - 1].selected == true) return;
+                                              for (var element in mHoldDetailList) {
+                                                element.selected = false;
+                                              }
+                                              mHoldDetailList[index - 1].selected = true;
+                                              mHoldOrder = mHoldDetailList[index - 1];
+                                              switchCon();
+                                              state(() {});
+                                            },
+                                          );
+                                        } else {
+                                          return GestureDetector(
+                                            child: Container(
+                                              color: mHoldList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                              child: IntrinsicHeight(
+                                                  child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Expanded(flex: 2, child: tableTitleItem(mHoldList[index - 1].code)),
+                                                  Expanded(
+                                                      flex: 1,
+                                                      child: tableTitleItem(mHoldList[index - 1].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].quantity ?? 0}")),
+                                                  Expanded(flex: 1, child: tableTitleItem("${mHoldList[index - 1].AvailableQty ?? 0}")),
+                                                  Expanded(
+                                                      flex: 2,
+                                                      child: tableTitleItem(
+                                                          Utils.d2SBySrc(mHoldList[index - 1].open, mHoldList[index - 1].FutureTickSize))),
+                                                  Expanded(flex: 2, child: tableTitleItem("${mHoldList[index - 1].CalculatePrice ?? 0}")),
+                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].floatProfit, 2))),
+                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index - 1].margin, 2))),
+                                                  Expanded(flex: 1, child: tableTitleItem(mHoldList[index - 1].CurrencyType)),
+                                                  Expanded(flex: 3, child: tableTitleItem(mHoldList[index - 1].name)),
+                                                  Expanded(flex: 2, child: tablePlItem(win: false, lose: false)),
+                                                ],
+                                              )),
+                                            ),
+                                            onTap: () {
+                                              if (mHoldList[index - 1].selected == true) return;
+                                              for (var element in mHoldList) {
+                                                element.selected = false;
+                                              }
+                                              mHoldList[index - 1].selected = true;
+                                              mHoldOrder = mHoldList[index - 1];
+                                              switchCon();
+                                              state(() {});
+                                            },
+                                          );
+                                        }
+                                      }
+                                    }))),
+                      );
+                    }),
                   ),
                 )
               ],
@@ -3645,7 +3987,6 @@ class _TradeState extends State<Trade> with MultiWindowListener {
 
   ///云条件单列表
   Widget cloudConditionDetails() {
-    ScrollController scrollController = ScrollController();
     return Expanded(
         child: Padding(
       padding: const EdgeInsets.all(5),
@@ -3690,10 +4031,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                     margin: const EdgeInsets.fromLTRB(15, 15, 0, 5),
                     child: Scrollbar(
                       key: UniqueKey(),
-                      controller: scrollController,
+                      controller: fController,
                       style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                       child: SingleChildScrollView(
-                          controller: scrollController,
+                          controller: fController,
                           scrollDirection: Axis.horizontal,
                           physics: const AlwaysScrollableScrollPhysics(),
                           child: SizedBox(
@@ -3815,7 +4156,6 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   Widget queryWidget() {
     TextEditingController startController = TextEditingController(text: formatter.format(startTime));
     TextEditingController endController = TextEditingController(text: formatter.format(endTime));
-    ScrollController scrollController = ScrollController();
     return Expanded(
       child: StatefulBuilder(builder: (_, state) {
         return Row(
@@ -3986,10 +4326,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                         decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                         child: Scrollbar(
                           key: UniqueKey(),
-                          controller: scrollController,
+                          controller: gController,
                           style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                           child: SingleChildScrollView(
-                              controller: scrollController,
+                              controller: gController,
                               scrollDirection: Axis.horizontal,
                               physics: const AlwaysScrollableScrollPhysics(),
                               child: Container(
@@ -4125,10 +4465,10 @@ class _TradeState extends State<Trade> with MultiWindowListener {
                                 decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
                                 child: Scrollbar(
                                   key: UniqueKey(),
-                                  controller: scrollController,
+                                  controller: gController,
                                   style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                                   child: SingleChildScrollView(
-                                      controller: scrollController,
+                                      controller: gController,
                                       scrollDirection: Axis.horizontal,
                                       physics: const AlwaysScrollableScrollPhysics(),
                                       child: Container(

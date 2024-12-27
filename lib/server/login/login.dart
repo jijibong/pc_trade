@@ -70,25 +70,24 @@ class LoginServer {
   }
 
   ///登录
-  static Future<bool> login(String account, String pwd, String brokerId, String? mac, String? ip) async {
+  static Future<dynamic> login(String account, String pwd, String brokerId, String? mac, String? ip) async {
     ///元泓：230101/123123  FCS：A230712/123123  NP230511
     try {
       Response response = await HttpUtils.getInstance().post(Config.loginUrl,
           data: {"Account": account, "Password": pwd, "BrokerId": brokerId, "Platform": Common.desktopPlatform, "Site": "达渊", "Mac": mac, "Ip": ip});
-      // logger.w(response);
+      logger.w(response);
       if (response.data["code"] == 0) {
         UserUtils.currentUser = User.fromJson(response.data["data"]);
         SpUtils.set(SpKey.currentUser, jsonEncode(response.data["data"]));
         LoginServer.isLogin = true;
         return true;
       } else if (response.data['msg'] != null) {
-        InfoBarUtils.showErrorBar(response.data['msg']);
+        return response.data['msg'];
       } else {
-        InfoBarUtils.showErrorBar("登录失败");
+        return "登录失败";
       }
     } on DioException {
       rethrow;
     }
-    return false;
   }
 }

@@ -4,15 +4,12 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:logger/logger.dart';
-
-import '../log/log.dart';
 import 'common.dart';
 import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, RemoteDesktop, PL, Condition, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -20,11 +17,13 @@ extension Index on int {
       case 0:
         return WindowType.Main;
       case 1:
-        return WindowType.RemoteDesktop;
+        return WindowType.Trade;
       case 2:
         return WindowType.PL;
       case 3:
         return WindowType.Condition;
+      case 4:
+        return WindowType.Draw;
       default:
         return WindowType.Unknown;
     }
@@ -49,23 +48,24 @@ class RustDeskMultiWindowManager {
   final Set<int> _inactiveWindows = {};
   final Set<int> _activeWindows = {};
   final List<AsyncCallback> _windowActiveCallbacks = List.empty(growable: true);
-  final List<int> _remoteDesktopWindows = List.empty(growable: true);
+  final List<int> _tradeWindows = List.empty(growable: true);
   final List<int> _plWindows = List.empty(growable: true);
   final List<int> _conditionWindows = List.empty(growable: true);
+  final List<int> _drawWindows = List.empty(growable: true);
 
   moveTabToNewWindow(int windowId, String peerId, String sessionId) async {
     var params = {
-      'type': WindowType.RemoteDesktop.index,
+      'type': WindowType.Trade.index,
       'id': peerId,
       'tab_window_id': windowId,
       'session_id': sessionId,
     };
     await _newSession(
       false,
-      WindowType.RemoteDesktop,
+      WindowType.Trade,
       kWindowEventNewRemoteDesktop,
       peerId,
-      _remoteDesktopWindows,
+      _tradeWindows,
       jsonEncode(params),
     );
   }
@@ -73,8 +73,8 @@ class RustDeskMultiWindowManager {
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
   openMonitorSession(int windowId, String peerId, int display, int displayCount, Rect? screenRect) async {
-    if (_remoteDesktopWindows.length > 1) {
-      for (final windowId in _remoteDesktopWindows) {
+    if (_tradeWindows.length > 1) {
+      for (final windowId in _tradeWindows) {
         if (await DesktopMultiWindow.invokeMethod(
             windowId,
             kWindowEventActiveDisplaySession,
@@ -89,7 +89,7 @@ class RustDeskMultiWindowManager {
 
     final displays = display == kAllDisplayValue ? List.generate(displayCount, (index) => index) : [display];
     var params = {
-      'type': WindowType.RemoteDesktop.index,
+      'type': WindowType.Trade.index,
       'id': peerId,
       'tab_window_id': windowId,
       'display': display,
@@ -105,10 +105,10 @@ class RustDeskMultiWindowManager {
     }
     await _newSession(
       false,
-      WindowType.RemoteDesktop,
+      WindowType.Trade,
       kWindowEventNewRemoteDesktop,
       peerId,
-      _remoteDesktopWindows,
+      _tradeWindows,
       jsonEncode(params),
       screenRect: screenRect,
     );
@@ -204,7 +204,7 @@ class RustDeskMultiWindowManager {
     final msg = jsonEncode(params);
 
     // separate window for file transfer is not supported
-    bool openInTabs = type != WindowType.RemoteDesktop || mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs);
+    bool openInTabs = type != WindowType.Trade || mainGetLocalBoolOptionSync(kOptionOpenNewConnInTabs);
     if (windows.length > 1 || !openInTabs) {
       for (final windowId in windows) {
         if (await DesktopMultiWindow.invokeMethod(windowId, kWindowEventActiveSession, remoteId)) {
@@ -223,10 +223,10 @@ class RustDeskMultiWindowManager {
     bool? forceRelay,
   }) async {
     return await newSession(
-      WindowType.RemoteDesktop,
+      WindowType.Trade,
       kWindowEventNewRemoteDesktop,
       remoteId,
-      _remoteDesktopWindows,
+      _tradeWindows,
       password: password,
       forceRelay: forceRelay,
       contract: contract,
@@ -257,6 +257,18 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newDrawTool(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+    return await newSession(
+      WindowType.Draw,
+      kWindowEventNewDraw,
+      remoteId,
+      _drawWindows,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> call(WindowType type, String methodName, dynamic args) async {
     final wnds = _findWindowsByType(type);
     if (wnds.isEmpty) {
@@ -276,12 +288,14 @@ class RustDeskMultiWindowManager {
     switch (type) {
       case WindowType.Main:
         return [kMainWindowId];
-      case WindowType.RemoteDesktop:
-        return _remoteDesktopWindows;
+      case WindowType.Trade:
+        return _tradeWindows;
       case WindowType.PL:
         return _plWindows;
       case WindowType.Condition:
         return _conditionWindows;
+      case WindowType.Draw:
+        return _drawWindows;
       case WindowType.Unknown:
         break;
     }
@@ -292,14 +306,17 @@ class RustDeskMultiWindowManager {
     switch (type) {
       case WindowType.Main:
         return;
-      case WindowType.RemoteDesktop:
-        _remoteDesktopWindows.clear();
+      case WindowType.Trade:
+        _tradeWindows.clear();
         break;
       case WindowType.PL:
         _plWindows.clear();
         break;
       case WindowType.Condition:
         _conditionWindows.clear();
+        break;
+      case WindowType.Draw:
+        _drawWindows.clear();
         break;
       case WindowType.Unknown:
         break;
@@ -401,7 +418,7 @@ class RustDeskMultiWindowManager {
   // It will query the active remote windows to get their coords.
   Future<List<String>> getOtherRemoteWindowCoords(int wId) async {
     List<String> coords = [];
-    for (final windowId in _remoteDesktopWindows) {
+    for (final windowId in _tradeWindows) {
       if (windowId != wId) {
         if (_activeWindows.contains(windowId)) {
           final res = await DesktopMultiWindow.invokeMethod(windowId, kWindowEventRemoteWindowCoords, '');

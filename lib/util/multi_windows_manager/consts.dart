@@ -41,6 +41,7 @@ const String kAppTypeConnectionManager = "cm";
 const String kAppTypeDesktopRemote = "remote";
 const String kAppTypeDesktopPL = "pl";
 const String kAppTypeDesktopCondition = "condition";
+const String kAppTypeDesktopDraw = "draw";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
 const String kWindowGetWindowInfo = "get_window_info";
@@ -51,10 +52,12 @@ const String kWindowActionRebuild = "rebuild";
 const String kWindowEventHide = "hide";
 const String kWindowEventShow = "show";
 const String kWindowConnect = "connect";
+const String kWindowLocalNotifier= "localNotifier";
 
 const String kWindowEventNewRemoteDesktop = "new_remote_desktop";
 const String kWindowEventNewPL = "new_pl";
 const String kWindowEventNewCondition = "new_condition";
+const String kWindowEventNewDraw = "new_draw";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";
