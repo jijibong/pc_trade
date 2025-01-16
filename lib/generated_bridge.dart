@@ -50,6 +50,7 @@ abstract class Rustdesk {
       required bool forceRelay,
       required String password,
       required bool isSharedPassword,
+      String? connToken,
       dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kSessionAddSyncConstMeta;
@@ -124,19 +125,13 @@ abstract class Rustdesk {
   FlutterRustBridgeTaskConstMeta get kSessionIsMultiUiSessionConstMeta;
 
   Future<void> sessionRecordScreen(
-      {required UuidValue sessionId,
-      required bool start,
-      required int display,
-      required int width,
-      required int height,
-      dynamic hint});
+      {required UuidValue sessionId, required bool start, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kSessionRecordScreenConstMeta;
 
-  Future<void> sessionRecordStatus(
-      {required UuidValue sessionId, required bool status, dynamic hint});
+  bool sessionGetIsRecording({required UuidValue sessionId, dynamic hint});
 
-  FlutterRustBridgeTaskConstMeta get kSessionRecordStatusConstMeta;
+  FlutterRustBridgeTaskConstMeta get kSessionGetIsRecordingConstMeta;
 
   Future<void> sessionReconnect(
       {required UuidValue sessionId, required bool forceRelay, dynamic hint});
@@ -384,6 +379,7 @@ abstract class Rustdesk {
       required int fileNum,
       required bool includeHidden,
       required bool isRemote,
+      required bool isDir,
       dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kSessionSendFilesConstMeta;
@@ -409,7 +405,7 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionRemoveFileConstMeta;
 
-  Future<void> sessionReadDirRecursive(
+  Future<void> sessionReadDirToRemoveRecursive(
       {required UuidValue sessionId,
       required int actId,
       required String path,
@@ -417,7 +413,7 @@ abstract class Rustdesk {
       required bool showHidden,
       dynamic hint});
 
-  FlutterRustBridgeTaskConstMeta get kSessionReadDirRecursiveConstMeta;
+  FlutterRustBridgeTaskConstMeta get kSessionReadDirToRemoveRecursiveConstMeta;
 
   Future<void> sessionRemoveAllEmptyDirs(
       {required UuidValue sessionId,
@@ -449,6 +445,24 @@ abstract class Rustdesk {
       dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kSessionReadLocalDirSyncConstMeta;
+
+  Future<String> sessionReadLocalEmptyDirsRecursiveSync(
+      {required UuidValue sessionId,
+      required String path,
+      required bool includeHidden,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta
+      get kSessionReadLocalEmptyDirsRecursiveSyncConstMeta;
+
+  Future<void> sessionReadRemoteEmptyDirsRecursiveSync(
+      {required UuidValue sessionId,
+      required String path,
+      required bool includeHidden,
+      dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta
+      get kSessionReadRemoteEmptyDirsRecursiveSyncConstMeta;
 
   Future<String> sessionGetPlatform(
       {required UuidValue sessionId, required bool isRemote, dynamic hint});
@@ -533,10 +547,6 @@ abstract class Rustdesk {
   Future<List<String>> mainGetSoundInputs({dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kMainGetSoundInputsConstMeta;
-
-  Future<String?> mainGetDefaultSoundInput({dynamic hint});
-
-  FlutterRustBridgeTaskConstMeta get kMainGetDefaultSoundInputConstMeta;
 
   String mainGetLoginDeviceInfo({dynamic hint});
 
@@ -864,6 +874,10 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kSessionCloseVoiceCallConstMeta;
 
+  String? sessionGetConnToken({required UuidValue sessionId, dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kSessionGetConnTokenConstMeta;
+
   Future<void> cmHandleIncomingVoiceCall(
       {required int id, required bool accept, dynamic hint});
 
@@ -886,7 +900,7 @@ abstract class Rustdesk {
 
   FlutterRustBridgeTaskConstMeta get kMainGetLastRemoteIdConstMeta;
 
-  Future<String> mainGetSoftwareUpdateUrl({dynamic hint});
+  Future<void> mainGetSoftwareUpdateUrl({dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kMainGetSoftwareUpdateUrlConstMeta;
 
@@ -1511,6 +1525,10 @@ abstract class Rustdesk {
       {required UuidValue sessionId, required int display, dynamic hint});
 
   FlutterRustBridgeTaskConstMeta get kSessionRequestNewDisplayInitMsgsConstMeta;
+
+  bool mainAudioSupportLoopback({dynamic hint});
+
+  FlutterRustBridgeTaskConstMeta get kMainAudioSupportLoopbackConstMeta;
 }
 
 @freezed
@@ -1643,6 +1661,7 @@ class RustdeskImpl implements Rustdesk {
       required bool forceRelay,
       required String password,
       required bool isSharedPassword,
+      String? connToken,
       dynamic hint}) {
     var arg0 = _platform.api2wire_Uuid(sessionId);
     var arg1 = _platform.api2wire_String(id);
@@ -1653,9 +1672,10 @@ class RustdeskImpl implements Rustdesk {
     var arg6 = forceRelay;
     var arg7 = _platform.api2wire_String(password);
     var arg8 = isSharedPassword;
+    var arg9 = _platform.api2wire_opt_String(connToken);
     return _platform.executeSync(FlutterRustBridgeSyncTask(
       callFfi: () => _platform.inner.wire_session_add_sync(
-          arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8),
+          arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9),
       parseSuccessData: _wire2api_String,
       constMeta: kSessionAddSyncConstMeta,
       argValues: [
@@ -1667,7 +1687,8 @@ class RustdeskImpl implements Rustdesk {
         switchUuid,
         forceRelay,
         password,
-        isSharedPassword
+        isSharedPassword,
+        connToken
       ],
       hint: hint,
     ));
@@ -1685,7 +1706,8 @@ class RustdeskImpl implements Rustdesk {
           "switchUuid",
           "forceRelay",
           "password",
-          "isSharedPassword"
+          "isSharedPassword",
+          "connToken"
         ],
       );
 
@@ -1943,23 +1965,15 @@ class RustdeskImpl implements Rustdesk {
       );
 
   Future<void> sessionRecordScreen(
-      {required UuidValue sessionId,
-      required bool start,
-      required int display,
-      required int width,
-      required int height,
-      dynamic hint}) {
+      {required UuidValue sessionId, required bool start, dynamic hint}) {
     var arg0 = _platform.api2wire_Uuid(sessionId);
     var arg1 = start;
-    var arg2 = api2wire_usize(display);
-    var arg3 = api2wire_usize(width);
-    var arg4 = api2wire_usize(height);
     return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) => _platform.inner
-          .wire_session_record_screen(port_, arg0, arg1, arg2, arg3, arg4),
+      callFfi: (port_) =>
+          _platform.inner.wire_session_record_screen(port_, arg0, arg1),
       parseSuccessData: _wire2api_unit,
       constMeta: kSessionRecordScreenConstMeta,
-      argValues: [sessionId, start, display, width, height],
+      argValues: [sessionId, start],
       hint: hint,
     ));
   }
@@ -1967,27 +1981,24 @@ class RustdeskImpl implements Rustdesk {
   FlutterRustBridgeTaskConstMeta get kSessionRecordScreenConstMeta =>
       const FlutterRustBridgeTaskConstMeta(
         debugName: "session_record_screen",
-        argNames: ["sessionId", "start", "display", "width", "height"],
+        argNames: ["sessionId", "start"],
       );
 
-  Future<void> sessionRecordStatus(
-      {required UuidValue sessionId, required bool status, dynamic hint}) {
+  bool sessionGetIsRecording({required UuidValue sessionId, dynamic hint}) {
     var arg0 = _platform.api2wire_Uuid(sessionId);
-    var arg1 = status;
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) =>
-          _platform.inner.wire_session_record_status(port_, arg0, arg1),
-      parseSuccessData: _wire2api_unit,
-      constMeta: kSessionRecordStatusConstMeta,
-      argValues: [sessionId, status],
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_session_get_is_recording(arg0),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kSessionGetIsRecordingConstMeta,
+      argValues: [sessionId],
       hint: hint,
     ));
   }
 
-  FlutterRustBridgeTaskConstMeta get kSessionRecordStatusConstMeta =>
+  FlutterRustBridgeTaskConstMeta get kSessionGetIsRecordingConstMeta =>
       const FlutterRustBridgeTaskConstMeta(
-        debugName: "session_record_status",
-        argNames: ["sessionId", "status"],
+        debugName: "session_get_is_recording",
+        argNames: ["sessionId"],
       );
 
   Future<void> sessionReconnect(
@@ -2875,6 +2886,7 @@ class RustdeskImpl implements Rustdesk {
       required int fileNum,
       required bool includeHidden,
       required bool isRemote,
+      required bool isDir,
       dynamic hint}) {
     var arg0 = _platform.api2wire_Uuid(sessionId);
     var arg1 = api2wire_i32(actId);
@@ -2883,12 +2895,22 @@ class RustdeskImpl implements Rustdesk {
     var arg4 = api2wire_i32(fileNum);
     var arg5 = includeHidden;
     var arg6 = isRemote;
+    var arg7 = isDir;
     return _platform.executeNormal(FlutterRustBridgeTask(
       callFfi: (port_) => _platform.inner.wire_session_send_files(
-          port_, arg0, arg1, arg2, arg3, arg4, arg5, arg6),
+          port_, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7),
       parseSuccessData: _wire2api_unit,
       constMeta: kSessionSendFilesConstMeta,
-      argValues: [sessionId, actId, path, to, fileNum, includeHidden, isRemote],
+      argValues: [
+        sessionId,
+        actId,
+        path,
+        to,
+        fileNum,
+        includeHidden,
+        isRemote,
+        isDir
+      ],
       hint: hint,
     ));
   }
@@ -2903,7 +2925,8 @@ class RustdeskImpl implements Rustdesk {
           "to",
           "fileNum",
           "includeHidden",
-          "isRemote"
+          "isRemote",
+          "isDir"
         ],
       );
 
@@ -2973,7 +2996,7 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["sessionId", "actId", "path", "fileNum", "isRemote"],
       );
 
-  Future<void> sessionReadDirRecursive(
+  Future<void> sessionReadDirToRemoveRecursive(
       {required UuidValue sessionId,
       required int actId,
       required String path,
@@ -2987,19 +3010,21 @@ class RustdeskImpl implements Rustdesk {
     var arg4 = showHidden;
     return _platform.executeNormal(FlutterRustBridgeTask(
       callFfi: (port_) => _platform.inner
-          .wire_session_read_dir_recursive(port_, arg0, arg1, arg2, arg3, arg4),
+          .wire_session_read_dir_to_remove_recursive(
+              port_, arg0, arg1, arg2, arg3, arg4),
       parseSuccessData: _wire2api_unit,
-      constMeta: kSessionReadDirRecursiveConstMeta,
+      constMeta: kSessionReadDirToRemoveRecursiveConstMeta,
       argValues: [sessionId, actId, path, isRemote, showHidden],
       hint: hint,
     ));
   }
 
-  FlutterRustBridgeTaskConstMeta get kSessionReadDirRecursiveConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "session_read_dir_recursive",
-        argNames: ["sessionId", "actId", "path", "isRemote", "showHidden"],
-      );
+  FlutterRustBridgeTaskConstMeta
+      get kSessionReadDirToRemoveRecursiveConstMeta =>
+          const FlutterRustBridgeTaskConstMeta(
+            debugName: "session_read_dir_to_remove_recursive",
+            argNames: ["sessionId", "actId", "path", "isRemote", "showHidden"],
+          );
 
   Future<void> sessionRemoveAllEmptyDirs(
       {required UuidValue sessionId,
@@ -3096,6 +3121,58 @@ class RustdeskImpl implements Rustdesk {
         debugName: "session_read_local_dir_sync",
         argNames: ["sessionId", "path", "showHidden"],
       );
+
+  Future<String> sessionReadLocalEmptyDirsRecursiveSync(
+      {required UuidValue sessionId,
+      required String path,
+      required bool includeHidden,
+      dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    var arg1 = _platform.api2wire_String(path);
+    var arg2 = includeHidden;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner
+          .wire_session_read_local_empty_dirs_recursive_sync(
+              port_, arg0, arg1, arg2),
+      parseSuccessData: _wire2api_String,
+      constMeta: kSessionReadLocalEmptyDirsRecursiveSyncConstMeta,
+      argValues: [sessionId, path, includeHidden],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta
+      get kSessionReadLocalEmptyDirsRecursiveSyncConstMeta =>
+          const FlutterRustBridgeTaskConstMeta(
+            debugName: "session_read_local_empty_dirs_recursive_sync",
+            argNames: ["sessionId", "path", "includeHidden"],
+          );
+
+  Future<void> sessionReadRemoteEmptyDirsRecursiveSync(
+      {required UuidValue sessionId,
+      required String path,
+      required bool includeHidden,
+      dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    var arg1 = _platform.api2wire_String(path);
+    var arg2 = includeHidden;
+    return _platform.executeNormal(FlutterRustBridgeTask(
+      callFfi: (port_) => _platform.inner
+          .wire_session_read_remote_empty_dirs_recursive_sync(
+              port_, arg0, arg1, arg2),
+      parseSuccessData: _wire2api_unit,
+      constMeta: kSessionReadRemoteEmptyDirsRecursiveSyncConstMeta,
+      argValues: [sessionId, path, includeHidden],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta
+      get kSessionReadRemoteEmptyDirsRecursiveSyncConstMeta =>
+          const FlutterRustBridgeTaskConstMeta(
+            debugName: "session_read_remote_empty_dirs_recursive_sync",
+            argNames: ["sessionId", "path", "includeHidden"],
+          );
 
   Future<String> sessionGetPlatform(
       {required UuidValue sessionId, required bool isRemote, dynamic hint}) {
@@ -3375,23 +3452,6 @@ class RustdeskImpl implements Rustdesk {
   FlutterRustBridgeTaskConstMeta get kMainGetSoundInputsConstMeta =>
       const FlutterRustBridgeTaskConstMeta(
         debugName: "main_get_sound_inputs",
-        argNames: [],
-      );
-
-  Future<String?> mainGetDefaultSoundInput({dynamic hint}) {
-    return _platform.executeNormal(FlutterRustBridgeTask(
-      callFfi: (port_) =>
-          _platform.inner.wire_main_get_default_sound_input(port_),
-      parseSuccessData: _wire2api_opt_String,
-      constMeta: kMainGetDefaultSoundInputConstMeta,
-      argValues: [],
-      hint: hint,
-    ));
-  }
-
-  FlutterRustBridgeTaskConstMeta get kMainGetDefaultSoundInputConstMeta =>
-      const FlutterRustBridgeTaskConstMeta(
-        debugName: "main_get_default_sound_input",
         argNames: [],
       );
 
@@ -4680,6 +4740,23 @@ class RustdeskImpl implements Rustdesk {
         argNames: ["sessionId"],
       );
 
+  String? sessionGetConnToken({required UuidValue sessionId, dynamic hint}) {
+    var arg0 = _platform.api2wire_Uuid(sessionId);
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_session_get_conn_token(arg0),
+      parseSuccessData: _wire2api_opt_String,
+      constMeta: kSessionGetConnTokenConstMeta,
+      argValues: [sessionId],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kSessionGetConnTokenConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "session_get_conn_token",
+        argNames: ["sessionId"],
+      );
+
   Future<void> cmHandleIncomingVoiceCall(
       {required int id, required bool accept, dynamic hint}) {
     var arg0 = api2wire_i32(id);
@@ -4771,11 +4848,11 @@ class RustdeskImpl implements Rustdesk {
         argNames: [],
       );
 
-  Future<String> mainGetSoftwareUpdateUrl({dynamic hint}) {
+  Future<void> mainGetSoftwareUpdateUrl({dynamic hint}) {
     return _platform.executeNormal(FlutterRustBridgeTask(
       callFfi: (port_) =>
           _platform.inner.wire_main_get_software_update_url(port_),
-      parseSuccessData: _wire2api_String,
+      parseSuccessData: _wire2api_unit,
       constMeta: kMainGetSoftwareUpdateUrlConstMeta,
       argValues: [],
       hint: hint,
@@ -7203,6 +7280,22 @@ class RustdeskImpl implements Rustdesk {
             argNames: ["sessionId", "display"],
           );
 
+  bool mainAudioSupportLoopback({dynamic hint}) {
+    return _platform.executeSync(FlutterRustBridgeSyncTask(
+      callFfi: () => _platform.inner.wire_main_audio_support_loopback(),
+      parseSuccessData: _wire2api_bool,
+      constMeta: kMainAudioSupportLoopbackConstMeta,
+      argValues: [],
+      hint: hint,
+    ));
+  }
+
+  FlutterRustBridgeTaskConstMeta get kMainAudioSupportLoopbackConstMeta =>
+      const FlutterRustBridgeTaskConstMeta(
+        debugName: "main_audio_support_loopback",
+        argNames: [],
+      );
+
   void dispose() {
     _platform.dispose();
   }
@@ -7562,6 +7655,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     bool force_relay,
     ffi.Pointer<wire_uint_8_list> password,
     bool is_shared_password,
+    ffi.Pointer<wire_uint_8_list> conn_token,
   ) {
     return _wire_session_add_sync(
       session_id,
@@ -7573,6 +7667,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       force_relay,
       password,
       is_shared_password,
+      conn_token,
     );
   }
 
@@ -7587,7 +7682,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>,
               ffi.Bool,
               ffi.Pointer<wire_uint_8_list>,
-              ffi.Bool)>>('wire_session_add_sync');
+              ffi.Bool,
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_add_sync');
   late final _wire_session_add_sync = _wire_session_add_syncPtr.asFunction<
       WireSyncReturn Function(
           ffi.Pointer<wire_uint_8_list>,
@@ -7598,7 +7694,8 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           ffi.Pointer<wire_uint_8_list>,
           bool,
           ffi.Pointer<wire_uint_8_list>,
-          bool)>();
+          bool,
+          ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_start(
     int port_,
@@ -7859,52 +7956,35 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     bool start,
-    int display,
-    int width,
-    int height,
   ) {
     return _wire_session_record_screen(
       port_,
       session_id,
       start,
-      display,
-      width,
-      height,
     );
   }
 
   late final _wire_session_record_screenPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(
-              ffi.Int64,
-              ffi.Pointer<wire_uint_8_list>,
-              ffi.Bool,
-              ffi.UintPtr,
-              ffi.UintPtr,
-              ffi.UintPtr)>>('wire_session_record_screen');
-  late final _wire_session_record_screen =
-      _wire_session_record_screenPtr.asFunction<
-          void Function(
-              int, ffi.Pointer<wire_uint_8_list>, bool, int, int, int)>();
+          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_record_screen');
+  late final _wire_session_record_screen = _wire_session_record_screenPtr
+      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, bool)>();
 
-  void wire_session_record_status(
-    int port_,
+  WireSyncReturn wire_session_get_is_recording(
     ffi.Pointer<wire_uint_8_list> session_id,
-    bool status,
   ) {
-    return _wire_session_record_status(
-      port_,
+    return _wire_session_get_is_recording(
       session_id,
-      status,
     );
   }
 
-  late final _wire_session_record_statusPtr = _lookup<
+  late final _wire_session_get_is_recordingPtr = _lookup<
       ffi.NativeFunction<
-          ffi.Void Function(ffi.Int64, ffi.Pointer<wire_uint_8_list>,
-              ffi.Bool)>>('wire_session_record_status');
-  late final _wire_session_record_status = _wire_session_record_statusPtr
-      .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, bool)>();
+          WireSyncReturn Function(
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_is_recording');
+  late final _wire_session_get_is_recording = _wire_session_get_is_recordingPtr
+      .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_session_reconnect(
     int port_,
@@ -8771,6 +8851,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     int file_num,
     bool include_hidden,
     bool is_remote,
+    bool _is_dir,
   ) {
     return _wire_session_send_files(
       port_,
@@ -8781,6 +8862,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       file_num,
       include_hidden,
       is_remote,
+      _is_dir,
     );
   }
 
@@ -8794,6 +8876,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>,
               ffi.Int32,
               ffi.Bool,
+              ffi.Bool,
               ffi.Bool)>>('wire_session_send_files');
   late final _wire_session_send_files = _wire_session_send_filesPtr.asFunction<
       void Function(
@@ -8803,6 +8886,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           ffi.Pointer<wire_uint_8_list>,
           ffi.Pointer<wire_uint_8_list>,
           int,
+          bool,
           bool,
           bool)>();
 
@@ -8873,7 +8957,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           void Function(int, ffi.Pointer<wire_uint_8_list>, int,
               ffi.Pointer<wire_uint_8_list>, int, bool)>();
 
-  void wire_session_read_dir_recursive(
+  void wire_session_read_dir_to_remove_recursive(
     int port_,
     ffi.Pointer<wire_uint_8_list> session_id,
     int act_id,
@@ -8881,7 +8965,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     bool is_remote,
     bool show_hidden,
   ) {
-    return _wire_session_read_dir_recursive(
+    return _wire_session_read_dir_to_remove_recursive(
       port_,
       session_id,
       act_id,
@@ -8891,7 +8975,7 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
     );
   }
 
-  late final _wire_session_read_dir_recursivePtr = _lookup<
+  late final _wire_session_read_dir_to_remove_recursivePtr = _lookup<
       ffi.NativeFunction<
           ffi.Void Function(
               ffi.Int64,
@@ -8899,9 +8983,9 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Int32,
               ffi.Pointer<wire_uint_8_list>,
               ffi.Bool,
-              ffi.Bool)>>('wire_session_read_dir_recursive');
-  late final _wire_session_read_dir_recursive =
-      _wire_session_read_dir_recursivePtr.asFunction<
+              ffi.Bool)>>('wire_session_read_dir_to_remove_recursive');
+  late final _wire_session_read_dir_to_remove_recursive =
+      _wire_session_read_dir_to_remove_recursivePtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>, int,
               ffi.Pointer<wire_uint_8_list>, bool, bool)>();
 
@@ -9004,6 +9088,58 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Bool)>>('wire_session_read_local_dir_sync');
   late final _wire_session_read_local_dir_sync =
       _wire_session_read_local_dir_syncPtr.asFunction<
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
+
+  void wire_session_read_local_empty_dirs_recursive_sync(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> _session_id,
+    ffi.Pointer<wire_uint_8_list> path,
+    bool include_hidden,
+  ) {
+    return _wire_session_read_local_empty_dirs_recursive_sync(
+      port_,
+      _session_id,
+      path,
+      include_hidden,
+    );
+  }
+
+  late final _wire_session_read_local_empty_dirs_recursive_syncPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_local_empty_dirs_recursive_sync');
+  late final _wire_session_read_local_empty_dirs_recursive_sync =
+      _wire_session_read_local_empty_dirs_recursive_syncPtr.asFunction<
+          void Function(int, ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>, bool)>();
+
+  void wire_session_read_remote_empty_dirs_recursive_sync(
+    int port_,
+    ffi.Pointer<wire_uint_8_list> session_id,
+    ffi.Pointer<wire_uint_8_list> path,
+    bool include_hidden,
+  ) {
+    return _wire_session_read_remote_empty_dirs_recursive_sync(
+      port_,
+      session_id,
+      path,
+      include_hidden,
+    );
+  }
+
+  late final _wire_session_read_remote_empty_dirs_recursive_syncPtr = _lookup<
+      ffi.NativeFunction<
+          ffi.Void Function(
+              ffi.Int64,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Pointer<wire_uint_8_list>,
+              ffi.Bool)>>('wire_session_read_remote_empty_dirs_recursive_sync');
+  late final _wire_session_read_remote_empty_dirs_recursive_sync =
+      _wire_session_read_remote_empty_dirs_recursive_syncPtr.asFunction<
           void Function(int, ffi.Pointer<wire_uint_8_list>,
               ffi.Pointer<wire_uint_8_list>, bool)>();
 
@@ -9289,20 +9425,6 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
           'wire_main_get_sound_inputs');
   late final _wire_main_get_sound_inputs =
       _wire_main_get_sound_inputsPtr.asFunction<void Function(int)>();
-
-  void wire_main_get_default_sound_input(
-    int port_,
-  ) {
-    return _wire_main_get_default_sound_input(
-      port_,
-    );
-  }
-
-  late final _wire_main_get_default_sound_inputPtr =
-      _lookup<ffi.NativeFunction<ffi.Void Function(ffi.Int64)>>(
-          'wire_main_get_default_sound_input');
-  late final _wire_main_get_default_sound_input =
-      _wire_main_get_default_sound_inputPtr.asFunction<void Function(int)>();
 
   WireSyncReturn wire_main_get_login_device_info() {
     return _wire_main_get_login_device_info();
@@ -10483,6 +10605,21 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
               ffi.Pointer<wire_uint_8_list>)>>('wire_session_close_voice_call');
   late final _wire_session_close_voice_call = _wire_session_close_voice_callPtr
       .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>)>();
+
+  WireSyncReturn wire_session_get_conn_token(
+    ffi.Pointer<wire_uint_8_list> session_id,
+  ) {
+    return _wire_session_get_conn_token(
+      session_id,
+    );
+  }
+
+  late final _wire_session_get_conn_tokenPtr = _lookup<
+      ffi.NativeFunction<
+          WireSyncReturn Function(
+              ffi.Pointer<wire_uint_8_list>)>>('wire_session_get_conn_token');
+  late final _wire_session_get_conn_token = _wire_session_get_conn_tokenPtr
+      .asFunction<WireSyncReturn Function(ffi.Pointer<wire_uint_8_list>)>();
 
   void wire_cm_handle_incoming_voice_call(
     int port_,
@@ -12649,6 +12786,17 @@ class RustdeskWire implements FlutterRustBridgeWireBase {
       _wire_session_request_new_display_init_msgsPtr
           .asFunction<void Function(int, ffi.Pointer<wire_uint_8_list>, int)>();
 
+  WireSyncReturn wire_main_audio_support_loopback() {
+    return _wire_main_audio_support_loopback();
+  }
+
+  late final _wire_main_audio_support_loopbackPtr =
+      _lookup<ffi.NativeFunction<WireSyncReturn Function()>>(
+          'wire_main_audio_support_loopback');
+  late final _wire_main_audio_support_loopback =
+      _wire_main_audio_support_loopbackPtr
+          .asFunction<WireSyncReturn Function()>();
+
   ffi.Pointer<wire_StringList> new_StringList_0(
     int len,
   ) {
@@ -12824,7 +12972,7 @@ typedef DartPort = ffi.Int64;
 
 const int VIDEO_QUEUE_SIZE = 120;
 
-const int AUDIO_BUFFER_MS = 150;
+const int AUDIO_BUFFER_MS = 3000;
 
 const int CLIPBOARD_INTERVAL = 333;
 
