@@ -26,8 +26,10 @@ import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
+import '../../util/utils/utils.dart';
+import '../../util/widget/text_box.dart';
 
-/// multi-tab desktop remote screen
+/// 止盈止损
 class PlPage extends StatefulWidget {
   final Map<String, dynamic> params;
 
@@ -47,6 +49,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   String setplLast = "---";
   String tips = "(温馨提示：右键添加删除止盈止损)";
   final contextController = FlyoutController();
+  final itemController = FlyoutController();
   final contextAttachKey = GlobalKey();
   late AppTheme appTheme;
 
@@ -79,7 +82,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
       // mContract = contract;
       // subscriptionQuote(mContract);
       // setplLast = Utils.dealPointByOld(mContract.lastPrice, hold.FutureTickSize).toString();
-      queryPLRecord();
+      queryPLRecord(init: true);
       changeText();
       if (mounted) setState(() {});
     } else {
@@ -88,38 +91,41 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   }
 
   /// 查询止盈止损
-  void queryPLRecord() async {
+  void queryPLRecord({bool? init}) async {
     await PLServer.getHisPLRecord(hold.exCode, hold.subComCode, hold.subConCode, hold.comType, hold.orderSide).then((value) {
+      mPlRecordList.clear();
       if (value != null && value.isNotEmpty) {
-        // logger.i(value);
-        mPlRecordList.clear();
         mPlRecordList.addAll(value);
-        if (mounted) setState(() {});
       } else {
-        mPlRecordList.add(PLRecord(RealQty: 1));
-        if (mounted) setState(() {});
+        if (init == true) {
+          mPlRecordList.add(PLRecord(RealQty: 1, CloseType: PLCloseType.Today));
+        }
       }
+      if (mounted) setState(() {});
     });
   }
 
   /// 设置止盈止损
   void requestSetPL() async {
-    // int positionType = PositionType.getType(setplPostypeTxt.trim());
-    int positionType = 0;
-    int period = await SpUtils.getInt(SpKey.pLPeriod) ?? PLCloseType.Today;
-    int closetype = period == 0 ? PLCloseType.Today : period;
-    await PLServer.setPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, hold.PLQuantity, closetype, positionType,
-            hold.ProfitPriceTicks, hold.LossPriceTicks, hold.FloatLoss)
-        .then((value) {
-      if (value != null) {
-        mPlRecordList.clear();
-        mPlRecordList.addAll(value);
-        if (mounted) setState(() {});
-        InfoBarUtils.showSuccessBar("止盈止损设置成功");
-      } else {
-        queryPLRecord();
+    if (mPlRecordList.isEmpty) return;
+    for (var record in mPlRecordList) {
+      if (record.StopWin != 0 && record.StopLoss != 0 && record.FloatLoss != 0) {
+        await PLServer.setPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, record.RealQty, record.CloseType,
+                record.PositionType, record.StopWin ?? 0, record.StopLoss ?? 0, record.FloatLoss ?? 0)
+            .then((value) {
+          if (mPlRecordList.indexOf(record) == mPlRecordList.length - 1) {
+            if (value != null) {
+              mPlRecordList.clear();
+              mPlRecordList.addAll(value);
+              InfoBarUtils.showSuccessBar("设置止盈止损成功");
+            } else {
+              queryPLRecord();
+            }
+          }
+        });
       }
-    });
+    }
+    if (mounted) setState(() {});
   }
 
   ///修改止盈止损
@@ -162,8 +168,8 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
       if (value != null) {
         mPlRecordList.clear();
         mPlRecordList.addAll(value);
-        if (mounted) setState(() {});
         InfoBarUtils.showSuccessBar("删除成功");
+        if (mounted) setState(() {});
       } else {
         queryPLRecord();
       }
@@ -225,15 +231,6 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
     // if (mounted) setState(() {});
   }
 
-  String? _format(num? value) {
-    if (value == null) return null;
-    if (value is int) {
-      return value.toString();
-    }
-    final mul = math.pow(10, 2);
-    return NumberFormat().format((value * mul).roundToDouble() / mul);
-  }
-
   void startDragging(bool isMainWindow) {
     if (isMainWindow) {
       windowManager.startDragging();
@@ -254,7 +251,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   void onWindowClose() async {
     notMainWindowClose(WindowController windowController) async {
       await windowController.hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
 
     // hide window on close
@@ -335,7 +332,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                   children: [
                     RichText(
                         text: TextSpan(children: [
-                      TextSpan(text: "为(${widget.params["contractId"] ?? ""}${widget.params["contractId"] ?? ""}  )设置止盈止损"),
+                      TextSpan(text: "为(${hold.name ?? ""}[${hold.code ?? ""}])设置止盈止损"),
                       TextSpan(text: tips, style: TextStyle(color: Colors.red))
                     ]))
                   ],
@@ -362,20 +359,27 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                               );
                             } else {
                               return GestureDetector(
-                                child: Container(
-                                  color: mPlRecordList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                  child: IntrinsicHeight(
-                                      child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                                    children: [
-                                      Expanded(flex: 7, child: tableItem(mPlRecordList[index - 1].CreateAt)),
-                                      Expanded(flex: 3, child: numItem(mPlRecordList[index - 1].RealQty ?? 0)),
-                                      Expanded(flex: 4, child: priceItem(mPlRecordList[index - 1].StopWin ?? 0.0)),
-                                      Expanded(
-                                          flex: 10, child: typeItem(mPlRecordList[index - 1].StopLoss ?? 0.0, mPlRecordList[index - 1].State ?? 0)),
-                                      Expanded(flex: 10, child: validItem(mPlRecordList[index - 1].CloseType ?? 0, mPlRecordList[index - 1].State)),
-                                    ],
-                                  )),
+                                child: FlyoutTarget(
+                                  controller: itemController,
+                                  child: Container(
+                                    color: mPlRecordList[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                    child: IntrinsicHeight(
+                                        child: Row(
+                                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                                      children: [
+                                        Expanded(flex: 7, child: tableItem(mPlRecordList[index - 1].CreateAt)),
+                                        Expanded(flex: 3, child: numItem(index - 1, mPlRecordList[index - 1].RealQty ?? 0)),
+                                        Expanded(flex: 4, child: priceItem(index - 1, mPlRecordList[index - 1].StopWin ?? 0.0)),
+                                        Expanded(
+                                            flex: 10,
+                                            child:
+                                                typeItem(index - 1, mPlRecordList[index - 1].StopLoss ?? 0, mPlRecordList[index - 1].FloatLoss ?? 0)),
+                                        Expanded(
+                                            flex: 10,
+                                            child: validItem(index - 1, mPlRecordList[index - 1].CloseType ?? 0, mPlRecordList[index - 1].State)),
+                                      ],
+                                    )),
+                                  ),
                                 ),
                                 onTap: () {
                                   if (mPlRecordList[index - 1].selected == true) return;
@@ -387,29 +391,34 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                                   if (mounted) setState(() {});
                                 },
                                 onSecondaryTapUp: (d) {
-                                  final targetContext = contextAttachKey.currentContext;
-                                  if (targetContext == null) return;
-                                  final box = targetContext.findRenderObject() as RenderBox;
-                                  final position = box.localToGlobal(
-                                    d.localPosition,
-                                    ancestor: Navigator.of(context).context.findRenderObject(),
-                                  );
-                                  contextController.showFlyout(
+                                  // final targetContext = contextAttachKey.currentContext;
+                                  // if (targetContext == null) return;
+                                  // final box = targetContext.findRenderObject() as RenderBox;
+                                  // final position = box.localToGlobal(
+                                  //   Offset(d.globalPosition.dx, d.globalPosition.dy + d.localPosition.dy),
+                                  //   ancestor: Navigator.of(context).context.findRenderObject(),
+                                  // );
+                                  itemController.showFlyout(
                                     barrierColor: Colors.black.withOpacity(0.1),
-                                    position: position,
+                                    position: d.globalPosition,
                                     builder: (context) {
                                       return MenuFlyout(items: [
                                         MenuFlyoutItem(
                                           text: const Text('添加'),
                                           onPressed: () {
-                                            mPlRecordList.add(PLRecord());
+                                            mPlRecordList.add(PLRecord(RealQty: 1, CloseType: PLCloseType.Today));
                                             if (mounted) setState(() {});
                                           },
                                         ),
                                         MenuFlyoutItem(
                                             text: const Text('删除'),
                                             onPressed: () {
-                                              mPlRecordList.removeAt(index - 1);
+                                              if (mPlRecordList[index - 1].Id != null) {
+                                                delPLRecord(mPlRecordList[index - 1].Id);
+                                              } else {
+                                                mPlRecordList.removeAt(index - 1);
+                                                if (mounted) setState(() {});
+                                              }
                                             }),
                                       ]);
                                     },
@@ -435,15 +444,10 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                             MenuFlyoutItem(
                               text: const Text('添加'),
                               onPressed: () {
-                                mPlRecordList.add(PLRecord());
+                                mPlRecordList.add(PLRecord(RealQty: 1, CloseType: PLCloseType.Today));
                                 if (mounted) setState(() {});
                               },
                             ),
-                            MenuFlyoutItem(
-                                text: const Text('删除'),
-                                onPressed: () {
-                                  Flyout.of(context).close();
-                                }),
                           ]);
                         },
                       );
@@ -459,8 +463,11 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                             padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
                             backgroundColor: WidgetStatePropertyAll(Colors.yellow),
                             shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text("保存"),
-                        onPressed: () {}),
+                        onPressed: requestSetPL,
+                        child: const Text(
+                          "保存",
+                          style: TextStyle(color: Colors.black),
+                        )),
                     const SizedBox(width: 10),
                     Button(
                         style: const ButtonStyle(
@@ -480,8 +487,13 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                             padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
                             backgroundColor: WidgetStatePropertyAll(Colors.yellow),
                             shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text("全部删除"),
-                        onPressed: () {}),
+                        child: const Text("全部删除", style: TextStyle(color: Colors.black)),
+                        onPressed: () {
+                          if (mPlRecordList.isEmpty) return;
+                          for (var record in mPlRecordList) {
+                            delPLRecord(record.Id);
+                          }
+                        }),
                   ],
                 )
               ],
@@ -504,25 +516,26 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
     );
   }
 
-  Widget numItem(int num) {
+  Widget numItem(int index, int num) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
-      child: numberSelect(num, 1),
+      child: numberSelect(index, 0, num, 1, minimum: 1),
     );
   }
 
-  Widget priceItem(double num) {
+  Widget priceItem(int index, double num) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
-      child: numberSelect(num, 0.01),
+      child: numberSelect(index, 1, num, 0.01),
     );
   }
 
-  Widget typeItem(double num, int state) {
+  Widget typeItem(int index, double stopLoss, double floatLoss) {
+    bool loss = stopLoss != 0 || (stopLoss == 0 && floatLoss == 0);
     return Container(
       decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -531,33 +544,37 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
         return Row(
           children: [
             const SizedBox(
-              width: 3,
+              width: 5,
             ),
             RadioButton(
-                checked: state == 0,
+                checked: loss,
                 content: const Text("止损价"),
                 onChanged: (e) {
-                  state = 0;
+                  loss = !loss;
                   setter(() {});
                 }),
             const SizedBox(
-              width: 3,
+              width: 5,
             ),
             RadioButton(
-                checked: state == 1,
+                checked: !loss,
                 content: const Text("点差价"),
                 onChanged: (e) {
-                  state = 1;
+                  loss = !loss;
                   setter(() {});
                 }),
-            numberSelect(num, 0.01),
+            Expanded(child: Container()),
+            numberSelect(index, 2, loss ? stopLoss : floatLoss, 0.01, loss: loss),
+            const SizedBox(
+              width: 5,
+            )
           ],
         );
       }),
     );
   }
 
-  Widget validItem(int type, int? state) {
+  Widget validItem(int index, int type, int? state) {
     return Container(
         decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
         padding: const EdgeInsets.symmetric(vertical: 5),
@@ -573,6 +590,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                   content: const Text("当日有效"),
                   onChanged: (e) {
                     type = PLCloseType.Today;
+                    mPlRecordList[index].CloseType = PLCloseType.Today;
                     setter(() {});
                   }),
               const SizedBox(
@@ -583,6 +601,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                   content: const Text("永久有效"),
                   onChanged: (e) {
                     type = PLCloseType.Permanent;
+                    mPlRecordList[index].CloseType = PLCloseType.Permanent;
                     setter(() {});
                   }),
               const SizedBox(
@@ -592,12 +611,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                 ToggleSwitch(
                   checked: state == 1,
                   onChanged: (bool value) {
-                    if (value) {
-                      state = 1;
-                    } else {
-                      state = 0;
-                    }
-                    setter(() {});
+                    enablePLRecord(mPlRecordList[index], value);
                   },
                 ),
             ],
@@ -605,18 +619,35 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
         }));
   }
 
-  Widget numberSelect(num value, num smallChange) {
-    TextEditingController controller = TextEditingController(text: "   $value");
+  Widget numberSelect(int index, int type, num value, num smallChange, {bool? loss, int? minimum}) {
+    TextEditingController controller = TextEditingController(text: "$value");
+    controller.addListener(() {
+      if (type == 0) {
+        mPlRecordList[index].RealQty = int.tryParse(controller.text);
+      } else if (type == 1) {
+        mPlRecordList[index].StopWin = double.tryParse(controller.text);
+      } else if (type == 2) {
+        if (loss == true) {
+          mPlRecordList[index].StopLoss = double.tryParse(controller.text);
+        } else {
+          mPlRecordList[index].FloatLoss = double.tryParse(controller.text);
+        }
+      }
+    });
     return StatefulBuilder(builder: (context, setter) {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           SizedBox(
-            width: 28,
-            child: TextBox(
+            width: 38,
+            child: MyTextBox(
               controller: controller,
-              // padding: EdgeInsets.zero,
+              padding: EdgeInsets.zero,
+              scrollPadding: EdgeInsets.zero,
               decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.zero, border: Border.all(color: Colors.transparent)),
+              foregroundDecoration:
+                  BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.zero, border: Border.all(color: Colors.transparent)),
             ),
           ),
           Column(
@@ -624,18 +655,20 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
               IconButton(
                 icon: const Icon(FluentIcons.chevron_up, size: 8),
                 iconButtonMode: IconButtonMode.small,
+                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(bottom: 3))),
                 onPressed: () {
-                  value = value + smallChange;
-                  controller.text = _format(value) ?? '';
+                  value = (num.tryParse(controller.text) ?? 0) + smallChange;
+                  controller.text = Utils.decimalFormat(value) ?? '';
                   setter(() {});
                 },
               ),
               IconButton(
                 icon: const Icon(FluentIcons.chevron_down, size: 8),
                 iconButtonMode: IconButtonMode.small,
+                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(top: 3))),
                 onPressed: () {
-                  value = math.max(0, value - smallChange);
-                  controller.text = _format(value) ?? '';
+                  value = math.max(minimum ?? 0, (num.tryParse(controller.text) ?? 0) - smallChange);
+                  controller.text = Utils.decimalFormat(value) ?? '';
                   setter(() {});
                 },
               ),

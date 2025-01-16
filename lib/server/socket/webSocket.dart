@@ -17,6 +17,7 @@ import '../../model/quote/contract.dart';
 import '../../model/socket_packet/operation.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
+import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
@@ -37,14 +38,12 @@ class WebSocketServer {
     });
 
     socket.connection.listen((state) {
-      logger.i(state);
       if (state == const Connected() || state == const Reconnected()) {
         AuthReq authReq = AuthReq(auth: Config.Token);
         cmd c = cmd(option: Option.OPT_Auth, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: authReq.writeToBuffer());
         socket.send(c.writeToBuffer());
       }
     });
-
     listenSubEvent();
   }
 
@@ -145,7 +144,7 @@ class WebSocketServer {
       int comType = ascii.encode(response.contract.commodity.commodityType).single;
       scode1 = scode1.length > 4 ? scode1.substring(scode1.length - 4, scode1.length) : scode1;
       Contract? contract = MarketUtils.getVariety(excd, comcode + scode1, comType);
-      if (contract == null) logger.e("MarketUtils.getVariety null");
+      // if (contract == null) logger.e("MarketUtils.getVariety null");
       if (contract == null) return;
       if (response.contract.callOrPutFlag1 != "") contract.changeFlag = response.contract.callOrPutFlag1;
       if (response.currencyNo != "") contract.currency = response.currencyNo;
@@ -191,6 +190,7 @@ class WebSocketServer {
       contract.change = response.qChangeValue;
       contract.amplitude = response.qSwing;
       contract.delegateBuy = response.qTotalBidQty;
+
       ///Todo无数据
       contract.delegateSale = response.qTotalAskQty;
 

@@ -6,7 +6,6 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_multi_window
   flutter_acrylic
   irondash_engine_context
-  local_notifier
   screen_retriever
   super_native_extensions
   system_theme

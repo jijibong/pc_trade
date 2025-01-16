@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -7,28 +8,35 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:local_notifier/local_notifier.dart';
 import 'package:provider/provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:trade/page/draw/draw_tool.dart';
 import 'package:trade/page/home/home.dart';
 import 'package:trade/page/secondary/condition.dart';
+import 'package:trade/page/secondary/notification.dart';
 import 'package:trade/page/secondary/pl_page.dart';
 import 'package:trade/page/trade/trade.dart';
+import 'package:trade/util/log/log.dart';
 import 'package:trade/util/multi_windows_manager/common.dart';
 import 'package:trade/util/multi_windows_manager/consts.dart';
 import 'package:trade/util/multi_windows_manager/multi_window_manager.dart';
 import 'package:trade/util/multi_windows_manager/platform_model.dart';
 import 'package:trade/util/multi_windows_manager/refresh_wrapper.dart';
 import 'package:trade/util/multi_windows_manager/state_model.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:flutter_acrylic/flutter_acrylic.dart' as flutter_acrylic;
+import 'package:window_size/window_size.dart';
 import 'config/common.dart';
 
 /// Checks if the current environment is a desktop environment.
 int? kWindowId;
+int? tradeWindowId;
 WindowType? kWindowType;
+Size? size;
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -76,6 +84,13 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopDraw,
           );
           break;
+        case WindowType.Notification:
+          desktopType = DesktopType.notification;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopNotification,
+          );
+          break;
         default:
           break;
       }
@@ -93,11 +108,6 @@ Future<void> main(List<String> args) async {
       bind.pluginListReload();
 
       runApp(const MyApp());
-
-      await localNotifier.setup(
-        appName: Common.appName,
-        shortcutPolicy: ShortcutPolicy.requireCreate,
-      );
       windowManager.waitUntilReadyToShow().then((_) async {
         await windowManager.setTitleBarStyle(
           TitleBarStyle.hidden,
@@ -185,6 +195,25 @@ void runMultiWindow(
         ..setFrame(const Offset(0, 0) & const Size(160, 380))
         ..setTitle("画线工具箱")
         ..center()
+        ..show();
+      break;
+    case kAppTypeDesktopNotification:
+      _runLocalNotification(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      String? string = await SpUtils.getString(SpKey.screenSize);
+      Size size = PlatformDispatcher.instance.implicitView!.physicalSize;
+      if (string != null) {
+        Map map = jsonDecode(string);
+        size = Size(map["width"], map["height"]);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(Offset(size.width - 315, size.height - 340) & const Size(315, 305))
+        ..setTitle("提示")
         ..show();
       break;
     default:
@@ -357,6 +386,42 @@ void _runDrawApp(
   ));
 }
 
+void _runLocalNotification(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => AnimatedFluentTheme(
+      data: FluentThemeData(visualDensity: VisualDensity.standard),
+      child: FluentApp(
+        debugShowCheckedModeBanner: false,
+        darkTheme: FluentThemeData(
+          brightness: Brightness.dark,
+          visualDensity: VisualDensity.standard,
+        ),
+        themeMode: _appTheme.mode,
+        theme: FluentThemeData(
+          visualDensity: VisualDensity.standard,
+        ),
+        localizationsDelegates: const [
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        builder: (context, child) {
+          child = _keepScaleBuilder(context, child);
+          return child;
+        },
+        home: MultiProvider(
+            providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+            child: LocalNotification(params: argument)),
+      ),
+    ),
+  ));
+}
+
 Widget _keepScaleBuilder(BuildContext context, Widget? child) {
   return MediaQuery(
     data: MediaQuery.of(context).copyWith(
@@ -374,7 +439,6 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ScreenUtilInit(
-        designSize: const Size(360, 690),
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {

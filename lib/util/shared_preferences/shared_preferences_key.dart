@@ -1,5 +1,6 @@
 class SpKey {
   static String firstOpen = "firstOpen";
+  static String screenSize = "screenSize";
 
   ///风险揭示书
   static String readRisk = "readRisk";
@@ -24,6 +25,7 @@ class SpKey {
   static String kPeriod = "kPeriod";
   static String kPeriodCount = "kPeriodCount";
   static String comCloseToday = "ComCloseToday";
+  static String defaultTradeType = "defaultTradeType";
 
   ///合约搜索历史记录
   static String searchHistory = "searchHistory";

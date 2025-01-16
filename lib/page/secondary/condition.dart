@@ -227,7 +227,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
   void onWindowClose() async {
     notMainWindowClose(WindowController windowController) async {
       await windowController.hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
 
     // hide window on close

@@ -19,6 +19,7 @@ import '../../model/user/user.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 // import '../../util/info_bar/info_bar.dart';
+import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../trade/deal.dart';
@@ -26,8 +27,6 @@ import '../trade/deal.dart';
 class TradeWebSocketServer {
   WebSocket? socket;
   late StreamSubscription quoteDataSubscription;
-  final String floatPosSub = "floatPosSub";
-  final String floatTotalSub = "floatTotalSub";
 
   void initSocket(String? url) async {
     const backoff = ConstantBackoff(Duration(seconds: 10));
@@ -43,7 +42,6 @@ class TradeWebSocketServer {
             cmd(option: Option.REQ_OPT_AUTH, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: authReq.writeToBuffer());
         socket?.send(c.writeToBuffer());
       } else {
-        // InfoBarUtils.showErrorBar("trade state:$state");
         logger.w("trade state:$state");
       }
     });
@@ -161,7 +159,7 @@ class TradeWebSocketServer {
       case Option.ON_ACCOUNT_ORDER_UPDATE: // 委托变化通知
         try {
           CDFYRspOrderDetail rod = CDFYRspOrderDetail.fromBuffer(c.data);
-          logger.i("委托变化通知: $rod");
+          // logger.i("委托变化通知: $rod");
           ResDelOrder dele = ResDelOrder(
             CommodityNo: rod.commodityNo,
             CommodityType: rod.commodityType,
@@ -194,7 +192,7 @@ class TradeWebSocketServer {
       case Option.ON_ACCOUNT_FILL_UPDATE: // 成交变化通知
         try {
           CDFYRspFillDetail rspFillDetail = CDFYRspFillDetail.fromBuffer(c.data);
-          logger.i("成交变化通知: $rspFillDetail");
+          // logger.i("成交变化通知: $rspFillDetail");
           checkNeedBackHand(rspFillDetail);
           ResComOrder rco = ResComOrder(
             CommodityNo: rspFillDetail.commodityNo,

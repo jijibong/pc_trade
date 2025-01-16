@@ -101,7 +101,6 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
   @override
   void onChanged(T? newValue) {
     super.onChanged(newValue);
-
     // when the popup is closed, we set the new text and select the text
     _setText(newValue?.toString());
   }
@@ -164,6 +163,7 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
   @override
   void didUpdateWidget(covariant EditableComboBox<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
+    mathValue = widget.mathValue ?? 0.0;
     if (oldWidget.textController == null && widget.textController != null) {
       controller.dispose();
       controller = widget.textController!;

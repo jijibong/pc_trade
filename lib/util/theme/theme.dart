@@ -55,7 +55,7 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  int _selectCommandBarIndex = -1;
+  int _selectCommandBarIndex = 0;
   int get selectCommandBarIndex => _selectCommandBarIndex;
   set selectCommandBarIndex(int selectCommandBarIndex) {
     _selectCommandBarIndex = selectCommandBarIndex;
@@ -66,6 +66,13 @@ class AppTheme extends ChangeNotifier {
   int get selectIndex => _selectIndex;
   set selectIndex(int selectIndex) {
     _selectIndex = selectIndex;
+    notifyListeners();
+  }
+
+  bool _showChart=true;
+  bool get showChart => _showChart;
+  set showChart(bool showChart) {
+    _showChart = showChart;
     notifyListeners();
   }
 

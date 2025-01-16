@@ -54,7 +54,8 @@ class HttpUtils {
   }) async {
     Response response;
     try {
-      response = await _dio.get(path, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
+      response =
+          await _dio.get(path, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
     } on DioException catch (err) {
       if (err.message!.contains('SocketException')) {
         InfoBarUtils.showErrorBar("网络连接出现异常");
@@ -78,8 +79,8 @@ class HttpUtils {
   }) async {
     Response response;
     try {
-      response =
-          await _dio.post(path, data: data, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
+      response = await _dio.post(path,
+          data: data, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
     } on DioException catch (e) {
       Log.e("post request failed: $path $e ${e.response?.data}", e);
       if (e.message!.contains('SocketException')) {
@@ -103,8 +104,8 @@ class HttpUtils {
   }) async {
     Response response;
     try {
-      response =
-          await _dio.put(path, data: data, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
+      response = await _dio.put(path,
+          data: data, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
     } on DioException catch (e) {
       if (e.message!.contains('SocketException')) {
         InfoBarUtils.showErrorBar("网络连接出现异常");
@@ -148,7 +149,8 @@ class HttpUtils {
   }) async {
     Response response;
     try {
-      response = await _dio.patch(path, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
+      response =
+          await _dio.patch(path, queryParameters: queryParameters, options: options, cancelToken: cancelToken, onReceiveProgress: onReceiveProgress);
     } on DioException catch (e) {
       if (e.message!.contains('SocketException')) {
         InfoBarUtils.showErrorBar("网络连接出现异常");
@@ -159,7 +161,8 @@ class HttpUtils {
     return response;
   }
 
-  download(String urlPath, savePath, {Map<String, dynamic>? queryParameters, String lengthHeader = Headers.formUrlEncodedContentType, Options? options}) async {
+  download(String urlPath, savePath,
+      {Map<String, dynamic>? queryParameters, String lengthHeader = Headers.formUrlEncodedContentType, Options? options}) async {
     Response response;
     try {
       response = await _dio.download(urlPath, savePath, options: options, queryParameters: queryParameters, lengthHeader: lengthHeader);

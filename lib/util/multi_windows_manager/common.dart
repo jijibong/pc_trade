@@ -536,6 +536,7 @@ enum DesktopType {
   pl,
   condition,
   draw,
+  notification,
 }
 
 class OffsetDevicePixelRatio {
@@ -628,7 +629,7 @@ class MyTheme {
   );
 
   // TextButton
-  // Value is used to calculate "dialog.actionsPadding"
+  // Value is used to calculate "trade.actionsPadding"
   static const double mobileTextButtonPaddingLR = 20;
 
   // TextButton on mobile needs a fixed padding, otherwise small buttons

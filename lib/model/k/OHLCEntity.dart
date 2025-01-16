@@ -45,7 +45,7 @@ class OHLCEntity {
     low = json['low'] != null ? double.tryParse(json['low']) : 0;
     close = json['close'] != null ? double.tryParse(json['close']) : 0;
     preClose = json['preClose'] != null ? double.tryParse(json['preClose']) : 0;
-    amount = json['amount'] != null ? double.tryParse(json['amount']) : 0;
+    amount = json['amount'] != null ? int.tryParse(json['amount']) : 0;
     volume = json['volume'] != null ? int.tryParse(json['volume']) : 0;
     sAllVolume = json['sAllVolume'] != null ? int.tryParse(json['sAllVolume']) : 0;
     average = json['average'] != null ? double.tryParse(json['average']) : 0;

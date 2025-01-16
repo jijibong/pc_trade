@@ -76,7 +76,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   KPeriod kPeriod = KPeriod();
   List<OHLCEntity> mOHLCData = [];
-
   bool isSetIndex = true;
   bool isDrawTime = true;
   bool isDrawBollinger = false;
@@ -246,25 +245,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   String pankouLastPrice = "--";
   String pankouChange = "--";
-  String pankouBuyprice = "--";
-  String pankouBuynum = "--";
-  String pankouSaleprice = "--";
-  String pankouSalenum = "--";
+  String pankouChangePer = "--";
   String pankouOpenprice = "--";
-  String pankouVolume = "--";
   String pankouHighprice = "--";
   String pankouPosition = "--";
   String pankouLowprice = "--";
   String pankouPoor = "--";
   String pankouAvr = "--";
-  String pankouClear = "--";
+  String pankouAllMarket = "--";
+  String pankouCirMarket = "--";
   String pankouPresettle = "--";
-  String pankouPreclose = "--";
-  String pankouUpLimit = "--";
-  String pankouExterDisk = "--";
-  String pankouDownLimit = "--";
-  String pankouInnerDisk = "--";
   Color pankouColor = HexColor("#ff204a");
+  Color pankouHighColor = HexColor("#ff204a");
+  Color pankouLowColor = HexColor("#ff204a");
   String chartTradeAllAssest = "--";
   String chartTradeCanuse = "--";
   String tradeBuyCanOpen = "--";
@@ -301,7 +294,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mOHLCData.clear();
     }
     mOHLCData.addAll(OHLCData);
-
     if (mShowDataNum > mOHLCData.length) {
       mShowDataNum = mOHLCData.length;
     }
@@ -841,7 +833,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     isSwithing = true;
     if (kPeriod.period != null && kPeriod.period! >= 0) {
       if (kPeriod.cusType == 1) {
-        await MarketServer.queryKline(contract!, kPeriod.period ?? KTime.FS, 0, 500).then((value) {
+        await MarketServer.queryKline(contract!, kPeriod.period!, 0, 500).then((value) {
           if (kPeriod.period == null || kPeriod.period! < 0) return;
           if (value != null) {
             SWITHING_TIME = true;
@@ -1014,24 +1006,16 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     double tick = (contract?.futureTickSize ?? 0).toDouble();
     pankouLastPrice = Utils.double2Str(Utils.dealPointByOld(contract?.lastPrice, tick));
     pankouChange = Utils.double2Str(Utils.dealPointByOld(contract?.change, tick));
-    pankouBuyprice = Utils.double2Str(Utils.dealPointByOld(contract?.buyPrice, tick));
-    pankouBuynum = "${contract?.level2List?[0].volume?.toInt() ?? 0}";
-    pankouSalenum = "${contract?.level2List?[20].volume?.toInt() ?? 0}";
-    pankouSaleprice = Utils.double2Str(Utils.dealPointByOld(contract?.salePrice, tick));
+    pankouChangePer = "${Utils.double2Str(Utils.dealPointBigDecimal(contract?.changePer?.toDouble(), 2))}%";
     pankouOpenprice = Utils.double2Str(Utils.dealPointByOld(contract?.openPrice, tick));
-    pankouVolume = "${contract?.volume?.toInt() ?? 0}";
     pankouHighprice = Utils.double2Str(Utils.dealPointByOld(contract?.highPrice, tick));
     pankouPosition = "${contract?.position?.toInt() ?? 0}";
     pankouLowprice = Utils.double2Str(Utils.dealPointByOld(contract?.lowPrice, tick));
     pankouPoor = "${((contract?.position ?? 0) - (contract?.prePosition ?? 0))}";
-    pankouAvr = Utils.double2Str(Utils.dealPointByOld(contract?.averPrice, tick));
-    pankouClear = Utils.double2Str(Utils.dealPointByOld(contract?.settlePrice, tick));
+    pankouAvr = contract?.averPrice != null ? Utils.double2Str(Utils.dealPointByOld(contract?.averPrice, tick)) : "--";
+    pankouAllMarket = contract?.all_marketValue != null ? Utils.double2Str(Utils.dealPointByOld(contract?.all_marketValue, tick)) : "--";
+    pankouCirMarket = contract?.cir_marketValue != null ? Utils.double2Str(Utils.dealPointByOld(contract?.cir_marketValue, tick)) : "--";
     pankouPresettle = Utils.double2Str(Utils.dealPointByOld(contract?.preSettlePrice, tick));
-    pankouPreclose = Utils.double2Str(Utils.dealPointByOld(contract?.prePrice, tick));
-    pankouUpLimit = Utils.double2Str(Utils.dealPointByOld(contract?.limitPrice, tick));
-    pankouExterDisk = "${contract?.out_vouume ?? 0}";
-    pankouDownLimit = Utils.double2Str(Utils.dealPointByOld(contract?.stopPrice, tick));
-    pankouInnerDisk = "${contract?.in_vouume ?? 0}";
 
     if ((contract?.change ?? 0) > 0) {
       pankouColor = HexColor("#ff204a");
@@ -1039,6 +1023,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       pankouColor = HexColor("#3aff20");
     } else {
       pankouColor = HexColor("#ffffff");
+    }
+
+    if (contract!.highPrice! < contract!.openPrice!) {
+      pankouHighColor = HexColor("#3aff20");
+    }
+
+    if (contract!.lowPrice! < contract!.openPrice!) {
+      pankouLowColor = HexColor("#3aff20");
     }
   }
 
@@ -1372,6 +1364,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       SWITHING_TIME = true;
       if (event.kPeriod.period == KTime.FS) {
         isDrawTime = true;
+        appTheme.showChart = true;
       } else {
         isDrawTime = false;
       }
@@ -1448,7 +1441,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [Expanded(child: kChart(painter)), if (showPanKou) dataWidget()],
+      children: [Expanded(child: appTheme.showChart ? kChart(painter) : statement()), if (showPanKou) dataWidget()],
     );
   }
 
@@ -1718,24 +1711,45 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 appTheme.viewIndex = 0;
                                 Flyout.of(context).close();
                               }),
-                          MenuFlyoutItem(
-                              text: const Text('分时'),
+                          isDrawTime
+                              ? MenuFlyoutItem(
+                                  text: const Text('K线'),
+                                  onPressed: () {
+                                    KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                    if (kPeriod == fs) return;
+                                    appTheme.selectCommandBarIndex = 1;
+                                    subscriptionKlineData(false);
+                                    kPeriod = fs;
+                                    mOHLCData.clear();
+                                    SWITHING_TIME = true;
+                                    isDrawTime = false;
+                                    requestAllData();
+                                    subscriptionKlineData(true);
+                                    Flyout.of(context).close();
+                                  })
+                              : MenuFlyoutItem(
+                                  text: const Text('分时'),
+                                  onPressed: () {
+                                    KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                    if (kPeriod == fs) return;
+                                    appTheme.selectCommandBarIndex = 0;
+                                    subscriptionKlineData(false);
+                                    kPeriod = fs;
+                                    mOHLCData.clear();
+                                    SWITHING_TIME = true;
+                                    isDrawTime = true;
+                                    requestAllData();
+                                    subscriptionKlineData(true);
+                                    Flyout.of(context).close();
+                                  }),
+                          if (!isDrawTime)
+                            MenuFlyoutItem(
+                              text: const Text('成交报表'),
                               onPressed: () {
-                                KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = true;
-                                requestAllData();
-                                subscriptionKlineData(true);
-                                Flyout.of(context).close();
-                              }),
-                          MenuFlyoutItem(
-                            text: const Text('成交报表'),
-                            onPressed: Flyout.of(context).close,
-                          ),
+                                appTheme.showChart = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
                         ],
                       ),
                       MenuFlyoutSubItem(
@@ -3044,6 +3058,491 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     );
   }
 
+  Widget statement() {
+    final contextController = FlyoutController();
+    final contextAttachKey = GlobalKey();
+    return GestureDetector(
+        onSecondaryTapUp: (d) {
+          final targetContext = contextAttachKey.currentContext;
+          if (targetContext == null) return;
+          final box = targetContext.findRenderObject() as RenderBox;
+          final position = box.localToGlobal(
+            d.localPosition,
+            ancestor: Navigator.of(context).context.findRenderObject(),
+          );
+          contextController.showFlyout(
+            barrierColor: Colors.black.withOpacity(0.1),
+            position: position,
+            builder: (context) {
+              return MenuFlyout(items: [
+                MenuFlyoutItem(
+                  text: const Text('下单'),
+                  onPressed: () {
+                    EventBusUtil.getInstance().fire(LoginEvent());
+                    Flyout.of(context).close();
+                  },
+                ),
+                MenuFlyoutItem(
+                    text: const Text('加入自选'),
+                    onPressed: () {
+                      logic.optionOperate(logic.selectedContract.value, add: true);
+                      Flyout.of(context).close();
+                    }),
+                MenuFlyoutItem(
+                    text: const Text('移除自选'),
+                    onPressed: () {
+                      logic.optionOperate(logic.selectedContract.value, add: false);
+                      Flyout.of(context).close();
+                    }),
+                MenuFlyoutSubItem(
+                  text: const Text('切换画面'),
+                  leading: const Icon(
+                    FluentIcons.accept,
+                    color: Colors.transparent,
+                  ),
+                  items: (context) => [
+                    MenuFlyoutItem(
+                        text: const Text('报价页面'),
+                        onPressed: () {
+                          appTheme.viewIndex = 0;
+                          Flyout.of(context).close();
+                        }),
+                    isDrawTime
+                        ? MenuFlyoutItem(
+                            text: const Text('K线'),
+                            onPressed: () {
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              if (kPeriod == fs) return;
+                              appTheme.selectCommandBarIndex = 1;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = false;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                              Flyout.of(context).close();
+                            })
+                        : MenuFlyoutItem(
+                            text: const Text('分时'),
+                            onPressed: () {
+                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              if (kPeriod == fs) return;
+                              appTheme.selectCommandBarIndex = 0;
+                              subscriptionKlineData(false);
+                              kPeriod = fs;
+                              mOHLCData.clear();
+                              SWITHING_TIME = true;
+                              isDrawTime = true;
+                              requestAllData();
+                              subscriptionKlineData(true);
+                              Flyout.of(context).close();
+                            }),
+                    if (!isDrawTime)
+                      MenuFlyoutItem(
+                        text: const Text('成交报表'),
+                        onPressed: () {
+                          appTheme.showChart = false;
+                          if (mounted) setState(() {});
+                        },
+                      ),
+                  ],
+                ),
+                MenuFlyoutItem(
+                  text: const Text('显示盘口数据'),
+                  leading: Icon(
+                    FluentIcons.accept,
+                    color: showPanKou ? Colors.green : Colors.transparent,
+                  ),
+                  onPressed: () {
+                    showPanKou = !showPanKou;
+                    if (mounted) setState(() {});
+                    Flyout.of(context).close;
+                  },
+                ),
+                MenuFlyoutSubItem(
+                  text: const Text('周期切换'),
+                  leading: const Icon(
+                    FluentIcons.accept,
+                    color: Colors.transparent,
+                  ),
+                  items: (context) => [
+                    MenuFlyoutItem(
+                      text: const Text('日线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 1;
+                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('周线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 2;
+                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('月线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 3;
+                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('年线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 4;
+                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('任意天'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 5;
+                        // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        // if (kPeriod == fs) return;
+                        // subscriptionKlineData(false);
+                        // kPeriod = fs;
+                        // mOHLCData.clear();
+                        // SWITHING_TIME = true;
+                        // isDrawTime = false;
+                        // requestAllData();
+                        // subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('1分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 6;
+                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('3分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 7;
+                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('5分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 8;
+                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('10分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 9;
+                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('15分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 10;
+                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('30分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 11;
+                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('60分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 12;
+                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('120分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 13;
+                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        if (kPeriod == fs) return;
+                        subscriptionKlineData(false);
+                        kPeriod = fs;
+                        mOHLCData.clear();
+                        SWITHING_TIME = true;
+                        isDrawTime = false;
+                        requestAllData();
+                        subscriptionKlineData(true);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('任意分'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 14;
+                        // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        // if (kPeriod == fs) return;
+                        // subscriptionKlineData(false);
+                        // kPeriod = fs;
+                        // mOHLCData.clear();
+                        // SWITHING_TIME = true;
+                        // isDrawTime = false;
+                        // requestAllData();
+                        // subscriptionKlineData(true);
+                      },
+                    ),
+                  ],
+                ),
+                MenuFlyoutItem(
+                  text: const Text('最大化'),
+                  onPressed: Flyout.of(context).close,
+                ),
+                MenuFlyoutItem(
+                  text: const Text('横向分页'),
+                  onPressed: Flyout.of(context).close,
+                ),
+                MenuFlyoutItem(
+                  text: const Text('纵向分页'),
+                  onPressed: Flyout.of(context).close,
+                ),
+                MenuFlyoutItem(
+                  text: const Text('关闭窗口'),
+                  onPressed: Flyout.of(context).close,
+                ),
+              ]);
+            },
+          );
+        },
+        child: FlyoutTarget(
+            key: contextAttachKey,
+            controller: contextController,
+            child: Column(
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
+                      style: TextStyle(fontSize: 16, color: appTheme.color),
+                    ),
+                  ],
+                ),
+                Container(
+                  margin: EdgeInsets.only(right: 68.sp),
+                  child: Row(
+                    children: [
+                      statementItem("时间", flex: 3),
+                      statementItem("开"),
+                      statementItem("高"),
+                      statementItem("低"),
+                      statementItem("收"),
+                      statementItem("成交量", flex: 2),
+                      statementItem("持仓量", flex: 2),
+                    ],
+                  ),
+                ),
+                Expanded(
+                    child: ListView.builder(
+                  itemCount: mOHLCData.length,
+                  itemBuilder: (BuildContext context, int index) {
+                    return Container(
+                      margin: EdgeInsets.only(right: 68.sp),
+                      decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white))),
+                      child: Row(
+                        children: [
+                          statementChildItem("${mOHLCData[index].date} ${mOHLCData[index].time}", flex: 3),
+                          statementColorItem(mOHLCData[index].open, mOHLCData[max(0, index - 1)].close),
+                          statementColorItem(mOHLCData[index].high, mOHLCData[max(0, index - 1)].close),
+                          statementColorItem(mOHLCData[index].low, mOHLCData[max(0, index - 1)].close),
+                          statementColorItem(mOHLCData[index].close, mOHLCData[max(0, index - 1)].close),
+                          statementChildItem("${mOHLCData[index].volume ?? 0}", flex: 2),
+                          statementChildItem("${mOHLCData[index].amount ?? 0}", flex: 2),
+                        ],
+                      ),
+                    );
+                  },
+                ))
+              ],
+            )));
+  }
+
+  Widget statementItem(String title, {int? flex}) {
+    return Expanded(
+        flex: flex ?? 1,
+        child: Text(
+          title,
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Common.quoteTitleColor, fontSize: 18),
+        ));
+  }
+
+  Widget statementChildItem(String? content, {int? flex, Color? color}) {
+    return Expanded(
+        flex: flex ?? 1,
+        child: Text(
+          content ?? "--",
+          textAlign: TextAlign.center,
+          style: TextStyle(color: color ?? Colors.white, fontSize: 17),
+        ));
+  }
+
+  Widget statementColorItem(num? value, num? lastClose) {
+    return Expanded(
+        flex: 1,
+        child: Text(
+          Utils.d2SBySrc(value?.toDouble(), 0.01),
+          textAlign: TextAlign.center,
+          style: TextStyle(
+              color: (value ?? 0) > (lastClose ?? 0)
+                  ? Common.quoteHighColor
+                  : (value ?? 0) < (lastClose ?? 0)
+                      ? Common.quoteLowColor
+                      : Colors.white,
+              fontSize: 17),
+        ));
+  }
+
   Widget dataWidget() {
     return SizedBox(
       width: 288,
@@ -3172,12 +3671,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       crossAxisAlignment: CrossAxisAlignment.end,
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        dataItem("74.19", color: Colors.red),
-                        dataItem("0.50", color: Colors.red),
-                        dataItem("0.68%", color: Colors.red),
-                        dataItem("4096", color: Colors.red),
-                        dataItem("-", color: Colors.yellow),
-                        dataItem("85763", color: Colors.yellow),
+                        dataItem(pankouLastPrice, color: pankouColor),
+                        dataItem(pankouChange, color: pankouColor),
+                        dataItem(pankouChangePer, color: pankouColor),
+                        dataItem(pankouAllMarket, color: pankouColor),
+                        dataItem(pankouCirMarket, color: Colors.yellow),
+                        dataItem(pankouPosition, color: Colors.yellow),
                       ],
                     ),
                   ),
@@ -3213,12 +3712,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     crossAxisAlignment: CrossAxisAlignment.end,
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      dataItem(null, color: Colors.yellow),
-                      dataItem("73.69", color: Colors.red),
-                      dataItem("73.04", color: Colors.red),
-                      dataItem("73.16", color: Colors.red),
-                      dataItem("73.33", color: Colors.red),
-                      dataItem(null, color: Colors.yellow),
+                      dataItem(pankouAvr, color: Colors.yellow),
+                      dataItem(pankouPresettle, color: pankouColor),
+                      dataItem(pankouOpenprice, color: Colors.white),
+                      dataItem(pankouHighprice, color: pankouHighColor),
+                      dataItem(pankouLowprice, color: pankouLowColor),
+                      dataItem(pankouPoor, color: Colors.yellow),
                     ],
                   ),
                 ],

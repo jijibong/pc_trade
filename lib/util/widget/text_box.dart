@@ -33,8 +33,7 @@ enum OverlayVisibilityMode {
   always,
 }
 
-class _MyTextBoxSelectionGestureDetectorBuilder
-    extends TextSelectionGestureDetectorBuilder {
+class _MyTextBoxSelectionGestureDetectorBuilder extends TextSelectionGestureDetectorBuilder {
   _MyTextBoxSelectionGestureDetectorBuilder({
     required _MyTextBoxState super.delegate,
   }) : _state = delegate;
@@ -195,34 +194,27 @@ class MyTextBox extends StatefulWidget {
     this.spellCheckConfiguration,
     this.magnifierConfiguration,
   })  : assert(obscuringCharacter.length == 1),
-        smartDashesType = smartDashesType ??
-            (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
-        smartQuotesType = smartQuotesType ??
-            (obscureText ? SmartQuotesType.disabled : SmartQuotesType.enabled),
+        smartDashesType = smartDashesType ?? (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
+        smartQuotesType = smartQuotesType ?? (obscureText ? SmartQuotesType.disabled : SmartQuotesType.enabled),
         assert(maxLines == null || maxLines > 0),
         assert(minLines == null || minLines > 0),
         assert(
-        (maxLines == null) || (minLines == null) || (maxLines >= minLines),
-        "minLines can't be greater than maxLines",
+          (maxLines == null) || (minLines == null) || (maxLines >= minLines),
+          "minLines can't be greater than maxLines",
         ),
         assert(
-        !expands || (maxLines == null && minLines == null),
-        'minLines and maxLines must be null when expands is true.',
+          !expands || (maxLines == null && minLines == null),
+          'minLines and maxLines must be null when expands is true.',
         ),
-        assert(!obscureText || maxLines == 1,
-        'Obscured fields cannot be multiline.'),
+        assert(!obscureText || maxLines == 1, 'Obscured fields cannot be multiline.'),
         assert(maxLength == null || maxLength > 0),
-  // Assert the following instead of setting it directly to avoid surprising the user by silently changing the value they set.
+        // Assert the following instead of setting it directly to avoid surprising the user by silently changing the value they set.
         assert(
-        !identical(textInputAction, TextInputAction.newline) ||
-            maxLines == 1 ||
-            !identical(keyboardType, TextInputType.text),
-        'Use keyboardType TextInputType.multiline when using TextInputAction.newline on a multiline TextField.',
+          !identical(textInputAction, TextInputAction.newline) || maxLines == 1 || !identical(keyboardType, TextInputType.text),
+          'Use keyboardType TextInputType.multiline when using TextInputAction.newline on a multiline TextField.',
         ),
-        keyboardType = keyboardType ??
-            (maxLines == 1 ? TextInputType.text : TextInputType.multiline),
-        enableInteractiveSelection =
-            enableInteractiveSelection ?? (!readOnly || !obscureText);
+        keyboardType = keyboardType ?? (maxLines == 1 ? TextInputType.text : TextInputType.multiline),
+        enableInteractiveSelection = enableInteractiveSelection ?? (!readOnly || !obscureText);
 
   /// Controls the text being edited.
   ///
@@ -515,8 +507,7 @@ class MyTextBox extends StatefulWidget {
   ///  * [AdaptiveTextSelectionToolbar], which is built by default.
   final EditableTextContextMenuBuilder? contextMenuBuilder;
 
-  static Widget _defaultContextMenuBuilder(
-      BuildContext context, EditableTextState editableTextState) {
+  static Widget _defaultContextMenuBuilder(BuildContext context, EditableTextState editableTextState) {
     return AdaptiveTextSelectionToolbar.editableText(
       editableTextState: editableTextState,
     );
@@ -563,10 +554,8 @@ class MyTextBox extends StatefulWidget {
   void debugFillProperties(DiagnosticPropertiesBuilder properties) {
     super.debugFillProperties(properties);
     properties
-      ..add(DiagnosticsProperty<TextEditingController>('controller', controller,
-          defaultValue: null))
-      ..add(DiagnosticsProperty<FocusNode>('focusNode', focusNode,
-          defaultValue: null))
+      ..add(DiagnosticsProperty<TextEditingController>('controller', controller, defaultValue: null))
+      ..add(DiagnosticsProperty<FocusNode>('focusNode', focusNode, defaultValue: null))
       ..add(DiagnosticsProperty<BoxDecoration>('decoration', decoration))
       ..add(DiagnosticsProperty<EdgeInsetsGeometry>(
         'padding',
@@ -574,93 +563,56 @@ class MyTextBox extends StatefulWidget {
         defaultValue: kMyTextBoxPadding,
       ))
       ..add(StringProperty('placeholder', placeholder))
-      ..add(
-          DiagnosticsProperty<TextStyle>('placeholderStyle', placeholderStyle))
-      ..add(DiagnosticsProperty<OverlayVisibilityMode>(
-          'prefix', prefix == null ? null : prefixMode))
-      ..add(DiagnosticsProperty<OverlayVisibilityMode>(
-          'suffix', suffix == null ? null : suffixMode))
-      ..add(DiagnosticsProperty<TextInputType>('keyboardType', keyboardType,
-          defaultValue: TextInputType.text))
+      ..add(DiagnosticsProperty<TextStyle>('placeholderStyle', placeholderStyle))
+      ..add(DiagnosticsProperty<OverlayVisibilityMode>('prefix', prefix == null ? null : prefixMode))
+      ..add(DiagnosticsProperty<OverlayVisibilityMode>('suffix', suffix == null ? null : suffixMode))
+      ..add(DiagnosticsProperty<TextInputType>('keyboardType', keyboardType, defaultValue: TextInputType.text))
       ..add(DiagnosticsProperty<TextStyle>('style', style, defaultValue: null))
-      ..add(DiagnosticsProperty<bool>('autofocus', autofocus,
-          defaultValue: false))
-      ..add(DiagnosticsProperty<String>(
-          'obscuringCharacter', obscuringCharacter,
-          defaultValue: '•'))
-      ..add(DiagnosticsProperty<bool>('obscureText', obscureText,
-          defaultValue: false))
-      ..add(DiagnosticsProperty<bool>('autocorrect', autocorrect,
-          defaultValue: true))
+      ..add(DiagnosticsProperty<bool>('autofocus', autofocus, defaultValue: false))
+      ..add(DiagnosticsProperty<String>('obscuringCharacter', obscuringCharacter, defaultValue: '•'))
+      ..add(DiagnosticsProperty<bool>('obscureText', obscureText, defaultValue: false))
+      ..add(DiagnosticsProperty<bool>('autocorrect', autocorrect, defaultValue: true))
       ..add(EnumProperty<SmartDashesType>('smartDashesType', smartDashesType,
-          defaultValue:
-          obscureText ? SmartDashesType.disabled : SmartDashesType.enabled))
+          defaultValue: obscureText ? SmartDashesType.disabled : SmartDashesType.enabled))
       ..add(EnumProperty<SmartQuotesType>('smartQuotesType', smartQuotesType,
-          defaultValue:
-          obscureText ? SmartQuotesType.disabled : SmartQuotesType.enabled))
-      ..add(DiagnosticsProperty<bool>('enableSuggestions', enableSuggestions,
-          defaultValue: true))
+          defaultValue: obscureText ? SmartQuotesType.disabled : SmartQuotesType.enabled))
+      ..add(DiagnosticsProperty<bool>('enableSuggestions', enableSuggestions, defaultValue: true))
       ..add(IntProperty('maxLines', maxLines, defaultValue: 1))
       ..add(IntProperty('minLines', minLines, defaultValue: null))
       ..add(DiagnosticsProperty<bool>('expands', expands, defaultValue: false))
       ..add(IntProperty('maxLength', maxLength, defaultValue: null))
-      ..add(EnumProperty<MaxLengthEnforcement>(
-          'maxLengthEnforcement', maxLengthEnforcement,
-          defaultValue: null))
+      ..add(EnumProperty<MaxLengthEnforcement>('maxLengthEnforcement', maxLengthEnforcement, defaultValue: null))
       ..add(DoubleProperty('cursorWidth', cursorWidth, defaultValue: 1.0))
       ..add(DoubleProperty('cursorHeight', cursorHeight, defaultValue: null))
-      ..add(DiagnosticsProperty<Radius>('cursorRadius', cursorRadius,
-          defaultValue: null))
+      ..add(DiagnosticsProperty<Radius>('cursorRadius', cursorRadius, defaultValue: null))
       ..add(ColorProperty('cursorColor', cursorColor, defaultValue: null))
-      ..add(FlagProperty('selectionEnabled',
-          value: selectionEnabled,
-          defaultValue: true,
-          ifFalse: 'selection disabled'))
-      ..add(DiagnosticsProperty<TextSelectionControls>(
-          'selectionControls', selectionControls,
-          defaultValue: null))
-      ..add(DiagnosticsProperty<ScrollController>(
-          'scrollController', scrollController,
-          defaultValue: null))
-      ..add(DiagnosticsProperty<ScrollPhysics>('scrollPhysics', scrollPhysics,
-          defaultValue: null))
-      ..add(EnumProperty<TextAlign>('textAlign', textAlign,
-          defaultValue: TextAlign.start))
-      ..add(DiagnosticsProperty<TextAlignVertical>(
-          'textAlignVertical', textAlignVertical,
-          defaultValue: null))
-      ..add(EnumProperty<TextDirection>('textDirection', textDirection,
-          defaultValue: null))
-      ..add(DiagnosticsProperty<Clip>('clipBehavior', clipBehavior,
-          defaultValue: Clip.hardEdge))
-      ..add(DiagnosticsProperty<bool>('scribbleEnabled', scribbleEnabled,
-          defaultValue: true))
-      ..add(DiagnosticsProperty<bool>(
-          'enableIMEPersonalizedLearning', enableIMEPersonalizedLearning,
-          defaultValue: true))
-      ..add(DiagnosticsProperty<SpellCheckConfiguration>(
-          'spellCheckConfiguration', spellCheckConfiguration,
-          defaultValue: null));
+      ..add(FlagProperty('selectionEnabled', value: selectionEnabled, defaultValue: true, ifFalse: 'selection disabled'))
+      ..add(DiagnosticsProperty<TextSelectionControls>('selectionControls', selectionControls, defaultValue: null))
+      ..add(DiagnosticsProperty<ScrollController>('scrollController', scrollController, defaultValue: null))
+      ..add(DiagnosticsProperty<ScrollPhysics>('scrollPhysics', scrollPhysics, defaultValue: null))
+      ..add(EnumProperty<TextAlign>('textAlign', textAlign, defaultValue: TextAlign.start))
+      ..add(DiagnosticsProperty<TextAlignVertical>('textAlignVertical', textAlignVertical, defaultValue: null))
+      ..add(EnumProperty<TextDirection>('textDirection', textDirection, defaultValue: null))
+      ..add(DiagnosticsProperty<Clip>('clipBehavior', clipBehavior, defaultValue: Clip.hardEdge))
+      ..add(DiagnosticsProperty<bool>('scribbleEnabled', scribbleEnabled, defaultValue: true))
+      ..add(DiagnosticsProperty<bool>('enableIMEPersonalizedLearning', enableIMEPersonalizedLearning, defaultValue: true))
+      ..add(DiagnosticsProperty<SpellCheckConfiguration>('spellCheckConfiguration', spellCheckConfiguration, defaultValue: null));
   }
 
-  static final TextMagnifierConfiguration _fluentMagnifierConfiguration =
-      TextMagnifier.adaptiveMagnifierConfiguration;
+  static final TextMagnifierConfiguration _fluentMagnifierConfiguration = TextMagnifier.adaptiveMagnifierConfiguration;
 }
 
 class _MyTextBoxState extends State<MyTextBox>
     with RestorationMixin, AutomaticKeepAliveClientMixin<MyTextBox>
     implements TextSelectionGestureDetectorBuilderDelegate, AutofillClient {
   RestorableTextEditingController? _controller;
-  TextEditingController get _effectiveController =>
-      widget.controller ?? _controller!.value;
+  TextEditingController get _effectiveController => widget.controller ?? _controller!.value;
 
   FocusNode? _focusNode;
-  FocusNode get _effectiveFocusNode =>
-      widget.focusNode ?? (_focusNode ??= FocusNode());
+  FocusNode get _effectiveFocusNode => widget.focusNode ?? (_focusNode ??= FocusNode());
 
   MaxLengthEnforcement get _effectiveMaxLengthEnforcement =>
-      widget.maxLengthEnforcement ??
-          LengthLimitingTextInputFormatter.getDefaultMaxLengthEnforcement();
+      widget.maxLengthEnforcement ?? LengthLimitingTextInputFormatter.getDefaultMaxLengthEnforcement();
 
   bool _showSelectionHandles = false;
 
@@ -671,8 +623,7 @@ class _MyTextBoxState extends State<MyTextBox>
   bool get forcePressEnabled => true;
 
   @override
-  final GlobalKey<EditableTextState> editableTextKey =
-  GlobalKey<EditableTextState>();
+  final GlobalKey<EditableTextState> editableTextKey = GlobalKey<EditableTextState>();
 
   @override
   bool get selectionEnabled => widget.selectionEnabled;
@@ -725,9 +676,7 @@ class _MyTextBoxState extends State<MyTextBox>
 
   void _createLocalController([TextEditingValue? value]) {
     assert(_controller == null);
-    _controller = value == null
-        ? RestorableTextEditingController()
-        : RestorableTextEditingController.fromValue(value);
+    _controller = value == null ? RestorableTextEditingController() : RestorableTextEditingController.fromValue(value);
     if (!restorePending) {
       _registerController();
     }
@@ -783,8 +732,7 @@ class _MyTextBoxState extends State<MyTextBox>
     return false;
   }
 
-  void _handleSelectionChanged(
-      TextSelection selection, SelectionChangedCause? cause) {
+  void _handleSelectionChanged(TextSelection selection, SelectionChangedCause? cause) {
     final willShowSelectionHandles = _shouldShowSelectionHandles(cause);
     if (willShowSelectionHandles != _showSelectionHandles) {
       setState(() {
@@ -799,8 +747,7 @@ class _MyTextBoxState extends State<MyTextBox>
       case TargetPlatform.windows:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
-        if (cause == SelectionChangedCause.longPress ||
-            cause == SelectionChangedCause.drag) {
+        if (cause == SelectionChangedCause.longPress || cause == SelectionChangedCause.drag) {
           _editableText.bringIntoView(selection.extent);
         }
         break;
@@ -858,9 +805,7 @@ class _MyTextBoxState extends State<MyTextBox>
 
   // True if any surrounding decoration widgets will be shown.
   bool get _hasDecoration {
-    return widget.placeholder != null ||
-        widget.prefix != null ||
-        widget.suffix != null;
+    return widget.placeholder != null || widget.prefix != null || widget.suffix != null;
   }
 
   // Provide default behavior if widget.textAlignVertical is not set.
@@ -873,8 +818,7 @@ class _MyTextBoxState extends State<MyTextBox>
     return _hasDecoration ? TextAlignVertical.center : TextAlignVertical.top;
   }
 
-  Widget _addTextDependentAttachments(
-      Widget editableText, TextStyle textStyle, TextStyle? placeholderStyle) {
+  Widget _addTextDependentAttachments(Widget editableText, TextStyle textStyle, TextStyle? placeholderStyle) {
     // If there are no surrounding widgets, just return the core editable text
     // part.
     if (!_hasDecoration) {
@@ -903,8 +847,7 @@ class _MyTextBoxState extends State<MyTextBox>
                       child: Text(
                         widget.placeholder!,
                         maxLines: widget.maxLines,
-                        overflow:
-                        placeholderStyle?.overflow ?? TextOverflow.ellipsis,
+                        overflow: placeholderStyle?.overflow ?? TextOverflow.ellipsis,
                         style: placeholderStyle,
                         textAlign: widget.textAlign,
                       ),
@@ -929,23 +872,21 @@ class _MyTextBoxState extends State<MyTextBox>
   String get autofillId => _editableText.autofillId;
 
   @override
-  void autofill(TextEditingValue newEditingValue) =>
-      _editableText.autofill(newEditingValue);
+  void autofill(TextEditingValue newEditingValue) => _editableText.autofill(newEditingValue);
 
   @override
   TextInputConfiguration get textInputConfiguration {
     final autofillHints = widget.autofillHints?.toList(growable: false);
     final autofillConfiguration = autofillHints != null
         ? AutofillConfiguration(
-      uniqueIdentifier: autofillId,
-      autofillHints: autofillHints,
-      currentEditingValue: _effectiveController.value,
-      hintText: widget.placeholder,
-    )
+            uniqueIdentifier: autofillId,
+            autofillHints: autofillHints,
+            currentEditingValue: _effectiveController.value,
+            hintText: widget.placeholder,
+          )
         : AutofillConfiguration.disabled;
 
-    return _editableText.textInputConfiguration
-        .copyWith(autofillConfiguration: autofillConfiguration);
+    return _editableText.textInputConfiguration.copyWith(autofillConfiguration: autofillConfiguration);
   }
   // AutofillClient implementation end.
 
@@ -971,8 +912,7 @@ class _MyTextBoxState extends State<MyTextBox>
         textSelectionControls ??= fluentTextSelectionControls;
         handleDidGainAccessibilityFocus = () {
           // Automatically activate the TextField when it receives accessibility focus.
-          if (!_effectiveFocusNode.hasFocus &&
-              _effectiveFocusNode.canRequestFocus) {
+          if (!_effectiveFocusNode.hasFocus && _effectiveFocusNode.canRequestFocus) {
             _effectiveFocusNode.requestFocus();
           }
         };
@@ -994,32 +934,23 @@ class _MyTextBoxState extends State<MyTextBox>
     final disabledColor = themeData.resources.textFillColorDisabled;
     final textStyle = (themeData.typography.body ?? const TextStyle())
         .merge(TextStyle(
-      color: enabled
-          ? themeData.resources.textFillColorPrimary
-          : disabledColor,
-    ))
+          color: enabled ? themeData.resources.textFillColorPrimary : disabledColor,
+        ))
         .merge(widget.style);
 
-    final keyboardAppearance =
-        widget.keyboardAppearance ?? themeData.brightness;
-    final cursorColor = widget.cursorColor ??
-        DefaultSelectionStyle.of(context).cursorColor ??
-        themeData.inactiveColor;
+    final keyboardAppearance = widget.keyboardAppearance ?? themeData.brightness;
+    final cursorColor = widget.cursorColor ?? DefaultSelectionStyle.of(context).cursorColor ?? themeData.inactiveColor;
 
-    final selectionColor = DefaultSelectionStyle.of(context).selectionColor ??
-        themeData.accentColor.normal;
+    final selectionColor = DefaultSelectionStyle.of(context).selectionColor ?? themeData.accentColor.normal;
 
     // Set configuration as disabled if not otherwise specified. If specified,
     // ensure that configuration uses Fluent text style for misspelled words
     // unless a custom style is specified.
-    final spellCheckConfiguration = widget.spellCheckConfiguration != null &&
-        widget.spellCheckConfiguration !=
-            const SpellCheckConfiguration.disabled()
-        ? widget.spellCheckConfiguration!.copyWith(
-        misspelledTextStyle:
-        widget.spellCheckConfiguration!.misspelledTextStyle ??
-            MyTextBox.fluentMisspelledTextStyle)
-        : const SpellCheckConfiguration.disabled();
+    final spellCheckConfiguration =
+        widget.spellCheckConfiguration != null && widget.spellCheckConfiguration != const SpellCheckConfiguration.disabled()
+            ? widget.spellCheckConfiguration!
+                .copyWith(misspelledTextStyle: widget.spellCheckConfiguration!.misspelledTextStyle ?? MyTextBox.fluentMisspelledTextStyle)
+            : const SpellCheckConfiguration.disabled();
 
     final Widget paddedEditable = Padding(
       padding: widget.padding,
@@ -1050,13 +981,10 @@ class _MyTextBoxState extends State<MyTextBox>
             maxLines: widget.maxLines,
             minLines: widget.minLines,
             expands: widget.expands,
-            magnifierConfiguration: widget.magnifierConfiguration ??
-                MyTextBox._fluentMagnifierConfiguration,
+            magnifierConfiguration: widget.magnifierConfiguration ?? MyTextBox._fluentMagnifierConfiguration,
             // Only show the selection highlight when the text field is focused.
-            selectionColor:
-            _effectiveFocusNode.hasFocus ? selectionColor : null,
-            selectionControls:
-            widget.selectionEnabled ? textSelectionControls : null,
+            selectionColor: _effectiveFocusNode.hasFocus ? selectionColor : null,
+            selectionControls: widget.selectionEnabled ? textSelectionControls : null,
             onChanged: widget.onChanged,
             onSelectionChanged: _handleSelectionChanged,
             onEditingComplete: widget.onEditingComplete,
@@ -1110,13 +1038,13 @@ class _MyTextBoxState extends State<MyTextBox>
     TextStyle placeholderStyle(Set<WidgetState> states) {
       return textStyle
           .copyWith(
-        color: !enabled
-            ? disabledColor
-            : (states.isPressed || states.isFocused)
-            ? themeData.resources.textFillColorTertiary
-            : themeData.resources.textFillColorSecondary,
-        fontWeight: FontWeight.w400,
-      )
+            color: !enabled
+                ? disabledColor
+                : (states.isPressed || states.isFocused)
+                    ? themeData.resources.textFillColorTertiary
+                    : themeData.resources.textFillColorSecondary,
+            fontWeight: FontWeight.w400,
+          )
           .merge(widget.placeholderStyle);
     }
 
@@ -1125,15 +1053,13 @@ class _MyTextBoxState extends State<MyTextBox>
         bottom: BorderSide(
           color: _effectiveFocusNode.hasFocus
               ? widget.highlightColor ??
-              themeData.accentColor.defaultBrushFor(
-                themeData.brightness,
-              )
+                  themeData.accentColor.defaultBrushFor(
+                    themeData.brightness,
+                  )
               : !enabled
-              ? Colors.transparent
-              : widget.unfocusedColor ??
-              (themeData.brightness.isLight
-                  ? const Color.fromRGBO(0, 0, 0, 0.45)
-                  : const Color.fromRGBO(255, 255, 255, 0.54)),
+                  ? Colors.transparent
+                  : widget.unfocusedColor ??
+                      (themeData.brightness.isLight ? const Color.fromRGBO(0, 0, 0, 0.45) : const Color.fromRGBO(255, 255, 255, 0.54)),
           width: _effectiveFocusNode.hasFocus ? 2 : 0,
         ),
       ),
@@ -1148,21 +1074,18 @@ class _MyTextBoxState extends State<MyTextBox>
       shape: widget.foregroundDecoration?.shape,
     );
 
-    final radius =
-        widget.decoration?.borderRadius?.resolve(Directionality.of(context)) ??
-            BorderRadius.circular(4.0);
+    final radius = widget.decoration?.borderRadius?.resolve(Directionality.of(context)) ?? BorderRadius.circular(4.0);
 
     return Semantics(
       enabled: enabled,
       onTap: !enabled || widget.readOnly
           ? null
           : () {
-        if (!controller.selection.isValid) {
-          controller.selection =
-              TextSelection.collapsed(offset: controller.text.length);
-        }
-        _requestKeyboard();
-      },
+              if (!controller.selection.isValid) {
+                controller.selection = TextSelection.collapsed(offset: controller.text.length);
+              }
+              _requestKeyboard();
+            },
       onDidGainAccessibilityFocus: handleDidGainAccessibilityFocus,
       child: TextFieldTapRegion(
         child: IgnorePointer(
@@ -1211,8 +1134,7 @@ class _MyTextBoxState extends State<MyTextBox>
                     constraints: const BoxConstraints(
                       minHeight: 20.0,
                     ),
-                    child:
-                    _selectionGestureDetectorBuilder.buildGestureDetector(
+                    child: _selectionGestureDetectorBuilder.buildGestureDetector(
                       behavior: HitTestBehavior.translucent,
                       child: Align(
                         alignment: Alignment(-1.0, _textAlignVertical.y),

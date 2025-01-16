@@ -90,6 +90,7 @@ class _QuoteState extends State<Quote> {
       // logger.i(event.go);
       if (event.go) {
         appTheme.viewIndex = 1;
+        appTheme.selectCommandBarIndex = 0;
       } else {
         appTheme.viewIndex = 0;
       }

@@ -42,6 +42,7 @@ const String kAppTypeDesktopRemote = "remote";
 const String kAppTypeDesktopPL = "pl";
 const String kAppTypeDesktopCondition = "condition";
 const String kAppTypeDesktopDraw = "draw";
+const String kAppTypeDesktopNotification = "notification";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
 const String kWindowGetWindowInfo = "get_window_info";
@@ -52,16 +53,23 @@ const String kWindowActionRebuild = "rebuild";
 const String kWindowEventHide = "hide";
 const String kWindowEventShow = "show";
 const String kWindowConnect = "connect";
-const String kWindowLocalNotifier= "localNotifier";
+const String kWindowLocalNotifier = "localNotifier";
+const String kFundUpdateEvent = "kFundUpdateEvent";
+const String kTradeWindowId = "kTradeWindowId";
+const String kPositionUpdateEvent = "kPositionUpdateEvent";
+const String kPositionFloatEvent = "kPositionFloatEvent";
+const String kFillUpdateEvent = "kFillUpdateEvent";
 
 const String kWindowEventNewRemoteDesktop = "new_remote_desktop";
 const String kWindowEventNewPL = "new_pl";
 const String kWindowEventNewCondition = "new_condition";
 const String kWindowEventNewDraw = "new_draw";
+const String kWindowEventNewNotification = "new_notification";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";
 const String kWindowEventNewQuote = "new_quote";
+const String kWindowEventRequestQuote = "request_quote";
 
 const String kWindowEventActiveSession = "active_session";
 const String kWindowEventActiveDisplaySession = "active_display_session";

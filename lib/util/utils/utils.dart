@@ -667,6 +667,16 @@ class Utils {
     return returnTime;
   }
 
+  ///小数处理
+  static String? decimalFormat(num? value) {
+    if (value == null) return null;
+    if (value is int) {
+      return value.toString();
+    }
+    final mul = pow(10, 2);
+    return NumberFormat().format((value * mul).roundToDouble() / mul);
+  }
+
   /// 计算交易时间
   static List<TradeDate> calcTradeDate(String timePoint, List<TradeTime> mTradeTimes) {
     List<TradeDate> list = [];

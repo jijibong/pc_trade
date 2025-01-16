@@ -1,13 +1,13 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
 
-import '../config/common.dart';
-import '../model/position/add_order.dart';
-import '../model/quote/order_type.dart';
-import '../model/quote/position_effect_type.dart';
-import '../model/quote/side_type.dart';
-import '../server/trade/deal.dart';
-import 'theme/theme.dart';
+import '../../config/common.dart';
+import '../../model/position/add_order.dart';
+import '../../model/quote/order_type.dart';
+import '../../model/quote/position_effect_type.dart';
+import '../../model/quote/side_type.dart';
+import '../../server/trade/deal.dart';
+import '../theme/theme.dart';
 
 class TradeDialog {
   Widget addOrderDialog(AddOrder order, {void Function()? function}) {

@@ -46,10 +46,9 @@ class QuoteLogic extends GetxController {
     });
 
     EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
-      List<int> wnds = await RustDeskMultiWindowManager.instance.getAllSubWindowIds();
-      if (wnds.isNotEmpty) {
-        String msg = jsonEncode(event.contract);
-        await DesktopMultiWindow.invokeMethod(wnds[0], kWindowEventNewContract, msg);
+      String msg = jsonEncode(event.contract);
+      if (tradeWindowId != null) {
+        await DesktopMultiWindow.invokeMethod(tradeWindowId!, kWindowEventNewContract, msg);
       }
     });
   }

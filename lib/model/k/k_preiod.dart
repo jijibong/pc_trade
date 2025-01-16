@@ -1,3 +1,6 @@
+import 'k_flag.dart';
+import 'k_time.dart';
+
 class KPeriod {
   num? id; //主键
   String? name;
@@ -41,5 +44,78 @@ class KPeriod {
       'isSelected': isSelected,
       'tabType': tabType,
     };
+  }
+
+  static bool isCusPeriod(int flag, int period) {
+    switch (flag) {
+      case KPFlag.Minute:
+        switch (period) {
+          case 1:
+          case 3:
+          case 5:
+          case 10:
+          case 15:
+          case 30:
+          case 60:
+            return false;
+        }
+        break;
+
+      case KPFlag.Hour:
+      case KPFlag.Day:
+        switch (period) {
+          case 1:
+            return false;
+        }
+        break;
+    }
+    return true;
+  }
+
+  static int getSubPeriod(int flag, int period) {
+    int result = period;
+    switch (flag) {
+      case KPFlag.Minute:
+        switch (period) {
+          case 1:
+            result = KTime.M_1;
+            break;
+
+          case 3:
+            result = KTime.M_3;
+            break;
+
+          case 5:
+            result = KTime.M_5;
+            break;
+
+          case 10:
+            result = KTime.M_10;
+            break;
+
+          case 15:
+            result = KTime.M_15;
+            break;
+
+          case 30:
+            result = KTime.M_30;
+            break;
+
+          case 60:
+            result = KTime.H_1;
+            break;
+        }
+        break;
+
+      case KPFlag.Hour:
+        result = KTime.H_1;
+        break;
+
+      case KPFlag.Day:
+        result = KTime.DAY;
+        break;
+    }
+
+    return result;
   }
 }

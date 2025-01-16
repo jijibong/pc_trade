@@ -100,8 +100,8 @@ class MarketUtils {
   }
 
   /// 保存实时数据
-  static void updateVariety(Contract? variety) {
-    if (variety != null && variety.code != null && variety.lastPrice! > 0) {
+  static void updateVariety(Contract variety) {
+    if (variety.code != null && variety.lastPrice! > 0) {
       if (varietyMap.containsKey("${variety.exCode}${variety.code}${variety.comType}")) {
         Contract? data = varietyMap["${variety.exCode}${variety.code}${variety.comType}"];
         if (variety.lastPrice == 0) {

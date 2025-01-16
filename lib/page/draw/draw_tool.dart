@@ -71,7 +71,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
   void onWindowClose() async {
     notMainWindowClose(WindowController windowController) async {
       await windowController.hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
 
     final controller = WindowController.fromWindowId(kWindowId!);
@@ -130,9 +130,8 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                 color: Colors.white,
               ),
               onPressed: () {
-                // WindowController.fromWindowId(windowId()).hide();
                 Future.delayed(Duration.zero, () async {
-                  await WindowController.fromWindowId(kWindowId!).close();
+                  await WindowController.fromWindowId(kWindowId!).hide();
                 });
               })),
       content: Column(

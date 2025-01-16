@@ -17,4 +17,13 @@ class ResFloatProfit {
     PositionProfit = json['PositionProfit'];
     UpdateTime = json['UpdateTime'];
   }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'UpdateTime': UpdateTime,
+      'PositionProfit': PositionProfit,
+      'CalculatePrice': CalculatePrice,
+      'PositionNo': PositionNo,
+    };
+  }
 }

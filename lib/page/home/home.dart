@@ -3,24 +3,27 @@ import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' as ma;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:local_notifier/local_notifier.dart';
 import 'package:provider/provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:webview_windows/webview_windows.dart';
 
 import '../../config/common.dart';
 import '../../config/config.dart';
+import '../../main.dart';
 import '../../model/broker/broker.dart';
 import '../../model/k/k_flag.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/k/k_time.dart';
+import '../../model/quote/contract.dart';
 import '../../model/user/user.dart';
 import '../../server/login/login.dart';
+import '../../server/socket/trade_webSocket.dart';
 import '../../server/socket/webSocket.dart';
 import '../../util/button/button.dart';
+import '../../util/dialog/period_dialog.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/http/http.dart';
@@ -32,6 +35,7 @@ import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/theme/theme.dart';
+import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 import '../quote/quote.dart';
 import '../quote/quote_logic.dart';
@@ -197,24 +201,29 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
       pwdController.text = password;
     }
 
-    EventBusUtil.getInstance().on<LoginEvent>().listen((event) {
-      tradeAccount();
-    });
+    List<Display> displayList = await screenRetriever.getAllDisplays();
+    Size size = displayList.first.size;
+    Map map = {"width": size.width, "height": size.height};
+    await SpUtils.set(SpKey.screenSize, jsonEncode(map));
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventHide) {
         LoginServer.isLogin = false;
         UserUtils.currentUser = null;
         await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
-      } else if (call.method == kWindowLocalNotifier) {
-        LocalNotification notification = LocalNotification(
-          title: call.arguments["errorCode"] != 0 ? "错误码：${call.arguments["errorCode"]}" : "",
-          body: call.arguments["errorText"],
+      } else if (call.method == kWindowEventRequestQuote) {
+        Contract? con = MarketUtils.getVariety(
+          call.arguments['exCode'],
+          call.arguments['code'],
+          call.arguments['comType'],
         );
-        notification.onShow = () {
-          logger.d('onShow ${notification.identifier}');
-        };
-        notification.show();
+        if (con != null) {
+          EventBusUtil.getInstance().fire(SwitchContract(con));
+        } else {
+          InfoBarUtils.showErrorDialog("查询合约失败，请稍后再试");
+        }
+      } else if (call.method == kTradeWindowId) {
+        tradeWindowId = call.arguments['id'];
       }
     });
   }
@@ -332,9 +341,9 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
   Future login() async {
     if (severController.text.isEmpty) {
-      InfoBarUtils.showWarningBar("请输入服务商代码");
+      errorMsg = "请输入服务商代码";
     } else if (accountController.text.isEmpty || pwdController.text.isEmpty) {
-      InfoBarUtils.showWarningBar("账号或密码不能为空");
+      errorMsg = "账号或密码不能为空";
     } else {
       await LoginServer.login(accountController.text, pwdController.text, Common.brokerId, "", ipAddress.cip ?? "").then((value) async {
         if (value == true) {
@@ -349,6 +358,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           }
           EventBusUtil.getInstance().fire(LoginSuccess());
           Get.back();
+          TradeWebSocketServer().initSocket(broker.quoteUrl);
           if (logic.selectedContract.value.code != null) {
             String contract = jsonEncode(logic.selectedContract.value);
             await rustDeskWinManager.newRemoteDesktop("trade", contract: contract);
@@ -360,6 +370,54 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         }
       });
     }
+  }
+
+  void listener() {
+    ///登录
+    EventBusUtil.getInstance().on<LoginEvent>().listen((event) {
+      tradeAccount();
+    });
+
+    ///账户资金数据
+    EventBusUtil.getInstance().on<FundUpdateEvent>().listen((fundUpdateEvent) async {
+      if (!LoginServer.isLogin) return;
+      String string = jsonEncode(fundUpdateEvent.res);
+      await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kFundUpdateEvent, string);
+    });
+
+    ///行情变化
+    // EventBusUtil.getInstance().on<QuoteEvent>().listen((quoteEvent) async {
+    //   String string = jsonEncode(quoteEvent.con);
+    //   await rustDeskWinManager.call(WindowType.Main, kQuoteEvent, {"quoteEvent": string});
+    // });
+
+    ///订单状态变化
+    EventBusUtil.getInstance().on<DelRecordEvent>().listen((delRecordEvent) async {
+      if (!LoginServer.isLogin) return;
+      String string = jsonEncode(delRecordEvent.res);
+      await rustDeskWinManager.newLocalNotification("localNotification", hold: string);
+    });
+
+    ///持仓变化信息
+    EventBusUtil.getInstance().on<PositionUpdateEvent>().listen((positionUpdateEvent) async {
+      if (!LoginServer.isLogin) return;
+      String string = jsonEncode(positionUpdateEvent.res);
+      await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kPositionUpdateEvent, string);
+    });
+
+    ///浮动盈亏变化信息
+    EventBusUtil.getInstance().on<PositionFloatEvent>().listen((positionFloatEvent) async {
+      if (!LoginServer.isLogin) return;
+      String string = jsonEncode(positionFloatEvent.res);
+      await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kPositionFloatEvent, string);
+    });
+
+    ///成交订单信息
+    EventBusUtil.getInstance().on<FillUpdateEvent>().listen((fillUpdateEvent) async {
+      if (!LoginServer.isLogin) return;
+      String string = jsonEncode(fillUpdateEvent.res);
+      await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kFillUpdateEvent, string);
+    });
   }
 
   @override
@@ -374,6 +432,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();
+    listener();
   }
 
   @override
@@ -525,6 +584,10 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                             if (appTheme.selectCommandBarIndex == 0) {
                               appTheme.viewIndex = 0;
                             } else {
+                              if (!appTheme.showChart) {
+                                appTheme.showChart = true;
+                                return;
+                              }
                               appTheme.selectCommandBarIndex = 0;
                               KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
                               EventBusUtil.getInstance().fire(SwitchPeriod(fs));
@@ -537,6 +600,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
                           appTheme.viewIndex = 0;
+                          appTheme.showChart = true;
                         },
                       ),
                       CommandBarButton(
@@ -626,6 +690,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         label: Text('X', style: TextStyle(color: appTheme.selectCommandBarIndex == 5 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
                           appTheme.selectCommandBarIndex = 5;
+                          KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
+                          showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return PeriodDialog().showPeriodDialog(mKPFlag, "天");
+                              });
                           // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
                           // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
@@ -719,6 +789,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         label: Text('Y', style: TextStyle(color: appTheme.selectCommandBarIndex == 14 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
                           appTheme.selectCommandBarIndex = 14;
+                          KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
+                          showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
+                              });
                           // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
                           // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },

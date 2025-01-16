@@ -194,7 +194,7 @@ class MarketServer {
       if (response.data["code"] == 0) {
         return true;
       } else {
-        InfoBarUtils.showErrorBar( "添加自选失败:${response.data["msg"] ?? ""}");
+        InfoBarUtils.showErrorBar("添加自选失败:${response.data["msg"] ?? ""}");
       }
     } on DioException {
       rethrow;
@@ -263,7 +263,7 @@ class MarketServer {
         MarketUtils.setOptionList(contractList);
         return contractList;
       } else {
-        InfoBarUtils.showErrorBar( "删除自选失败:${response.data["msg"]}");
+        InfoBarUtils.showErrorBar("删除自选失败:${response.data["msg"]}");
       }
     } on DioException {
       rethrow;
@@ -328,7 +328,7 @@ class MarketServer {
         MarketUtils.setOptionList(contractList);
         return contractList;
       } else {
-        InfoBarUtils.showErrorBar( "编辑自选失败:${response.data["msg"]}");
+        InfoBarUtils.showErrorBar("编辑自选失败:${response.data["msg"]}");
       }
     } on DioException {
       rethrow;
@@ -385,7 +385,7 @@ class MarketServer {
         }
         return oHLCEntity;
       } else {
-        InfoBarUtils.showErrorBar( "K线请求失败:${response.data["msg"]}");
+        InfoBarUtils.showErrorBar("K线请求失败:${response.data["msg"]}");
       }
     } on DioException {
       rethrow;
@@ -413,18 +413,18 @@ class MarketServer {
         data = await SignData().signData(jsonEncode(map), Config.customKline);
       }
       Response response = await MdHttpUtils.getInstance().post(Config.customKline, data: data);
-      logger.w(response);
+      // logger.w(response);
       if (response.data["code"] == 0) {
         List<OHLCEntity> oHLCEntity = [];
         List<dynamic> list = response.data["data"] ?? [];
         for (var element in list) {
           OHLCEntity tmp = OHLCEntity.fromJson(element);
-          if (tmp.date == "0001-01-01") {
+          if (tmp.date != "0001-01-01") {
             String strTime = "${tmp.date} ${tmp.time}";
             int timeStamp = Utils.getTimeStamp10(strTime);
             tmp.timeStamp = timeStamp;
-            oHLCEntity.add(tmp);
           }
+          oHLCEntity.add(tmp);
         }
         if (oHLCEntity.isNotEmpty) {
           oHLCEntity.sort((lhs, rhs) {
@@ -505,7 +505,7 @@ class MarketServer {
         }
         return oHLCEntity;
       } else {
-        InfoBarUtils.showErrorBar( response.data["msg"]);
+        InfoBarUtils.showErrorBar(response.data["msg"]);
       }
     } on DioException {
       rethrow;

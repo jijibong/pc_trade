@@ -29,4 +29,26 @@ class PositionEffectType {
     }
     return name;
   }
+
+  static String getShortName(int? oc) {
+    String name = "";
+    switch (oc) {
+      case PositionEffect_NONE:
+        name = "";
+        break;
+
+      case PositionEffect_OPEN:
+        name = "开";
+        break;
+
+      case PositionEffect_COVER:
+        name = "平";
+        break;
+
+      case PositionEffect_COVER_TODAY:
+        name = "平今";
+        break;
+    }
+    return name;
+  }
 }

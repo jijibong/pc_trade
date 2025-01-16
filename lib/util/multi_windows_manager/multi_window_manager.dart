@@ -4,12 +4,13 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../log/log.dart';
 import 'common.dart';
 import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Notification, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -24,6 +25,8 @@ extension Index on int {
         return WindowType.Condition;
       case 4:
         return WindowType.Draw;
+      case 5:
+        return WindowType.Notification;
       default:
         return WindowType.Unknown;
     }
@@ -52,23 +55,7 @@ class RustDeskMultiWindowManager {
   final List<int> _plWindows = List.empty(growable: true);
   final List<int> _conditionWindows = List.empty(growable: true);
   final List<int> _drawWindows = List.empty(growable: true);
-
-  moveTabToNewWindow(int windowId, String peerId, String sessionId) async {
-    var params = {
-      'type': WindowType.Trade.index,
-      'id': peerId,
-      'tab_window_id': windowId,
-      'session_id': sessionId,
-    };
-    await _newSession(
-      false,
-      WindowType.Trade,
-      kWindowEventNewRemoteDesktop,
-      peerId,
-      _tradeWindows,
-      jsonEncode(params),
-    );
-  }
+  final List<int> _notificationWindows = List.empty(growable: true);
 
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
@@ -161,6 +148,11 @@ class RustDeskMultiWindowManager {
         return MultiWindowCallResult(windowId, null);
       } else {
         //多次打开
+        if (methodName == kWindowEventNewNotification) {
+          return Future.delayed(const Duration(milliseconds: 500), () {
+            return call(type, methodName, msg);
+          });
+        }
         return call(type, methodName, msg);
       }
     } else {
@@ -171,9 +163,9 @@ class RustDeskMultiWindowManager {
               await restoreWindowPosition(type, windowId: windowId, peerId: remoteId);
             }
             await DesktopMultiWindow.invokeMethod(windowId, methodName, msg);
-            if (methodName != kWindowEventNewRemoteDesktop) {
-              WindowController.fromWindowId(windowId).show();
-            }
+            // if (methodName != kWindowEventNewRemoteDesktop) {
+            //   WindowController.fromWindowId(windowId).show();
+            // }
             registerActiveWindow(windowId);
             return MultiWindowCallResult(windowId, null);
           }
@@ -269,6 +261,18 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newLocalNotification(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+    return await newSession(
+      WindowType.Notification,
+      kWindowEventNewNotification,
+      remoteId,
+      _notificationWindows,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> call(WindowType type, String methodName, dynamic args) async {
     final wnds = _findWindowsByType(type);
     if (wnds.isEmpty) {
@@ -296,6 +300,8 @@ class RustDeskMultiWindowManager {
         return _conditionWindows;
       case WindowType.Draw:
         return _drawWindows;
+      case WindowType.Notification:
+        return _notificationWindows;
       case WindowType.Unknown:
         break;
     }
@@ -317,6 +323,9 @@ class RustDeskMultiWindowManager {
         break;
       case WindowType.Draw:
         _drawWindows.clear();
+        break;
+      case WindowType.Notification:
+        _notificationWindows.clear();
         break;
       case WindowType.Unknown:
         break;
