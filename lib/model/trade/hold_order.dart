@@ -51,6 +51,7 @@ class HoldOrder {
   List<OHLCEntity>? fsList;
   List<ResHoldOrder>? detailList;
   Map? noMap;
+  int plStatus = 0; //止盈止损
   Color? color;
   bool selected = false;
 

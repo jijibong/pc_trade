@@ -57,6 +57,7 @@ import '../../server/user/user.dart';
 import '../../util/dialog/trade_dialog.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
+import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -196,16 +197,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       } else if (call.method == kFundUpdateEvent) {
         final args = jsonDecode(call.arguments);
         ResFund mAccountInfo = ResFund.fromJson(args);
-        double floatP = mAccountInfo.FloatProfit ?? 0;
-        mineFloatPrice = Utils.dealPointBigDecimal(floatP, 2).toString();
-        //可用资金 = 期初结存+平仓盈亏+浮动盈亏-保证金占用-保证金冻结-手续费+出入金-冻结手续费
-        //客户权益=期初结存+平仓盈亏+浮动盈亏-手续费+出入金
-        //保证金占用/用户权益*100%
-        canUse = mAccountInfo.Available ?? 0;
-        double all = mAccountInfo.Equity ?? 0;
-        mineAllAssets == Utils.double2Str(Utils.dealPointBigDecimal(all, 2));
-        mineAvailFunds = Utils.double2Str(Utils.dealPointBigDecimal(canUse, 2));
-        if (globalStateFirst != null) globalStateFund!(() {});
+        calcFloatProfit(mAccountInfo);
+        // double floatP = mAccountInfo.FloatProfit ?? 0;
+        // mineFloatPrice = Utils.dealPointBigDecimal(floatP, 2).toString();
+        // //可用资金 = 期初结存+平仓盈亏+浮动盈亏-保证金占用-保证金冻结-手续费+出入金-冻结手续费
+        // //客户权益=期初结存+平仓盈亏+浮动盈亏-手续费+出入金
+        // //保证金占用/用户权益*100%
+        // canUse = mAccountInfo.Available ?? 0;
+        // double all = mAccountInfo.Equity ?? 0;
+        // mineAllAssets == Utils.double2Str(Utils.dealPointBigDecimal(all, 2));
+        // mineAvailFunds = Utils.double2Str(Utils.dealPointBigDecimal(canUse, 2));
+        // if (globalStateFirst != null) globalStateFund!(() {});
       } else if (call.method == kPositionUpdateEvent) {
         if (waiting) return;
         waiting = true;
@@ -216,8 +218,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       } else if (call.method == kPositionFloatEvent) {
         final args = jsonDecode(call.arguments);
         ResFloatProfit con = ResFloatProfit.fromJson(args);
-        for (int i = 0; i < mHoldList.length; i++) {
-          HoldOrder hold = mHoldList[i];
+        for (var hold in mHoldList) {
           if (hold.noMap != null && hold.noMap!.containsKey(con.PositionNo)) {
             double floatP = 0;
             if (hold.detailList != null) {
@@ -228,12 +229,24 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                 floatP = floatP + (detail.PositionProfit ?? 0);
               }
               hold.floatProfit = floatP;
-              setState(() {
-                mHoldList[i] = hold;
-              });
             }
           }
         }
+        for (var hold in mHoldDetailList) {
+          if (hold.noMap != null && hold.noMap!.containsKey(con.PositionNo)) {
+            double floatP = 0;
+            if (hold.detailList != null) {
+              for (ResHoldOrder detail in hold.detailList!) {
+                if (detail.PositionNo == con.PositionNo) {
+                  detail.PositionProfit = con.PositionProfit;
+                }
+                floatP = floatP + (detail.PositionProfit ?? 0);
+              }
+              hold.floatProfit = floatP;
+            }
+          }
+        }
+        if (mounted) setState(() {});
       } else if (call.method == kFillUpdateEvent) {
         final args = jsonDecode(call.arguments);
         ResComOrder event = ResComOrder.fromJson(args);
@@ -570,7 +583,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
 
   /// 请求持仓单
   void requestHold() async {
-    await PositionServer.queryPosition().then((value) {
+    await PositionServer.queryPosition().then((value) async {
       if (value != null) {
         mHoldList.clear();
         mHoldDetailList.clear();
@@ -602,10 +615,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
           details.add(res);
           hold.detailList = details;
           hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
-          queryPLRecord(hold);
           mHoldList.add(hold);
         }
-
         for (var res in value) {
           bool isExist = false;
           int position = -1;
@@ -667,6 +678,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                 PositionNo: res.PositionNo,
                 CalculatePrice: res.CalculatePrice,
                 AvailableQty: res.AvailableQty);
+
+            hold.plStatus = await queryPLRecord(hold);
             if (res.PositionType == PositionType.POSITION_TODAY) {
               hold.TPosition = res.PositionQty;
             } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
@@ -984,11 +997,11 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       }
     });
     if (i == 1 && j == 1) {
-      return 1;
-    } else if (i == 1) {
-      return 2;
-    } else if (j == 1) {
       return 3;
+    } else if (i == 1) {
+      return 1;
+    } else if (j == 1) {
+      return 2;
     }
     return 0;
   }
@@ -1537,7 +1550,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                               TextSpan(text: "   占用保证金：", style: TextStyle(color: appTheme.exchangeTextColor)),
                               TextSpan(text: mineOccMargin, style: TextStyle(color: Colors.yellow)),
                               TextSpan(text: "   风险度：", style: TextStyle(color: appTheme.exchangeTextColor)),
-                              TextSpan(text: "$mineRiskDegree%", style: TextStyle(color: Colors.red)),
+                              TextSpan(text: "$mineRiskDegree%", style: TextStyle(color: Colors.yellow)),
                             ]),
                           ))
                         ],
@@ -1645,7 +1658,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     );
   }
 
-  Widget tableTitleItem(String? text) {
+  Widget tableTitleItem(String? text, {Color? color}) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1659,16 +1672,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
               text ?? "--",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: appTheme.color),
+              style: TextStyle(color: color ?? appTheme.color),
             )),
       ),
     );
   }
 
-  Widget tablePlItem({bool? win, bool? lose}) {
+  Widget tablePlItem(int status) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       alignment: Alignment.center,
+      padding: const EdgeInsets.all(3),
       child: AnimatedFluentTheme(
           data: FluentThemeData(),
           child: Row(
@@ -1676,12 +1690,12 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
             children: [
               CircleAvatar(
                 radius: 15,
-                backgroundColor: win == true ? Colors.red : Colors.grey,
+                backgroundColor: status == 1 || status == 3 ? Colors.red : Colors.grey,
                 child: const Text("盈", style: TextStyle(color: Colors.white)),
               ),
               CircleAvatar(
                 radius: 15,
-                backgroundColor: lose == true ? Colors.red : Colors.grey,
+                backgroundColor: status == 2 || status == 3 ? Colors.green : Colors.grey,
                 child: const Text("损", style: TextStyle(color: Colors.white)),
               ),
             ],
@@ -2736,7 +2750,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                     controller: tradeDetailsTitleController,
                                     physics: const AlwaysScrollableScrollPhysics(),
                                     child: SizedBox(
-                                      width: 380.sp,
+                                      width: 320.sp,
                                       child: Row(children: [
                                         Expanded(flex: 2, child: tableTitleItem("合约代码")),
                                         Expanded(flex: 1, child: tableTitleItem("买卖")),
@@ -2761,7 +2775,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                         scrollDirection: Axis.horizontal,
                                         controller: tradeDetailsItemController,
                                         child: SizedBox(
-                                            width: 380.sp,
+                                            width: 320.sp,
                                             child: ListView.builder(
                                                 shrinkWrap: true,
                                                 controller: ScrollController(keepScrollOffset: true),
@@ -2795,16 +2809,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                                 child: tableTitleItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2))),
+                                                                child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
+                                                                    color: (mHoldDetailList[index].floatProfit ?? 0) > 0
+                                                                        ? Common.quoteRedColor
+                                                                        : (mHoldDetailList[index].floatProfit ?? 0) < 0
+                                                                            ? Common.quoteGreenColor
+                                                                            : null)),
                                                             Expanded(
                                                                 flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
                                                             Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index].CurrencyType)),
                                                             Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index].name)),
-                                                            Expanded(
-                                                                flex: 3,
-                                                                child: tradeDetailIndex == 0
-                                                                    ? tablePlItem(win: false, lose: false)
-                                                                    : tableTitleItem(mHoldDetailList[index].PositionNo)),
+                                                            Expanded(flex: 3, child: tablePlItem(mHoldDetailList[index].plStatus)),
                                                           ],
                                                         )),
                                                       ),
@@ -2840,15 +2855,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                                     Utils.d2SBySrc(mHoldList[index].open, mHoldList[index].FutureTickSize))),
                                                             Expanded(
                                                                 flex: 2, child: tableTitleItem((mHoldList[index].CalculatePrice ?? 0).toString())),
-                                                            Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2))),
+                                                            Expanded(
+                                                                flex: 2,
+                                                                child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2),
+                                                                    color: (mHoldList[index].floatProfit ?? 0) > 0
+                                                                        ? Common.quoteRedColor
+                                                                        : (mHoldList[index].floatProfit ?? 0) < 0
+                                                                            ? Common.quoteGreenColor
+                                                                            : null)),
                                                             Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
                                                             Expanded(flex: 1, child: tableTitleItem(mHoldList[index].CurrencyType)),
                                                             Expanded(flex: 3, child: tableTitleItem(mHoldList[index].name)),
-                                                            Expanded(
-                                                                flex: 3,
-                                                                child: tradeDetailIndex == 0
-                                                                    ? tablePlItem(win: false, lose: false)
-                                                                    : tableTitleItem(mHoldList[index].PositionNo)),
+                                                            Expanded(flex: 3, child: tableTitleItem(mHoldList[index].PositionNo)),
                                                           ],
                                                         )),
                                                       ),
@@ -2999,7 +3017,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                               flex: 4,
                                                               child: tableTitleItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
                                                           Expanded(flex: 2, child: tableTitleItem(mPendList[index].code)),
-                                                          Expanded(flex: 1, child: tableTitleItem(mPendList[index].bs)),
+                                                          Expanded(
+                                                              flex: 1,
+                                                              child: tableTitleItem(mPendList[index].bs,
+                                                                  color: mPendList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                           Expanded(
                                                               flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index].OpenClose))),
                                                           Expanded(flex: 2, child: tableTitleItem("${mPendList[index].price ?? ""}")),
@@ -3035,7 +3056,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                               flex: 4,
                                                               child: tableTitleItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
                                                           Expanded(flex: 2, child: tableTitleItem(mDelList[index].code)),
-                                                          Expanded(flex: 1, child: tableTitleItem(mDelList[index].bs)),
+                                                          Expanded(
+                                                              flex: 1,
+                                                              child: tableTitleItem(mDelList[index].bs,
+                                                                  color: mDelList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                           Expanded(
                                                               flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index].OpenClose))),
                                                           Expanded(flex: 2, child: tableTitleItem("${mDelList[index].price ?? ""}")),
@@ -3198,7 +3222,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                           flex: 4,
                                                           child: tableTitleItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
                                                       Expanded(flex: 2, child: tableTitleItem(mPendList[index].code)),
-                                                      Expanded(flex: 1, child: tableTitleItem(mPendList[index].bs)),
+                                                      Expanded(
+                                                          flex: 1,
+                                                          child: tableTitleItem(mPendList[index].bs,
+                                                              color: mPendList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                       Expanded(
                                                           flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index].OpenClose))),
                                                       Expanded(flex: 1, child: tableTitleItem("${mPendList[index].price ?? ""}")),
@@ -3234,7 +3261,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                           flex: 4,
                                                           child: tableTitleItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
                                                       Expanded(flex: 2, child: tableTitleItem(mDelList[index].code)),
-                                                      Expanded(flex: 1, child: tableTitleItem(mDelList[index].bs)),
+                                                      Expanded(
+                                                          flex: 1,
+                                                          child: tableTitleItem(mDelList[index].bs,
+                                                              color: mDelList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                       Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index].OpenClose))),
                                                       Expanded(flex: 1, child: tableTitleItem("${mDelList[index].price ?? ""}")),
                                                       Expanded(flex: 2, child: tableTitleItem("${mDelList[index].deleNum ?? "0"}")),
@@ -3457,7 +3487,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                       children: [
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
-                          controller: tradeDetailsTitleController,
+                          controller: posTitleController,
                           physics: const AlwaysScrollableScrollPhysics(),
                           child: SizedBox(
                             width: 380.sp,
@@ -3478,21 +3508,21 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                         ),
                         Expanded(
                           child: Scrollbar(
-                            controller: tradeDetailsItemController,
+                            controller: posItemController,
                             key: UniqueKey(),
                             style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
-                              controller: tradeDetailsItemController,
+                              controller: posItemController,
                               child: SizedBox(
                                   width: 380.sp,
                                   child: ListView.builder(
                                       shrinkWrap: true,
                                       controller: ScrollController(keepScrollOffset: true),
-                                      itemCount: tradeDetailIndex == 0 ? mHoldDetailList.length : mHoldList.length,
+                                      itemCount: appTheme.tradeDetailIndex == 0 ? mHoldDetailList.length : mHoldList.length,
                                       padding: const EdgeInsets.only(bottom: 10),
                                       itemBuilder: (BuildContext context, int index) {
-                                        if (tradeDetailIndex == 0) {
+                                        if (appTheme.tradeDetailIndex == 0) {
                                           return GestureDetector(
                                             child: Container(
                                               color: mHoldDetailList[index].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
@@ -3511,15 +3541,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                       child: tableTitleItem(
                                                           Utils.d2SBySrc(mHoldDetailList[index].open, mHoldDetailList[index].FutureTickSize))),
                                                   Expanded(flex: 2, child: tableTitleItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
-                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2))),
+                                                  Expanded(
+                                                      flex: 2,
+                                                      child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
+                                                          color: (mHoldDetailList[index].floatProfit ?? 0) > 0
+                                                              ? Common.quoteRedColor
+                                                              : (mHoldDetailList[index].floatProfit ?? 0) < 0
+                                                                  ? Common.quoteGreenColor
+                                                                  : null)),
                                                   Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
                                                   Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index].CurrencyType)),
                                                   Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index].name)),
-                                                  Expanded(
-                                                      flex: 3,
-                                                      child: tradeDetailIndex == 0
-                                                          ? tablePlItem(win: false, lose: false)
-                                                          : tableTitleItem(mHoldDetailList[index].PositionNo)),
+                                                  Expanded(flex: 3, child: tablePlItem(mHoldDetailList[index].plStatus)),
                                                 ],
                                               )),
                                             ),
@@ -3555,11 +3588,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                   Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
                                                   Expanded(flex: 1, child: tableTitleItem(mHoldList[index].CurrencyType)),
                                                   Expanded(flex: 3, child: tableTitleItem(mHoldList[index].name)),
-                                                  Expanded(
-                                                      flex: 3,
-                                                      child: tradeDetailIndex == 0
-                                                          ? tablePlItem(win: false, lose: false)
-                                                          : tableTitleItem(mHoldList[index].PositionNo)),
+                                                  Expanded(flex: 3, child: tableTitleItem(mHoldList[index].PositionNo)),
                                                 ],
                                               )),
                                             ),

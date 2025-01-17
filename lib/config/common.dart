@@ -50,6 +50,8 @@ class Common {
   static Color quoteLowColor = const Color.fromARGB(255, 0, 220, 0);
   static Color quoteAppleUpColor = const Color.fromARGB(255, 224, 128, 224);
   static Color quoteAppleDownColor = const Color.fromARGB(255, 127, 191, 255);
+  static Color quoteRedColor = HexColor('#ff204a');
+  static Color quoteGreenColor = HexColor('#3aff20');
 
   ///Size
   static double optionWidgetWidth = 40;

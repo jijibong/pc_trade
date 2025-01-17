@@ -20,7 +20,7 @@ class UserServer {
         data = await SignData().signData(jsonEncode(map), Config.getAccountFund);
       }
       Response response = await HttpUtils.getInstance().post(Config.getAccountFund, data: data);
-      // logger.i(response);
+      logger.i(response);
       if (response.data["code"] == 0) {
         List list = response.data["data"];
         for (var element in list) {
