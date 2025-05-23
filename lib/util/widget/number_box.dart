@@ -286,7 +286,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
 
   FocusNode get focusNode => (widget.focusNode ?? _internalNode)!;
 
-  OverlayEntry? _entry;
+  // OverlayEntry? _entry;
 
   bool _hasPrimaryFocus = false;
 
@@ -317,7 +317,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
 
   @override
   void dispose() {
-    _dismissOverlay();
+    // _dismissOverlay();
     focusNode.removeListener(_handleFocusChanged);
     _internalNode?.dispose();
     controller.dispose();
@@ -372,49 +372,49 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
     }
   }
 
-  void _insertOverlay() {
-    _entry = OverlayEntry(builder: (context) {
-      assert(debugCheckHasMediaQuery(context));
-      assert(debugCheckHasFluentTheme(context));
+  // void _insertOverlay() {
+  //   _entry = OverlayEntry(builder: (context) {
+  //     assert(debugCheckHasMediaQuery(context));
+  //     assert(debugCheckHasFluentTheme(context));
+  //
+  //     final boxContext = _textBoxKey.currentContext;
+  //     if (boxContext == null) return const SizedBox.shrink();
+  //     final box = boxContext.findRenderObject() as RenderBox;
+  //
+  //     Widget child = PositionedDirectional(
+  //       width: kNumberBoxOverlayWidth,
+  //       child: CompositedTransformFollower(
+  //         link: _layerLink,
+  //         showWhenUnlinked: false,
+  //         offset: Offset(box.size.width - kNumberBoxOverlayWidth, box.size.height / 2 - kNumberBoxOverlayHeight / 2),
+  //         child: SizedBox(
+  //           width: 30,
+  //           child: FluentTheme(
+  //             data: FluentTheme.of(context),
+  //             child: TextFieldTapRegion(
+  //               child: _NumberBoxCompactOverlay(
+  //                 onIncrement: incrementSmall,
+  //                 onDecrement: decrementSmall,
+  //               ),
+  //             ),
+  //           ),
+  //         ),
+  //       ),
+  //     );
+  //
+  //     return child;
+  //   });
+  //
+  //   // if (_textBoxKey.currentContext != null) {
+  //   //   Overlay.of(context).insert(_entry!);
+  //   //   if (mounted) setState(() {});
+  //   // }
+  // }
 
-      final boxContext = _textBoxKey.currentContext;
-      if (boxContext == null) return const SizedBox.shrink();
-      final box = boxContext.findRenderObject() as RenderBox;
-
-      Widget child = PositionedDirectional(
-        width: kNumberBoxOverlayWidth,
-        child: CompositedTransformFollower(
-          link: _layerLink,
-          showWhenUnlinked: false,
-          offset: Offset(box.size.width - kNumberBoxOverlayWidth, box.size.height / 2 - kNumberBoxOverlayHeight / 2),
-          child: SizedBox(
-            width: 30,
-            child: FluentTheme(
-              data: FluentTheme.of(context),
-              child: TextFieldTapRegion(
-                child: _NumberBoxCompactOverlay(
-                  onIncrement: incrementSmall,
-                  onDecrement: decrementSmall,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-
-      return child;
-    });
-
-    if (_textBoxKey.currentContext != null) {
-      Overlay.of(context).insert(_entry!);
-      if (mounted) setState(() {});
-    }
-  }
-
-  void _dismissOverlay() {
-    _entry?.remove();
-    _entry = null;
-  }
+  // void _dismissOverlay() {
+  //   _entry?.remove();
+  //   _entry = null;
+  // }
 
   void openPopup() {}
 
@@ -480,6 +480,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
       controller: controller,
       keyboardType: widget.keyboardType,
       enabled: widget.onChanged != null,
+      decoration: BoxDecoration(color: Colors.transparent),
       suffix: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [

@@ -89,7 +89,7 @@ class TradeWebSocketServer {
         } else {
           // logger.e("交易链接认证失败;${subResp.code}:${subResp.msg}");
           // InfoBarUtils.showErrorDialog("交易链接认证失败;${subResp.code}:${subResp.msg}");
-          dispose();
+          // dispose();
           // LoginServer.isLogin = false;
           // UserUtils.currentUser = null;
           // SpUtils.remove(SpKey.currentUser);

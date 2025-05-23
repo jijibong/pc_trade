@@ -42,29 +42,29 @@ const String kAppTypeDesktopRemote = "remote";
 const String kAppTypeDesktopPL = "pl";
 const String kAppTypeDesktopCondition = "condition";
 const String kAppTypeDesktopDraw = "draw";
+const String kAppTypeDesktopDrawOrder = "draw_order";
 const String kAppTypeDesktopNotification = "notification";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
-const String kWindowGetWindowInfo = "get_window_info";
-const String kWindowGetScreenList = "get_screen_list";
 // This method is not used, maybe it can be removed.
-const String kWindowDisableGrabKeyboard = "disable_grab_keyboard";
-const String kWindowActionRebuild = "rebuild";
 const String kWindowEventHide = "hide";
 const String kWindowEventShow = "show";
 const String kWindowConnect = "connect";
-const String kWindowLocalNotifier = "localNotifier";
 const String kFundUpdateEvent = "kFundUpdateEvent";
+const String drawDoneEvent = "drawDoneEvent";
 const String kTradeWindowId = "kTradeWindowId";
+const String drawOrderWindowId = "drawOrderWindowId";
 const String kPositionUpdateEvent = "kPositionUpdateEvent";
 const String kPositionFloatEvent = "kPositionFloatEvent";
 const String kFillUpdateEvent = "kFillUpdateEvent";
+const String kOrderEvent = "kOrderEvent";
 
 const String kWindowEventNewRemoteDesktop = "new_remote_desktop";
 const String kWindowEventNewPL = "new_pl";
 const String kWindowEventNewCondition = "new_condition";
 const String kWindowEventNewDraw = "new_draw";
 const String kWindowEventNewNotification = "new_notification";
+const String kWindowEventDrawOrder = "draw_order";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";
@@ -87,8 +87,6 @@ const String kOptionScrollStyle = "scroll_style";
 const String kOptionImageQuality = "image_quality";
 const String kOptionOpenNewConnInTabs = "enable-open-new-connections-in-tabs";
 const String kOptionTextureRender = "use-texture-render";
-const String kOptionOpenInTabs = "allow-open-in-tabs";
-const String kOptionOpenInWindows = "allow-open-in-windows";
 const String kOptionForceAlwaysRelay = "force-always-relay";
 const String kOptionViewOnly = "view_only";
 const String kOptionEnableLanDiscovery = "enable-lan-discovery";

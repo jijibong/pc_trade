@@ -23,7 +23,7 @@ class SettleServer {
       });
       logger.i(response.data);
       List<TransactionRecord> data = [];
-      List<dynamic> list = response.data["data"]["Params"] ?? [];
+      List<dynamic> list = response.data["data"] ?? [];
       data.addAll(list.map((e) => TransactionRecord.fromJson(e)));
       return data;
     } on DioException {
@@ -43,7 +43,7 @@ class SettleServer {
       });
       logger.i(response.data);
       List<CloseDetail> data = [];
-      List<dynamic> list = response.data["data"]["Params"] ?? [];
+      List<dynamic> list = response.data["data"] ?? [];
       data.addAll(list.map((e) => CloseDetail.fromJson(e)));
       return data;
     } on DioException {
@@ -63,7 +63,7 @@ class SettleServer {
       });
       logger.i(response.data);
       List<PositionDetail> data = [];
-      List<dynamic> list = response.data["data"]["Params"] ?? [];
+      List<dynamic> list = response.data["data"] ?? [];
       data.addAll(list.map((e) => PositionDetail.fromJson(e)));
       return data;
     } on DioException {
@@ -113,12 +113,12 @@ class SettleServer {
   ///查询资金结算信息报表
   static Future<List<Capital>> getCapital(num? accountId, String? startTime, String? endTime, int condition) async {
     try {
-      Response response = await HttpUtils.getInstance()
-          .post(Config.GET_CAPITAL, data: {"AccountId": accountId, "Condition": condition, "StartTime": startTime, "EndTime": endTime});
+      Response response = await HttpUtils.getInstance().post(Config.GET_CAPITAL,
+          data: {"AccountId": accountId, "Condition": condition, "Currency": "JB", "StartTime": startTime, "EndTime": endTime});
       logger.i(response.data);
       List<Capital> data = [];
-      List<dynamic> list = response.data["data"] ?? [];
-      data.addAll(list.map((e) => Capital.fromJson(e)));
+      Capital tmp = Capital.fromJson(response.data["data"]);
+      data.add(tmp);
       if (data.isNotEmpty) {
         data.sort((b, a) {
           String? theCurrency = a.Currency;

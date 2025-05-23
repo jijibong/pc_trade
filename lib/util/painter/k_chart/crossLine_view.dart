@@ -5,6 +5,7 @@ import '../../../model/k/OHLCEntity.dart';
 import '../../../model/k/k_flag.dart';
 import '../../../model/k/k_preiod.dart';
 import '../../../model/k/port.dart';
+import '../../log/log.dart';
 import '../../utils/utils.dart';
 import 'k_chart_painter.dart';
 import 'method_util.dart';
@@ -61,7 +62,7 @@ class CrossLineView extends CustomPainter {
     int number = getNumber(currentX.toInt(), BaseKChartPainter.MARGINLEFT, mKChartsView.mCandleWidth, mKChartsView.mShowDataNum, isDrawTime);
 //		Log.i("", "第"+number+" 根K线");
     currentX = BaseKChartPainter.MARGINLEFT + number * mKChartsView.mCandleWidth;
-    currentY = dealY(currentY, ChartPainter.kChartViewHeight, mKChartsView.MARGINBOTTOM, mKChartsView.MARGINTOP);
+    currentY = dealY(currentY, ChartPainter.kChartViewHeight, mKChartsView.MARGINTOP);
 
     priceH = getPrice(currentY);
     priceH = priceH ?? 0;
@@ -76,12 +77,12 @@ class CrossLineView extends CustomPainter {
     dateV = date;
 
     //画竖线
-    canvas.drawLine(Offset(currentX, mKChartsView.MARGINTOP), Offset(currentX, size.height - mKChartsView.MARGINBOTTOM), customPaint);
+    canvas.drawLine(Offset(currentX, mKChartsView.MARGINTOP), Offset(currentX, size.height), customPaint);
     //绘制日期
     double dateX = currentX - getStringWidth(date, textPaint) / 2;
-    double dateY = size.height - mKChartsView.MARGINBOTTOM + getStringHeight(date, textPaint) + 5;
+    double dateY = size.height + getStringHeight(date, textPaint) + 5;
     double dateLeft = currentX - getStringWidth(date, textPaint) / 2 - 10;
-    double dateTop = size.height - mKChartsView.MARGINBOTTOM;
+    double dateTop = size.height;
     double dateRight = currentX + getStringWidth(date, textPaint) / 2 + 10;
     double dateBottom = dateTop + getStringHeight(date, textPaint) + 10;
     canvas.drawRect(Rect.fromLTRB(dateLeft, dateTop, dateRight, dateBottom), redPaint);
@@ -94,7 +95,8 @@ class CrossLineView extends CustomPainter {
       ..paint(canvas, Offset(dateX, dateY));
 
     //画横线
-    canvas.drawLine(Offset(BaseKChartPainter.MARGINLEFT, currentY), Offset(BaseKChartPainter.MARGINLEFT + mKChartsView.mChartWidth, currentY), customPaint);
+    canvas.drawLine(
+        Offset(BaseKChartPainter.MARGINLEFT, currentY), Offset(BaseKChartPainter.MARGINLEFT + mKChartsView.mChartWidth, currentY), customPaint);
     //绘制价格
     double left, top, right, bottom, priceX, priceY;
     priceX = BaseKChartPainter.MARGINLEFT + mKChartsView.mChartWidth + 5;
@@ -156,9 +158,9 @@ class CrossLineView extends CustomPainter {
    * @param Y
    * @return
    */
-  static double dealY(double Y, double viewHeight, double marginBottom, double marginTop) {
+  static double dealY(double Y, double viewHeight, double marginTop) {
     double positionY = Y;
-    positionY = positionY > viewHeight - marginBottom ? viewHeight - marginBottom : positionY;
+    positionY = positionY > viewHeight ? viewHeight : positionY;
     positionY = positionY < marginTop ? marginTop : positionY;
     return positionY;
   }
@@ -173,7 +175,7 @@ class CrossLineView extends CustomPainter {
     num upTop = mKChartsView.MARGINTOP; //上表上边界
     num upDown = mKChartsView.MARGINTOP + mKChartsView.mUperChartHeight; //上表下边界
     num lowTop = mKChartsView.MARGINTOP + mKChartsView.mUperChartHeight + mKChartsView.MARGINTOP + mKChartsView.UPER_LOWER_INTERVAL; //下表上边界
-    num lowDown = crossLineViewHeight - mKChartsView.MARGINBOTTOM; //下表下边界
+    // num lowDown = crossLineViewHeight - mKChartsView.MARGINBOTTOM; //下表下边界
 
     if (coordinateY <= upDown) {
       //在上表
@@ -183,15 +185,15 @@ class CrossLineView extends CustomPainter {
       num height = mKChartsView.MARGINTOP + mKChartsView.mUperChartHeight - coordinateY;
       price = coordinateY < upTop ? maxPrice - minPrice : height * rate; //获取差价
       price = (maxPrice - minPrice) == 0 ? 0.000 : price + minPrice; //计算价格
-    } else if (coordinateY >= lowTop) {
-      //在下表
-      double maxPrice = mKChartsView.mMaxPrice;
-      double minPrice = mKChartsView.mMinPrice;
-      double rate = (maxPrice - minPrice) / mKChartsView.mLowerChartHeight;
-      num height = crossLineViewHeight - mKChartsView.MARGINBOTTOM - coordinateY;
-
-      price = coordinateY > lowDown ? 0 : height * rate;
-      price = (maxPrice - minPrice) == 0 ? 0.000 : price + minPrice;
+      // } else if (coordinateY >= lowTop) {
+      //   //在下表
+      //   double maxPrice = mKChartsView.mMaxPrice;
+      //   double minPrice = mKChartsView.mMinPrice;
+      //   double rate = (maxPrice - minPrice) / mKChartsView.mLowerChartHeight;
+      //   num height = crossLineViewHeight - mKChartsView.MARGINBOTTOM - coordinateY;
+      //
+      //   price = coordinateY > lowDown ? 0 : height * rate;
+      //   price = (maxPrice - minPrice) == 0 ? 0.000 : price + minPrice;
     } else if (coordinateY > upDown && coordinateY < lowTop) {
       //在间隙处
       price = 0.00;
@@ -233,12 +235,11 @@ class CrossLineView extends CustomPainter {
       Canvas canvas,
       double viewHeight,
       double viewWidth,
-      num LowerChartHeight,
+      double lowerHeight,
       double X,
       double Y,
       double mPointWidth,
       double MARGINTOP,
-      double MARGINBOTTOM,
       double MARGINLEFT,
       double leftMarginSpace,
       double rightMarginSpace,
@@ -252,10 +253,10 @@ class CrossLineView extends CustomPainter {
     int number = getNumber(X.toInt(), MARGINLEFT + leftMarginSpace, mPointWidth, showNum, isDrawTime);
 //		Log.i("", "第"+number+" 根K线");
     X = MARGINLEFT + number * mPointWidth + leftMarginSpace;
-    Y = dealY(Y, viewHeight, MARGINBOTTOM, MARGINTOP);
+    Y = dealY(Y, viewHeight, MARGINTOP);
 
     double startX = X;
-    double startY = isDrawTime ? viewHeight : viewHeight - MARGINBOTTOM;
+    double startY = viewHeight;
     double stopX = X;
     double stopY = MARGINTOP;
     TextPainter areaTextPaint = MethodUntil().getTextPainter(Utils.dp2px(15));
@@ -286,7 +287,7 @@ class CrossLineView extends CustomPainter {
 
     double ts = 0;
     if (isDrawTime) {
-      ts = (viewHeight - LowerChartHeight) / 28;
+      ts = (viewHeight - lowerHeight) / 28;
     } else {
       ts = viewHeight / 28;
     }
@@ -307,7 +308,7 @@ class CrossLineView extends CustomPainter {
 
       if (X > viewWidth / 2) {
         //左边
-        left = MARGINLEFT + leftMarginSpace;
+        left = MARGINLEFT;
         top = 0;
         right = MARGINLEFT + width + leftMarginSpace;
         bottom = MARGINTOP + height * 12 + margin;

@@ -135,7 +135,7 @@ class KUtils {
           element.amount = map[strTime]?.amount;
           element.volume = map[strTime]?.volume;
         } else {
-          num? price = 0;
+          double? price = 0;
           if (preClose == 0) {
             for (var element in response) {
               if (element.close != null) {
@@ -154,7 +154,7 @@ class KUtils {
       }
       //计算均价
       for (int i = 0; i < allList.length; i++) {
-        num? average = 0;
+        double? average = 0;
         if (i == 0) {
           average = allList[i].close;
         } else {
@@ -162,7 +162,7 @@ class KUtils {
           for (int j = 0; j <= i; j++) {
             price = price + allList[j].close!;
           }
-          average = num.parse((price / (i + 1)).toStringAsFixed(4));
+          average = double.parse((price / (i + 1)).toStringAsFixed(4));
         }
         allList[i].average = average;
       }
@@ -867,10 +867,10 @@ class KUtils {
     } else {
       if (period.kpFlag == KPFlag.Day || period.kpFlag == KPFlag.Week || period.kpFlag == KPFlag.Month || period.kpFlag == KPFlag.Year) {
         DateFormat dateFormat = DateFormat("yyyy-MM-dd 00:00:00:000");
-        oldDate = dateFormat.parse(oldDate.toString());
-        newDate = dateFormat.parse(newDate.toString());
+        DateTime? _oldDate = dateFormat.tryParse(oldDate.toString());
+        DateTime? _newDate = dateFormat.tryParse(oldDate.toString());
 
-        if (newDate.isAfter(oldDate)) {
+        if (_oldDate != null && _newDate != null && _newDate.isAfter(_oldDate)) {
           result = false;
         } else {
           result = true;

@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:dio/dio.dart';
-import 'package:trade/util/info_bar/info_bar.dart';
 
 import '../../config/common.dart';
 import '../../config/config.dart';
@@ -20,7 +19,7 @@ class UserServer {
         data = await SignData().signData(jsonEncode(map), Config.getAccountFund);
       }
       Response response = await HttpUtils.getInstance().post(Config.getAccountFund, data: data);
-      logger.i(response);
+      // logger.i(response);
       if (response.data["code"] == 0) {
         List list = response.data["data"];
         for (var element in list) {

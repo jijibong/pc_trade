@@ -1,13 +1,13 @@
 class OHLCEntity {
-  num? open; // 开盘价
-  num? high; // 最高价
-  num? low; // 最低价
-  num? close; // 收盘价
-  num? preClose; //昨日收盘价
-  num? amount; // 成交额
+  double? open; // 开盘价
+  double? high; // 最高价
+  double? low; // 最低价
+  double? close; // 收盘价
+  double? preClose; //昨日收盘价
+  int? amount; // 成交额
   int? volume; // 成交量
   int? sAllVolume; // 周期开始总成交量
-  num? average; //平均价
+  double? average; //平均价
   String? date; // 日期，如：2013-09-18
   String? time; // 时间，如：18:25
   String? code; // 代码，如：LSAG15
@@ -15,7 +15,7 @@ class OHLCEntity {
   int? timeStamp; // 时间戳.
   int? customStamp; // 自定义K线计算
   int? customVolume; // 自定义K线计算
-  num? customAmount; // 自定义K线计算
+  int? customAmount; // 自定义K线计算
   int? id;
 
   OHLCEntity({
@@ -56,7 +56,7 @@ class OHLCEntity {
     timeStamp = json['timeStamp'] != null ? int.tryParse(json['timeStamp']) : 0;
     customStamp = json['customStamp'] != null ? int.tryParse(json['customStamp']) : 0;
     customVolume = json['customVolume'] != null ? int.tryParse(json['customVolume']) : 0;
-    customAmount = json['customAmount'] != null ? double.tryParse(json['customAmount']) : 0;
+    customAmount = json['customAmount'] != null ? int.tryParse(json['customAmount']) : 0;
     id = json['id'] != null ? int.tryParse(json['id']) : 0;
   }
 

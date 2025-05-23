@@ -1,29 +1,16 @@
-import 'dart:convert';
-
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
+import 'package:flutter/material.dart' show Material;
 import 'package:get/get.dart' hide Condition;
 import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../config/common.dart';
-import '../../config/config.dart';
 import '../../main.dart';
-import '../../model/condition/condition.dart';
-import '../../model/quote/order_type.dart';
-import '../../model/quote/position_effect_type.dart';
-import '../../model/quote/side_type.dart';
-import '../../model/user/user.dart';
-import '../../server/condition/condition.dart';
-import '../../util/http/http.dart';
-import '../../util/info_bar/info_bar.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
-import '../../util/shared_preferences/shared_preferences_key.dart';
-import '../../util/shared_preferences/shared_preferences_utils.dart';
-import '../../util/widget/number_box.dart';
+import 'draw_icons.dart';
 
 class DrawTool extends StatefulWidget {
   final Map<String, dynamic> params;
@@ -38,6 +25,9 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
   late AppTheme appTheme;
   Color selectedColor = Colors.white;
   ScrollController scrollController = ScrollController();
+  List colors = [];
+  int type = 0;
+  Size defaultSize = const Size(15, 15);
 
   int windowId() {
     return widget.params["windowId"];
@@ -147,145 +137,118 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                   height: 5,
                 ),
                 Wrap(children: [
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.line),
-                    onTap: () {},
-                  ),
+                  item(1, "趋势线", StraightLine()),
+                  item(2, "射线", RayLine()),
+                  item(3, "水平线", HorizontalLine()),
+                  item(4, "竖线", VerticalLine()),
+                  item(5, "线段", LineSegment()),
+                  item(6, "通道线", ParallelLines()),
+                  item(7, "平行线", HorizontalParallelLines()),
                 ]),
-                Padding(padding: EdgeInsets.symmetric(vertical: 5), child: Text("时空")),
+                const Padding(padding: EdgeInsets.only(top: 15, bottom: 5), child: Text("时空")),
                 Wrap(children: [
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
-                  GestureDetector(
-                    child: Icon(FluentIcons.square_shape),
-                    onTap: () {},
-                  ),
+                  item(8, "矩线", SquarePainter()),
+                  item(9, "三角线", TrianglePainter()),
+                  item(10, "圆弧", UShapePainter()),
+                  item(11, "甘氏线", GansLinePainter()),
+                  item(12, "阻速线", ResistanceLinePainter()),
+                  item(13, "对称角度线", SymmetricalAngleLinePainter()),
+                  item(14, "圆", RoundPainter()),
                 ])
               ],
             ),
           )),
           const Divider(),
-          Expanded(
-              child: Container(
-            padding: const EdgeInsets.all(8),
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    const Text("颜色"),
-                    Container(
-                      margin: const EdgeInsets.all(5),
-                      color: appTheme.drawColor,
-                      width: 88,
-                      height: 20,
-                    )
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Text("粗细"),
-                    Container(
-                      margin: const EdgeInsets.all(5),
-                      color: appTheme.drawColor,
-                      width: 88,
-                      height: 20,
-                      // child: ComboBox<String>(
-                      //   value: selectedColor,
-                      //   items: colors.entries.map((e) {
-                      //     return ComboBoxItem(
-                      //       value: e.key,
-                      //       child: Text(e.key),
-                      //     );
-                      //   }).toList(),
-                      //   onChanged: (color) => setState(() => selectedColor = color),
-                      // ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Text("线型"),
-                    Container(
-                      margin: const EdgeInsets.all(5),
-                      color: appTheme.drawColor,
-                      width: 88,
-                      height: 20,
-                    )
-                    // ComboBox<String>(
-                    //   value: selectedColor,
-                    //   items: colors.entries.map((e) {
-                    //     return ComboBoxItem(
-                    //       child: Text(e.key),
-                    //       value: e.key,
-                    //     );
-                    //   }).toList(),
-                    //   onChanged: disabled ? null : (color) => setState(() => selectedColor = color),
-                    // ),
-                  ],
-                ),
-              ],
-            ),
-          )),
+          // Expanded(
+          //     child: Container(
+          //   padding: const EdgeInsets.all(8),
+          //   child: Column(
+          //     children: [
+          //       Row(
+          //         children: [
+          //           const Text("颜色"),
+          //           Container(
+          //             margin: const EdgeInsets.all(5),
+          //             color: appTheme.drawColor,
+          //             width: 88,
+          //             height: 20,
+          //           )
+          //         ],
+          //       ),
+          //       Row(
+          //         children: [
+          //           const Text("粗细"),
+          //           Container(
+          //             margin: const EdgeInsets.all(5),
+          //             color: appTheme.drawColor,
+          //             width: 88,
+          //             height: 20,
+          //             // child: ComboBox(
+          //             //   value: selectedColor,
+          //             //   items: colors.entries.map((e) {
+          //             //     return ComboBoxItem(
+          //             //       value: e.key,
+          //             //       child: Text(e.key),
+          //             //     );
+          //             //   }).toList(),
+          //             //   onChanged: (color) => setState(() => selectedColor = color),
+          //             // ),
+          //           ),
+          //         ],
+          //       ),
+          //       Row(
+          //         children: [
+          //           const Text("线型"),
+          //           Container(
+          //             margin: const EdgeInsets.all(5),
+          //             color: appTheme.drawColor,
+          //             width: 88,
+          //             height: 20,
+          //           )
+          //           // ComboBox<String>(
+          //           //   value: selectedColor,
+          //           //   items: colors.entries.map((e) {
+          //           //     return ComboBoxItem(
+          //           //       child: Text(e.key),
+          //           //       value: e.key,
+          //           //     );
+          //           //   }).toList(),
+          //           //   onChanged: disabled ? null : (color) => setState(() => selectedColor = color),
+          //           // ),
+          //         ],
+          //       ),
+          //     ],
+          //   ),
+          // )),
         ],
       ),
+    );
+  }
+
+  Widget item(int index, String message, CustomPainter painter) {
+    return GestureDetector(
+      child: Tooltip(
+        message: message,
+        style: const TooltipThemeData(
+          preferBelow: true,
+          textStyle: TextStyle(decoration: TextDecoration.none, color: Colors.white),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.white),
+          ),
+          padding: const EdgeInsets.all(3),
+          child: RepaintBoundary(
+              child: CustomPaint(
+            size: defaultSize,
+            painter: painter,
+          )),
+        ),
+      ),
+      onTap: () {
+        type = index;
+        if (mounted) setState(() {});
+      },
     );
   }
 }

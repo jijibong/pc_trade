@@ -339,10 +339,10 @@ class FallLineEntity {
     fivePaint.strokeWidth = Port.fallWidth[4];
     sixPaint.strokeWidth = Port.fallWidth[5];
 
-    rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
-    double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
-    double textXStart = MARGINLEFT + Port.defult_icon_width+ leftMarginSpace;
-    double textMarginTop = MARGINTOP - (Port.text_check / 3);
+    rate = uperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = MARGINTOP;
+    double textXStart = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
+    double textMarginTop = MARGINTOP - Port.text_check;
 
     //绘制瀑布线
 //		Log.i("", "PBX2集合大小："+PBX2.length);

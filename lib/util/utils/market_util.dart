@@ -25,7 +25,6 @@ class MarketUtils {
           varietyMap["${con.exCode}${con.code}${con.comType}"] = con;
         }
       }
-      SpUtils.set(SpKey.varietyMap, jsonEncode(varietyMap));
     }
   }
 

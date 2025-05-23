@@ -46,7 +46,7 @@ class ConditionServer {
         data = await SignData().signData(jsonEncode(map), Config.delCondition);
       }
       Response response = await HttpUtils.getInstance().post(Config.delCondition, data: data);
-      logger.i(response);
+      // logger.i(response);
       if (response.data["code"] == 0) {
         return true;
       } else {

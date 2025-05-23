@@ -33,7 +33,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -72,7 +72,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -111,7 +111,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -146,7 +146,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -180,7 +180,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;

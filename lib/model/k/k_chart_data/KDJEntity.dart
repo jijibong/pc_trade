@@ -141,22 +141,23 @@ class KDJEntity {
       return;
     }
 
-    Map<String, double> map = mCalcData.calcKDJ(OHLCData, period, OHLCData.length - 1, m1, m2);
-    if (map == null) return;
-
-    Ks.remove(Ks.length - 1);
-    Ds.remove(Ds.length - 1);
-    Js.remove(Js.length - 1);
-
-    for (int i = count; i > 0; i--) {
-      Map<String, double> value = mCalcData.calcKDJ(OHLCData, period, OHLCData.length - i, m1, m2);
-      double k = value["K"] ?? 0;
-      double d = value["D"] ?? 0;
-      double j = value["J"] ?? 0;
-      Ks.add(k);
-      Ds.add(d);
-      Js.add(j);
+    double k = 50.0, d = 50.0, j = 0.0;
+    double hh = 0, ll = 0, Rsv = 0;
+    hh = mCalcData.calcHighest(OHLCData, period, OHLCData.length - 1);
+    ll = mCalcData.calcLowest(OHLCData, period, OHLCData.length - 1);
+    if ((hh - ll) == 0) {
+      Rsv = 0;
+    } else {
+      Rsv = ((OHLCData.last.close ?? 0) - ll) / (hh - ll) * 100;
     }
+    k = Rsv / m1 + (m1 - 1) / m1 * k;
+    //D:=SMA(K,M2,1)=K/M2+(M2-1)/M2*D';M2>1
+    d = k / m2 + (m2 - 1) / m2 * d;
+    //J:=3*K-2*D
+    j = 3 * k - 2 * d;
+    Ks.last = k;
+    Ds.last = d;
+    Js.last = j;
   }
 
   /**
@@ -222,7 +223,8 @@ class KDJEntity {
     double textWidth1 = SubChartPainter.getStringWidth("${Utils.getLimitNum(minPrice + perPrice, 0)} ", textPaint);
 
     textPaint
-      ..text = TextSpan(text: Utils.getLimitNum(minPrice + perPrice, 0), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text =
+          TextSpan(text: Utils.getLimitNum(minPrice + perPrice, 0), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth1, viewHeight - latitudeSpacing - halfTextHeight - textBottom));

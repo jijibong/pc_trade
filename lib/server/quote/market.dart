@@ -410,6 +410,7 @@ class MarketServer {
           "Count": count,
           "Flag": mPeriod.kpFlag,
         };
+        logger.i(map);
         data = await SignData().signData(jsonEncode(map), Config.customKline);
       }
       Response response = await MdHttpUtils.getInstance().post(Config.customKline, data: data);
@@ -490,7 +491,7 @@ class MarketServer {
           });
 
           for (int i = 0; i < oHLCEntity.length; i++) {
-            num? average = 0;
+            double? average = 0;
             if (i == 0) {
               average = oHLCEntity[i].close;
             } else {

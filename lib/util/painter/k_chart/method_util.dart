@@ -10,6 +10,15 @@ class MethodUntil {
     return paint;
   }
 
+  Paint getDashPaint(Color color) {
+    Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..isAntiAlias = true;
+    return paint;
+  }
+
   TextPainter getTextPainter(double size) {
     TextPainter paint = TextPainter();
     paint.strutStyle = StrutStyle(fontSize: size);

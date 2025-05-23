@@ -377,10 +377,10 @@ class CostLineEntity {
     fivePaint.strokeWidth = Port.costWidth[4];
     // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
-    rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
-    double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
+    rate = uperChartHeight  / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = MARGINTOP ;
     double textXStart = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
-    double textMarginTop = MARGINTOP - (Port.text_check / 3);
+    double textMarginTop = MARGINTOP -Port.text_check;
 
     //开始绘制
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {

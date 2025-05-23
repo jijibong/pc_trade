@@ -172,11 +172,11 @@ class VolEntity {
 
   ///绘制分时图vol
   void drawFenshiVol(Canvas canvas, double viewHeight, double viewWidth, double mCandleWidth, double MARGINLEFT, double leftMarginSpace,
-      double rightMarginSpace, double MARGINBOTTOM, double LOWER_CHART_TOP, double MARGINRIGHT, double halfTextHeight) {
+      double rightMarginSpace, double LOWER_CHART_TOP, double MARGINRIGHT, double halfTextHeight) {
     if (mVolList.isEmpty) {
       return;
     }
-    double lowerHight = viewHeight - LOWER_CHART_TOP - MARGINBOTTOM;
+    double lowerHight = viewHeight - LOWER_CHART_TOP;
     Paint upPaint = MethodUntil().getDrawPaint(Port.VolUp_Color);
     Paint downPaint = MethodUntil().getDrawPaint(Port.VolDown_Color);
     Paint equalPaint = MethodUntil().getDrawPaint(Port.VolEqu_Color);
@@ -196,8 +196,8 @@ class VolEntity {
 
     for (int i = 1; i <= 2; i++) {
       double perheight = (perPrice * i) * rate;
-      path.moveTo(MARGINLEFT + leftMarginSpace, viewHeight - perheight - MARGINBOTTOM);
-      path.lineTo(viewWidth - MARGINRIGHT - rightMarginSpace, viewHeight - perheight - MARGINBOTTOM);
+      path.moveTo(MARGINLEFT + leftMarginSpace, viewHeight - perheight);
+      path.lineTo(viewWidth - MARGINRIGHT - rightMarginSpace, viewHeight - perheight);
       canvas.drawPath(
         dashPath(
           path,
@@ -208,22 +208,21 @@ class VolEntity {
     }
 
     //绘制成交量图
-    int showNum = (viewWidth - MARGINLEFT - MARGINRIGHT) ~/ mCandleWidth;
+    int showNum = (viewWidth - MARGINLEFT - MARGINRIGHT - rightMarginSpace - leftMarginSpace) ~/ mCandleWidth;
     for (int i = 0; i < showNum && i < mVolList.length; i++) {
       double startX = (mCandleWidth * i + MARGINLEFT + leftMarginSpace);
-      double top = viewHeight - (mVolList[i].volume ?? 0) * rate - MARGINBOTTOM;
-      double bottom = viewHeight - MARGINBOTTOM;
+      double top = viewHeight - (mVolList[i].volume ?? 0) * rate;
 
       int loc = i == 0 ? 0 : i - 1;
       double pre = (mVolList[loc].close ?? 0).toDouble();
       double close = (mVolList[i].close ?? 0).toDouble();
 
       if (pre < close) {
-        canvas.drawLine(Offset(startX, bottom), Offset(startX, top), upPaint);
+        canvas.drawLine(Offset(startX, viewHeight), Offset(startX, top), upPaint);
       } else if (pre == close) {
-        canvas.drawLine(Offset(startX, bottom), Offset(startX, top), equalPaint);
+        canvas.drawLine(Offset(startX, viewHeight), Offset(startX, top), equalPaint);
       } else {
-        canvas.drawLine(Offset(startX, bottom), Offset(startX, top), downPaint);
+        canvas.drawLine(Offset(startX, viewHeight), Offset(startX, top), downPaint);
       }
       //绘制当前周期，最新一根数据的成交量
       if (i == mVolList.length - 1) {
@@ -244,7 +243,7 @@ class VolEntity {
         ..text = TextSpan(text: price, style: TextStyle(color: Port.cursorYellowColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(leftMarginSpace - length, viewHeight - perheight - MARGINBOTTOM - halfTextHeight));
+        ..paint(canvas, Offset(leftMarginSpace - length, viewHeight - perheight - halfTextHeight));
     }
   }
 }

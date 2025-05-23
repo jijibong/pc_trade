@@ -180,21 +180,32 @@ class Config {
   ///查询行情地址
   static String queryQuoteAddress = "/v1/software/qry/quoteaddr";
 
+  ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+  ///外盘
   ///结算单
-  static String GET_CAPITAL = "/v1/report/reportForm/capital";
-
+  static String GET_CAPITAL = "/v1/fee/fund/statemen";
   ///平仓明细
-  static String CLOSEDETAILED = "/v1/report/reportForm/closeDetailed";
-
+  static String CLOSEDETAILED = "/v1/order/history/close";
   ///成交记录
-  static String FILLRECORD = "/v1/report/reportForm/fillRecord";
-
+  static String FILLRECORD = "/v1/order/history/fill";
   ///持仓明细
-  static String POSITIONDETAILED = "/v1/report/reportForm/positionDetailed";
-
+  static String POSITIONDETAILED = "/v1/order/history/position";
   ///出入金记录
-  static String GET_CASHREPORT = "/v1/report/reportForm/cashReport";
-
+  static String GET_CASHREPORT = "/v1/fee/cash/qry";
   ///持仓汇总
-  static String POSITIONSUMMARY = "/v1/report/reportForm/positionSummary";
+  static String POSITIONSUMMARY = "/v1/report/reportForm/userPositionSummary";
+
+  ///内盘盘
+  ///结算单
+  // static String GET_CAPITAL = "/v1/report/reportForm/userCapital";
+  // ///平仓明细
+  // static String CLOSEDETAILED = "/v1/report/reportForm/userCloseDetail";
+  // ///成交记录
+  // static String FILLRECORD = "/v1/report/reportForm/userFillDetail";
+  // ///持仓明细
+  // static String POSITIONDETAILED = "/v1/report/reportForm/userPositionDetail";
+  // ///出入金记录
+  // static String GET_CASHREPORT = "/v1/fee/cash/qry";
+  // ///持仓汇总
+  // static String POSITIONSUMMARY = "/v1/report/reportForm/userPositionSummary";
 }

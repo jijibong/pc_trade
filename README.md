@@ -22,3 +22,12 @@ Export-PfxCertificate -cert "Cert:\CurrentUser\My\59384DA3ABAF8708F958B97177F933
 SignTool sign /fd SHA256 E:\WorkPlace\Flutter\trade\build\windows\x64\runner\Release\trade.msix
 SignTool sign /fd sha256 /a /f E:\Certificate\CertStoreLocation.pfx /p yuanhong E:\WorkPlace\Flutter\trade\build\windows\x64\runner\Release\trade.msix
  
+
+TODO:
+[//]: # (合约详情买一卖一、仓差)
+[//]: # (交易持仓止盈止损标识)
+[//]: # (K线图年月周参数)
+K线图指标线（DDHX、DSX、OBV、DMA、能量棒）
+交易查询   （资金状况->风险度）
+画图工具
+

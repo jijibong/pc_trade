@@ -6,6 +6,7 @@ import 'package:fixnum/fixnum.dart';
 import '../../config/config.dart';
 import 'package:web_socket_client/web_socket_client.dart';
 import '../../model/broker/quote_address.dart';
+import '../../model/k/custom_line.dart';
 import '../../model/k/k_time.dart';
 import '../../model/pb/quote/body.pb.dart';
 import '../../model/pb/quote/cmd.pb.dart';
@@ -14,6 +15,10 @@ import '../../model/pb/quote/kdata.pb.dart';
 import '../../model/pb/quote/line.pbenum.dart';
 import '../../model/pb/quote/quote.pb.dart';
 import '../../model/quote/contract.dart';
+import '../../model/quote/order_type.dart';
+import '../../model/quote/position_effect_type.dart';
+import '../../model/quote/side_type.dart';
+import '../../model/quote/time_in_force_type.dart';
 import '../../model/socket_packet/operation.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
@@ -21,13 +26,14 @@ import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
+import '../trade/deal.dart';
 
 class WebSocketServer {
   bool isAuth = false;
   static List<QuoteAddr> quoteAddress = [];
   WebSocket socket = WebSocket(Uri.parse(''));
   late StreamSubscription quoteDataSubscription;
-  List? subJson;
+  static List<CustomLine> drawOrderLines = [];
 
   void initSocket() async {
     const backoff = ConstantBackoff(Duration(seconds: 10));
@@ -137,13 +143,14 @@ class WebSocketServer {
     // logger.i("解析行情");
     try {
       QuoteData response = QuoteData.fromBuffer(bytes);
-      // logger.f(response);
+      // logger.i(response);
       String excd = response.contract.commodity.exchangeNo;
       String comcode = response.contract.commodity.commodityNo;
       String scode1 = response.contract.contractNo1;
       int comType = ascii.encode(response.contract.commodity.commodityType).single;
       scode1 = scode1.length > 4 ? scode1.substring(scode1.length - 4, scode1.length) : scode1;
       Contract? contract = MarketUtils.getVariety(excd, comcode + scode1, comType);
+      // logger.i(contract?.toJson());
       // if (contract == null) logger.e("MarketUtils.getVariety null");
       if (contract == null) return;
       if (response.contract.callOrPutFlag1 != "") contract.changeFlag = response.contract.callOrPutFlag1;
@@ -190,15 +197,13 @@ class WebSocketServer {
       contract.change = response.qChangeValue;
       contract.amplitude = response.qSwing;
       contract.delegateBuy = response.qTotalBidQty;
-
-      ///Todo无数据
       contract.delegateSale = response.qTotalAskQty;
 
       ///Todo无数据
       for (var element in response.appleBuy) {
         Level2 level = Level2();
         level.price = element.price;
-        level.volume = element.volume;
+        level.volume = element.volume.toInt();
         contract.setLevel2(level, response.appleBuy.indexOf(element));
         if (response.appleBuy.indexOf(element) == 0) {
           contract.buyPrice = element.price;
@@ -209,7 +214,7 @@ class WebSocketServer {
       for (var element in response.appleSell) {
         Level2 level = Level2();
         level.price = element.price;
-        level.volume = element.volume;
+        level.volume = element.volume.toInt();
         contract.setLevel2(level, response.appleSell.indexOf(element) + 20);
         if (response.appleSell.indexOf(element) == 0) {
           contract.salePrice = element.price;
@@ -217,6 +222,13 @@ class WebSocketServer {
         }
       }
 
+      if (drawOrderLines.isNotEmpty) {
+        for (var element in drawOrderLines) {
+          if ("${contract.exCode}${contract.code}${contract.comType}" == element.code && contract.lastPrice == element.kPrice) {
+            drawOrder(contract, element);
+          }
+        }
+      }
       MarketUtils.updateVariety(contract);
       EventBusUtil.getInstance().fire(QuoteEvent(contract));
     } catch (e) {
@@ -377,8 +389,74 @@ class WebSocketServer {
     });
   }
 
+  void drawOrder(Contract contract, CustomLine customLine) async {
+    if (customLine.type == 3 && customLine.side == null) {
+      return;
+    }
+    String ExchangeNo = contract.exCode ?? "";
+    String CommodityNo = contract.subComCode ?? "";
+    String ContractNo = contract.subConCode ?? "";
+    int CommodityType = contract.comType ?? 0;
+    int OrderType = Order_Type.ORDER_TYPE_MARKET;
+    int TimeInForce = TimeInForceType.ORDER_TIMEINFORCE_GFD;
+    String ExpireTime = "";
+    int OrderSide = customLine.side ?? (customLine.type == 1 ? SideType.SIDE_BUY : SideType.SIDE_SELL);
+    double OrderPrice = getLimitPrice(customLine.type == 2, customLine.price ?? "市价", contract);
+    double StopPrice = 0;
+    int OrderQty = customLine.num ?? 1;
+    int PositionEffect = customLine.type == 3 ? PositionEffectType.PositionEffect_COVER : PositionEffectType.PositionEffect_OPEN;
+    await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+        StopPrice, OrderQty, PositionEffect, "");
+  }
+
+  /// 获取限价价格
+  double getLimitPrice(bool side, String price, Contract contract) {
+    double value = 0;
+    switch (price.trim()) {
+      case "排队价":
+        //side true卖出
+        if (side) {
+          value = Utils.getIntegerPrice(contract.salePrice, contract.futureTickSize);
+        } else {
+          value = Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
+        }
+        break;
+      case "对手价":
+        if (side) {
+          value = Utils.getIntegerPrice(contract.buyPrice, contract.futureTickSize);
+        } else {
+          value = Utils.getIntegerPrice(contract.salePrice, contract.futureTickSize);
+        }
+        break;
+      case "市价":
+        value = 0;
+        break;
+      case "最新价":
+        value = Utils.getIntegerPrice(contract.lastPrice, contract.futureTickSize);
+        break;
+      case "超价":
+        if (side) {
+          value = Utils.getIntegerPrice((contract.buyPrice ?? 0) - (contract.futureTickSize ?? 0), contract.futureTickSize);
+        } else {
+          value = Utils.getIntegerPrice((contract.salePrice ?? 0) - (contract.futureTickSize ?? 0), contract.futureTickSize);
+        }
+        break;
+    }
+    if (price != "市价" && price != "排队价" && price != "对手价" && price != "最新价" && price != "超价") {
+      String str = price.trim();
+      if (str.startsWith(".") || str.endsWith(".") || str == "") {
+        InfoBarUtils.showWarningDialog("请输入正确价格");
+      } else {
+        value = double.parse(price.trim());
+        value = Utils.getIntegerPrice(value, contract.futureTickSize);
+      }
+    }
+    return value;
+  }
+
   void dispose() {
     isAuth = false;
+    quoteDataSubscription.cancel();
     socket.close();
   }
 }

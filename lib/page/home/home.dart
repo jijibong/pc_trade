@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:screen_retriever/screen_retriever.dart';
+import 'package:trade/util/info_bar/info_bar.dart';
 import 'package:window_manager/window_manager.dart';
 import 'package:webview_windows/webview_windows.dart';
 
@@ -27,7 +28,6 @@ import '../../util/dialog/period_dialog.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/http/http.dart';
-import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
@@ -210,6 +210,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
       if (call.method == kWindowEventHide) {
         LoginServer.isLogin = false;
         UserUtils.currentUser = null;
+        EventBusUtil.getInstance().fire(LoginSuccess(false));
+        TradeWebSocketServer().dispose();
         await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
       } else if (call.method == kWindowEventRequestQuote) {
         Contract? con = MarketUtils.getVariety(
@@ -219,11 +221,20 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         );
         if (con != null) {
           EventBusUtil.getInstance().fire(SwitchContract(con));
-        } else {
-          InfoBarUtils.showErrorDialog("查询合约失败，请稍后再试");
+          // } else {
+          //   InfoBarUtils.showErrorDialog("查询合约失败，请稍后再试");
         }
       } else if (call.method == kTradeWindowId) {
         tradeWindowId = call.arguments['id'];
+      } else if (call.method == drawOrderWindowId) {
+        dOrderWindowId = call.arguments['id'];
+      } else if (call.method == kOrderEvent) {
+        // if (!LoginServer.isLogin) {
+        //   InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+        //   return;
+        // }
+        var map = jsonDecode(call.arguments);
+        EventBusUtil.getInstance().fire(OrderDrawing(map['type'], map['num'], map['priceType']));
       }
     });
   }
@@ -356,7 +367,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
             pwdController.clear();
             SpUtils.set(SpKey.savePwd, false);
           }
-          EventBusUtil.getInstance().fire(LoginSuccess());
+          EventBusUtil.getInstance().fire(LoginSuccess(true));
           Get.back();
           TradeWebSocketServer().initSocket(broker.quoteUrl);
           if (logic.selectedContract.value.code != null) {
@@ -401,6 +412,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     ///持仓变化信息
     EventBusUtil.getInstance().on<PositionUpdateEvent>().listen((positionUpdateEvent) async {
       if (!LoginServer.isLogin) return;
+      logic.requestHold();
       String string = jsonEncode(positionUpdateEvent.res);
       await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kPositionUpdateEvent, string);
     });
@@ -626,13 +638,19 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.edit_create, color: appTheme.exchangeTextColor),
                         label: Text('画图工具', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () async {
-                          // await rustDeskWinManager.newDrawTool("draw");
+                          await rustDeskWinManager.newDrawTool("draw");
                         },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.tablet_mode, color: appTheme.exchangeTextColor),
                         label: Text('画线下单', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () {},
+                        onPressed: () async {
+                          if (LoginServer.isLogin) {
+                            await rustDeskWinManager.newDrawOrder("drawOrder");
+                          } else {
+                            InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+                          }
+                        },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.line_chart, color: appTheme.selectCommandBarIndex == 0 ? appTheme.exchangeTextColor : appTheme.color),
@@ -660,7 +678,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         onPressed: () {
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 2;
-                            KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                            KPeriod fs = KPeriod(name: "周", period: 1, cusType: 2, kpFlag: KPFlag.Week, isDel: false);
                             EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                           }
                         },
@@ -670,7 +688,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         onPressed: () {
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 3;
-                            KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                            KPeriod fs = KPeriod(name: "月", period: 1, cusType: 2, kpFlag: KPFlag.Month, isDel: false);
                             EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                           }
                         },
@@ -681,7 +699,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           ///Todo period
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 4;
-                            KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                            KPeriod fs = KPeriod(name: "年", period: 1, cusType: 2, kpFlag: KPFlag.Year, isDel: false);
                             EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                           }
                         },
@@ -780,7 +798,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           ///Todo period
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 13;
-                            KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                            KPeriod fs = KPeriod(name: "2小时", period: 2, cusType: 2, kpFlag: KPFlag.Hour, isDel: false);
                             EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                           }
                         },
@@ -866,6 +884,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
                     await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
                   }
+                  await rustDeskWinManager.closeAllSubWindows();
                   await mainWindowClose();
                 },
               ),

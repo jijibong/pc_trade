@@ -1,13 +1,15 @@
 class Capital {
-  num? TermEnd;
-  num? TermInitial;
-  num? Equity;
-  num? Available1;
-  num? OccupyDeposit;
-  num? CashValue;
-  num? Fee;
-  num? CloseProfit;
-  num? PositionFloat;
+  double? TermEnd;
+  double? TermInitial;
+  double? Equity;
+  double? Available;
+  double? OccupyDeposit;
+  double? CashInValue;
+  double? CashOutValue;
+  double? Fee;
+  double? CloseProfit;
+  double? FloatProfit;
+  double? FrozenDeposit;
   String? Currency;
   bool selected = false;
 
@@ -15,24 +17,28 @@ class Capital {
       {this.TermEnd,
       this.TermInitial,
       this.Equity,
-      this.Available1,
+      this.Available,
       this.OccupyDeposit,
-      this.CashValue,
+      this.CashInValue,
+      this.CashOutValue,
       this.Fee,
       this.CloseProfit,
-      this.PositionFloat,
+      this.FloatProfit,
+      this.FrozenDeposit,
       this.Currency});
 
   Capital.fromJson(Map<String, dynamic> json) {
-    TermEnd = json['TermEnd'];
-    TermInitial = json['TermInitial'];
-    Equity = json['Equity'];
-    Available1 = json['Available1'];
-    OccupyDeposit = json['OccupyDeposit'];
-    CashValue = json['CashValue'];
-    Fee = json['Fee'];
-    CloseProfit = json['CloseProfit'];
-    PositionFloat = json['PositionFloat'];
+    TermEnd = json['TermEnd']?.toDouble();
+    TermInitial = json['TermInitial']?.toDouble();
+    Equity = json['Equity']?.toDouble();
+    Available = json['Available']?.toDouble();
+    OccupyDeposit = json['OccupyDeposit']?.toDouble();
+    CashInValue = json['CashInValue']?.toDouble();
+    CashOutValue = json['CashOutValue']?.toDouble();
+    Fee = json['Fee']?.toDouble();
+    CloseProfit = json['CloseProfit']?.toDouble();
+    FloatProfit = json['FloatProfit']?.toDouble();
+    FrozenDeposit = json['FrozenDeposit']?.toDouble();
     Currency = json['Currency'];
   }
 }

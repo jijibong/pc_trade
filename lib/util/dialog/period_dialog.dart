@@ -11,7 +11,7 @@ import '../log/log.dart';
 import '../theme/theme.dart';
 
 class PeriodDialog {
-  Widget showPeriodDialog(KPFlag mKPFlag, String name, {void Function()? function}) {
+  Widget showPeriodDialog(KPFlag mKPFlag, String name) {
     final appTheme = AppTheme();
     TextEditingController controller = TextEditingController(text: "1");
     return ContentDialog(
@@ -57,6 +57,7 @@ class PeriodDialog {
                 Expanded(child: TextBox(controller: controller, suffix: Text(name))),
               ],
             ).marginAll(15),
+            const Spacer(),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
@@ -94,7 +95,7 @@ class PeriodDialog {
                   },
                 ),
               ],
-            ).marginOnly(bottom: 10)
+            ).marginOnly(bottom: 20)
           ],
         ),
       ),

@@ -342,8 +342,8 @@ class Contract {
 // }
 
 class Level2 {
-  num? price;
-  num? volume;
+  double? price;
+  int? volume;
 
   Level2({
     this.price,

@@ -180,19 +180,32 @@ class BollingerEntity {
   /**
    * 绘制布林线
    */
-  void drawBollinger(Canvas canvas, int mDataStartIndext, int mShowDataNum, double mCandleWidth, double mMaxPrice, double mMinPrice, int CANDLE_INTERVAL,
-      double MARGINLEFT, double leftMarginSpace, double MARGINTOP, double uperChartHeight, int BollingerPeriod, double BollingerSD) {
+  void drawBollinger(
+      Canvas canvas,
+      int mDataStartIndext,
+      int mShowDataNum,
+      double mCandleWidth,
+      double mMaxPrice,
+      double mMinPrice,
+      int CANDLE_INTERVAL,
+      double MARGINLEFT,
+      double leftMarginSpace,
+      double MARGINTOP,
+      double uperChartHeight,
+      int BollingerPeriod,
+      double BollingerSD) {
     double rate = 0.0; //每单位像素价格
     Paint midPaint = MethodUntil().getDrawPaint(Port.BollingerMidColor);
     Paint upPaint = MethodUntil().getDrawPaint(Port.BollingerUpColor);
     Paint downPaint = MethodUntil().getDrawPaint(Port.BollingerDownColor);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
+    double textMarginTop = MARGINTOP - Port.text_check;
     midPaint.strokeWidth = Port.BollingerWidth[1];
     upPaint.strokeWidth = Port.BollingerWidth[0];
     downPaint.strokeWidth = Port.BollingerWidth[2];
 
-    rate = (uperChartHeight - DEFAULT_AXIS_TITLE_SIZE - 10) / (mMaxPrice - mMinPrice); //计算最小单位
-    double textBottom = MARGINTOP + DEFAULT_AXIS_TITLE_SIZE + 10;
+    rate = uperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = MARGINTOP;
     double textXStart = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
 
     //绘制Bollinger
@@ -209,7 +222,8 @@ class BollingerEntity {
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (BollingerPeriod - 1) : i - (BollingerPeriod - 1) + 1;
         if (nextNumber >= BollingerAVE.length) return;
         //绘制UP线
-        double startY = (mMaxPrice - (BollingerAVE[i - (BollingerPeriod - 1)] + BollingerSD * BollingerSQRT[i - (BollingerPeriod - 1)])) * rate + textBottom;
+        double startY =
+            (mMaxPrice - (BollingerAVE[i - (BollingerPeriod - 1)] + BollingerSD * BollingerSQRT[i - (BollingerPeriod - 1)])) * rate + textBottom;
         double stopY = (mMaxPrice - (BollingerAVE[nextNumber] + BollingerSD * BollingerSQRT[nextNumber])) * rate + textBottom;
         canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), upPaint);
         //绘制中间线
@@ -217,7 +231,8 @@ class BollingerEntity {
         double mStopY = (mMaxPrice - BollingerAVE[nextNumber]) * rate + textBottom;
         canvas.drawLine(Offset(startX, mStartY), Offset(nextX, mStopY), midPaint);
         //绘制DOWN线
-        double dStartY = (mMaxPrice - (BollingerAVE[i - (BollingerPeriod - 1)] - BollingerSD * BollingerSQRT[i - (BollingerPeriod - 1)])) * rate + textBottom;
+        double dStartY =
+            (mMaxPrice - (BollingerAVE[i - (BollingerPeriod - 1)] - BollingerSD * BollingerSQRT[i - (BollingerPeriod - 1)])) * rate + textBottom;
         double dStopY = (mMaxPrice - (BollingerAVE[nextNumber] - BollingerSD * BollingerSQRT[nextNumber])) * rate + textBottom;
         canvas.drawLine(Offset(startX, dStartY), Offset(nextX, dStopY), downPaint);
       }
@@ -243,7 +258,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+          ..paint(canvas, Offset(textXStart, textMarginTop));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "TOP:$up";
@@ -251,7 +266,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+          ..paint(canvas, Offset(textXStart, textMarginTop));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MID:$mid";
@@ -259,7 +274,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+          ..paint(canvas, Offset(textXStart, textMarginTop));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "BOTTOM:$down";
@@ -267,7 +282,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, MARGINTOP - (Port.text_check / 3)));
+          ..paint(canvas, Offset(textXStart, textMarginTop));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }

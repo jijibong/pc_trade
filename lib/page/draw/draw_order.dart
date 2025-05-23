@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:get/get.dart' hide Condition;
 import 'package:provider/provider.dart';
+import 'package:trade/server/login/login.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -18,6 +20,7 @@ import '../../model/user/user.dart';
 import '../../server/condition/condition.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
+import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -25,19 +28,29 @@ import '../../util/shared_preferences/shared_preferences_key.dart';
 import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/widget/number_box.dart';
 
-class DrawTool extends StatefulWidget {
+class DrawOrder extends StatefulWidget {
   final Map<String, dynamic> params;
 
-  const DrawTool({super.key, required this.params});
+  const DrawOrder({super.key, required this.params});
 
   @override
-  State<DrawTool> createState() => _DrawToolState();
+  State<DrawOrder> createState() => _DrawOrderState();
 }
 
-class _DrawToolState extends State<DrawTool> with MultiWindowListener {
+class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
   late AppTheme appTheme;
   Color selectedColor = Colors.white;
   ScrollController scrollController = ScrollController();
+  double boxWidth = 88;
+  double padWidth = 18;
+  int num = 1;
+  int type = 1;
+  Color color = Colors.white;
+  Color selectBuy = Colors.red;
+  Color selectSale = Colors.green;
+  Color selectClose = Colors.yellow;
+  String selectedPrice = "市价";
+  List priceList = ["画线价", "对手价", "超价", "市价"];
 
   int windowId() {
     return widget.params["windowId"];
@@ -63,8 +76,20 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventDrawOrder) {
         windowOnTop(windowId());
+      } else if (call.method == drawDoneEvent) {
+        type = 0;
+        if (mounted) setState(() {});
       }
     });
+
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawOrderWindowId, {"id": kWindowId});
+    notifyOrder();
+  }
+
+  notifyOrder() async {
+    var tmp = {"type": type, "num": num, "priceType": selectedPrice};
+    String temp = jsonEncode(tmp);
+    await rustDeskWinManager.call(WindowType.Main, kOrderEvent, temp);
   }
 
   @override
@@ -73,6 +98,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
       await windowController.hide();
       // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
+
     final controller = WindowController.fromWindowId(kWindowId!);
     await notMainWindowClose(controller);
     super.onWindowClose();
@@ -112,16 +138,12 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
               }
             },
             child: Row(children: [
-              Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
               Expanded(
                   child: const Text(
-                    "画线工具箱",
-                    style: TextStyle(fontSize: 13, color: Colors.white),
-                  ).marginOnly(left: 2))
-            ]).marginOnly(
-              left: 2,
-              right: 2,
-            ),
+                "画线下单",
+                style: TextStyle(fontSize: 13, color: Colors.white),
+              ).marginOnly(left: 2))
+            ]),
           ),
           actions: IconButton(
               icon: const Icon(
@@ -135,9 +157,105 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
               })),
       content: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              const Text("数量"),
+              Container(
+                width: boxWidth,
+                height: 35,
+                margin: EdgeInsets.symmetric(horizontal: padWidth),
+                child: NumberBox(
+                  value: num,
+                  min: 1,
+                  max: 10000000,
+                  clearButton: false,
+                  onChanged: (v) => setState(() {
+                    num = max(1, v ?? 1);
+                    notifyOrder();
+                  }),
+                ),
+              ),
+              GestureDetector(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: type == 1 ? selectBuy : color),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
+                  child: Text(
+                    "买",
+                    style: TextStyle(color: type == 1 ? selectBuy : color),
+                  ),
+                ),
+                onTap: () async {
+                  type = type == 1 ? 0 : 1;
+                  notifyOrder();
+                  if (mounted) setState(() {});
+                },
+              ).marginOnly(right: 10),
+              GestureDetector(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: type == 2 ? selectSale : color),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
+                  child: Text(
+                    "卖",
+                    style: TextStyle(color: type == 2 ? selectSale : color),
+                  ),
+                ),
+                onTap: () {
+                  type = type == 2 ? 0 : 2;
+                  notifyOrder();
+                  if (mounted) setState(() {});
+                },
+              ).marginOnly(right: 10),
+              GestureDetector(
+                child: Container(
+                  decoration: BoxDecoration(
+                    border: Border.all(color: type == 3 ? selectClose : color),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
+                  child: Text(
+                    "平",
+                    style: TextStyle(color: type == 3 ? selectClose : color),
+                  ),
+                ),
+                onTap: () {
+                  type = type == 3 ? 0 : 3;
+                  notifyOrder();
+                  if (mounted) setState(() {});
+                },
+              ),
+            ],
+          ),
+          Row(children: [
+            const Text("下单价"),
+            Flexible(
+                child: Container(
+              height: 35,
+              margin: EdgeInsets.symmetric(horizontal: padWidth),
+              child: ComboBox<String>(
+                value: selectedPrice,
+                // isExpanded: true,
+                items: priceList.map((e) {
+                  return ComboBoxItem<String>(
+                    value: e,
+                    child: Text(e),
+                  );
+                }).toList(),
+                onChanged: (v) => setState(() {
+                  selectedPrice = v!;
+                  notifyOrder();
+                }),
+              ),
+            )),
+          ]).marginOnly(bottom: padWidth),
+          const Text("说明：画线下单为本地条件单，需要保持在线")
         ],
-      ),
+      ).paddingOnly(left: padWidth),
     );
   }
 }

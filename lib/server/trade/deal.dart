@@ -35,7 +35,7 @@ class DealServer {
         ResInitMargin resInitMargin = ResInitMargin.fromJson(response.data["data"]);
         return resInitMargin;
       } else {
-        InfoBarUtils.showWarningBar("未设置保证金,${response.data["msg"]}");
+        InfoBarUtils.showWarningDialog("未设置保证金,${response.data["msg"]}");
       }
     } on DioException {
       rethrow;
@@ -64,6 +64,7 @@ class DealServer {
           "PositionEffect": PositionEffect,
           "ClientOrderId": ClientOrderId,
         };
+        logger.i(map);
         data = await SignData().signData(jsonEncode(map), Config.addOrder);
       }
       Response response = await HttpUtils.getInstance().post(Config.addOrder, data: data);
@@ -72,88 +73,7 @@ class DealServer {
         InfoBarUtils.showSuccessBar("下单成功");
         return true;
       } else {
-        // InfoBarUtils.showWarningBar(response.data["msg"]);
-        if (UserUtils.appContext != null) {
-          final appTheme = AppTheme();
-          showDialog(
-              context: UserUtils.appContext!,
-              builder: (BuildContext context) {
-                return ContentDialog(
-                  style: ContentDialogThemeData(
-                      padding: EdgeInsets.zero,
-                      bodyPadding: EdgeInsets.zero,
-                      decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
-                  content: Container(
-                    height: 200,
-                    color: Common.dialogContentColor,
-                    alignment: Alignment.center,
-                    child: Column(
-                      children: [
-                        Container(
-                          color: Common.dialogTitleColor,
-                          margin: const EdgeInsets.only(bottom: 15),
-                          child: Row(
-                            children: [
-                              Image.asset(
-                                "assets/images/jmaster.ico",
-                                width: 20,
-                              ),
-                              Expanded(
-                                child: Text(
-                                  Common.appName,
-                                  style: TextStyle(color: appTheme.color),
-                                ),
-                              ),
-                              IconButton(
-                                  onPressed: () {
-                                    Get.back();
-                                  },
-                                  icon: const Icon(FluentIcons.cancel))
-                            ],
-                          ),
-                        ),
-                        Expanded(
-                          child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 15),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    FluentIcons.warning,
-                                    size: 36,
-                                    color: Colors.yellow,
-                                  ),
-                                  const SizedBox(
-                                    width: 15,
-                                  ),
-                                  Flexible(child: Text(response.data["msg"])),
-                                ],
-                              )),
-                        ),
-                        Button(
-                          style: ButtonStyle(
-                              backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                              shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                          child: const Text(
-                            "确定",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          onPressed: () {
-                            Get.back();
-                          },
-                        ),
-                        const SizedBox(
-                          height: 15,
-                        )
-                      ],
-                    ),
-                  ),
-                );
-              });
-        } else {
-          InfoBarUtils.showWarningBar(response.data["msg"]);
-        }
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -184,7 +104,7 @@ class DealServer {
         return true;
       } else {
         // logger.e("下单失败,${response.data["msg"]}");
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;
@@ -208,7 +128,7 @@ class DealServer {
         return true;
       } else {
         // logger.e("撤单失败,${response.data["msg"]}");
-        InfoBarUtils.showWarningBar(response.data["msg"]);
+        InfoBarUtils.showWarningDialog(response.data["msg"]);
       }
     } on DioException {
       rethrow;

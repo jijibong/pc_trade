@@ -25,6 +25,7 @@ import '../../utils/k_util.dart';
 import '../../utils/utils.dart';
 import 'base_k_chart_painter.dart';
 import 'crossLine_view.dart';
+import 'k_chart_painter.dart';
 import 'method_util.dart';
 
 class SubChartPainter extends CustomPainter {
@@ -107,9 +108,9 @@ class SubChartPainter extends CustomPainter {
   int CANDLE_INTERVAL = 2;
   double timeDownChartHeight = 1;
   List<OHLCEntity> mOHLCData = [];
-  static double leftMarginSpace = getStringWidth("000.000", TextPainter(), size: Port.ChartTextSize);
   static double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
   TextPainter textPaint = TextPainter();
+  Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
   bool isDrawVOL = true;
   bool isDrawVR = false;
   bool isDrawMACD = false;
@@ -167,57 +168,61 @@ class SubChartPainter extends CustomPainter {
     //绘制MACD
     if (isDrawMACD && mMACDData != null) {
       //绘制MACD
-      mMACDData?.drawMACD(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight,
-          macdLPeriod, macdSPeriod, macdPeriod);
+      mMACDData?.drawMACD(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
+          ChartPainter.leftMarginSpace, halfTextHeight, macdLPeriod, macdSPeriod, macdPeriod);
     }
 
     //绘制RSI
     if (isDrawRSI && mRSIData != null) {
-      mRSIData?.drawRSI(
-          canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, rsiPeriod);
+      mRSIData?.drawRSI(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, rsiPeriod);
     }
 
     //绘制KDJ
     if (isDrawKDJ && mKDJData != null) {
-      mKDJData?.drawKDJ(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight,
-          KDJPeriod, KDJ_M1, KDJ_M2);
+      mKDJData?.drawKDJ(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, KDJPeriod, KDJ_M1, KDJ_M2);
     }
 
     //绘制WR
     if (isDrawWR && mWRData != null) {
-      mWRData?.drawWR(canvas,  size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, Wr1Period, Wr2Period);
+      mWRData?.drawWR(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, Wr1Period, Wr2Period);
     }
 
     //绘制CCI
     if (isDrawCCI && mCCIData != null) {
-      mCCIData?.drawCCI(
-          canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, CCIPeriod);
+      mCCIData?.drawCCI(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, CCIPeriod);
     }
 
     //绘制BIAS
     if (isDrawBIAS && mBIASData != null) {
-      mBIASData?.drawBIAS(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, BIAS1Period, BIAS2Period, BIAS3Period);
+      mBIASData?.drawBIAS(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
+          ChartPainter.leftMarginSpace, halfTextHeight, BIAS1Period, BIAS2Period, BIAS3Period);
     }
 
     //绘制PSY
     if (isDrawPSY && mPSYData != null) {
-      mPSYData?.drawPSY(canvas,  size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, PSYPeriod, PSYMAPeriod);
+      mPSYData?.drawPSY(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, PSYPeriod, PSYMAPeriod);
     }
 
     //绘制成交量
     if (isDrawVOL && mVolData != null) {
-      mVolData?.drawVol(canvas,  size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight);
+      mVolData?.drawVol(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight);
     }
 
     //绘制vr
     if (isDrawVR && mVRData != null) {
-      mVRData?.drawVR(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, leftMarginSpace, halfTextHeight, VRPeriod);
+      mVRData?.drawVR(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
+          halfTextHeight, VRPeriod);
     }
   }
 
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
-    Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
-    canvas.drawLine(Offset(leftMarginSpace, 0), Offset(leftMarginSpace, viewHeight), girdPaint);
+    canvas.drawLine(Offset(ChartPainter.leftMarginSpace, 0), Offset(ChartPainter.leftMarginSpace, viewHeight), girdPaint);
     canvas.drawLine(Offset(0, viewHeight), Offset(viewWidth, viewHeight), girdPaint);
   }
 

@@ -537,6 +537,7 @@ enum DesktopType {
   condition,
   draw,
   notification,
+  order,
 }
 
 class OffsetDevicePixelRatio {

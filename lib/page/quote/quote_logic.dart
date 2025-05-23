@@ -6,12 +6,15 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../main.dart';
+import '../../model/position/position.dart';
 import '../../model/quote/commodity.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../model/socket_packet/operation.dart';
+import '../../model/trade/hold_order.dart';
 import '../../model/user/user.dart';
 import '../../server/login/login.dart';
+import '../../server/position/position.dart';
 import '../../server/quote/market.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
@@ -29,6 +32,7 @@ class QuoteLogic extends GetxController {
   var mOptionalList = <Contract>[].obs;
   var mVarietyList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
+  var mHoldList = <HoldOrder>[].obs;
 
   // var selectIndex = 1.obs;
   // var viewIndex = 0.obs;
@@ -37,14 +41,18 @@ class QuoteLogic extends GetxController {
   late StreamSubscription optionEventSubscription;
 
   setListener() {
+    ///登录成功
     EventBusUtil.getInstance().on<LoginSuccess>().listen((event) async {
-      queryOption();
+      await queryOption();
+      await requestHold();
     });
 
+    ///获取合约
     EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
       loadData();
     });
 
+    ///切换合约
     EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
       String msg = jsonEncode(event.contract);
       if (tradeWindowId != null) {
@@ -130,6 +138,48 @@ class QuoteLogic extends GetxController {
     mContractList.clear();
     mContractList.addAll(await Utils.getContractWithMain(selectedExchange.value.exchangeNo!));
     refreshData();
+  }
+
+  /// 请求持仓单
+  Future requestHold() async {
+    if (!LoginServer.isLogin) {
+      mHoldList.clear();
+      mHoldList.refresh();
+      return;
+    }
+    await PositionServer.queryPosition().then((value) async {
+      if (value != null) {
+        mHoldList.clear();
+        for (var res in value) {
+          HoldOrder hold = HoldOrder(
+              name: res.ContractName,
+              code: "${res.CommodityNo}${res.ContractNo}",
+              exCode: res.ExchangeNo,
+              comType: res.CommodityType,
+              subComCode: res.CommodityNo,
+              subConCode: res.ContractNo,
+              orderSide: res.MatchSide,
+              quantity: res.PositionQty,
+              open: res.PositionPrice,
+              margin: (res.MarginValue ?? 0) * (res.PositionQty ?? 0),
+              floatProfit: res.PositionProfit,
+              FutureContractSize: res.ContractSize,
+              FutureTickSize: res.CommodityTickSize,
+              CurrencyType: res.TradeCurrency,
+              PositionNo: res.PositionNo,
+              CalculatePrice: res.CalculatePrice,
+              AvailableQty: res.AvailableQty);
+          if (res.PositionType == PositionType.POSITION_TODAY) {
+            hold.TPosition = res.PositionQty;
+          } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
+            hold.YPosition = res.PositionQty;
+          }
+          mHoldList.add(hold);
+        }
+        mHoldList.refresh();
+        EventBusUtil.getInstance().fire(RefreshHold());
+      }
+    });
   }
 
   void quoteEvent() {
@@ -373,7 +423,7 @@ class QuoteLogic extends GetxController {
   }
 
   ///查询自选
-  void queryOption() async {
+  Future queryOption() async {
     if (LoginServer.isLogin) {
       await MarketServer.queryOption().then((value) {
         if (value != null) {

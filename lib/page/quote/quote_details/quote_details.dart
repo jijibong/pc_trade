@@ -1,15 +1,22 @@
 import 'dart:convert';
 import 'dart:math' hide log;
 
+import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:provider/provider.dart';
+import 'package:trade/main.dart';
+import 'package:trade/model/user/user.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
 import '../../../config/common.dart';
 import '../../../model/k/OHLCEntity.dart';
+import '../../../model/k/custom_line.dart';
 import '../../../model/k/k_chart_data/AlligatorEntity.dart';
 import '../../../model/k/k_chart_data/BIASEntity.dart';
 import '../../../model/k/k_chart_data/BollingerEntity.dart';
@@ -29,12 +36,21 @@ import '../../../model/k/k_time.dart';
 import '../../../model/k/port.dart';
 import '../../../model/pb/quote/fill.pb.dart';
 import '../../../model/quote/contract.dart';
+import '../../../model/quote/side_type.dart';
 import '../../../model/socket_packet/operation.dart';
+import '../../../model/trade/hold_order.dart';
+import '../../../server/condition/condition.dart';
+import '../../../server/login/login.dart';
 import '../../../server/quote/market.dart';
+import '../../../server/socket/webSocket.dart';
+import '../../../util/dialog/line_dialog.dart';
+import '../../../util/dialog/period_dialog.dart';
 import '../../../util/event_bus/eventBus_utils.dart';
 import '../../../util/event_bus/events.dart';
 import '../../../util/info_bar/info_bar.dart';
 import '../../../util/log/log.dart';
+import '../../../util/multi_windows_manager/consts.dart';
+import '../../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../../util/painter/k_chart/base_k_chart_painter.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
@@ -43,6 +59,7 @@ import '../../../util/utils/k_util.dart';
 import '../../../util/utils/market_util.dart';
 import '../../../util/utils/utils.dart';
 import '../../../util/widget/dash_line.dart';
+import '../../draw/draw_icons.dart';
 import '../quote_logic.dart';
 
 class QuoteDetails extends StatefulWidget {
@@ -58,10 +75,16 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   final QuoteLogic logic = Get.put(QuoteLogic());
   Contract? contract = Contract();
   List<FillData> quoteFilledData = [];
-  List<Contract> mConSelects = [];
+  HoldOrder? holdOrder;
   late AppTheme appTheme;
   final mainMenuController = FlyoutController();
   final priceController = FlyoutController();
+  final GlobalKey _globalKey = GlobalKey();
+  final GlobalKey _globalKey1 = GlobalKey();
+  final GlobalKey _subGlobalKey = GlobalKey();
+  final GlobalKey _subGlobalKey1 = GlobalKey();
+  final GlobalKey _subGlobalKey2 = GlobalKey();
+  final GlobalKey _subGlobalKey3 = GlobalKey();
   String lastPrice = "--";
   String change = "--";
   String changePer = "--";
@@ -101,9 +124,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   int subCount = 2;
   bool showSubDraw = true;
-  bool canDrawMACD = true;
+  bool canDrawMACD = false;
   bool canDrawVR = false,
-      canDrawVOL = false,
+      canDrawVOL = true,
       canDrawKDJ = false,
       canDrawRSI = false,
       canDrawCCI = false,
@@ -114,10 +137,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       canDrawPSY = false,
       canDrawMACDBANG = false;
   bool showSubDraw1 = true;
-  bool canDrawMACD1 = true;
+  bool canDrawMACD1 = false;
   bool canDrawVR1 = false,
       canDrawVOL1 = false,
-      canDrawKDJ1 = false,
+      canDrawKDJ1 = true,
       canDrawRSI1 = false,
       canDrawCCI1 = false,
       canDrawBIAS1 = false,
@@ -127,10 +150,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       canDrawPSY1 = false,
       canDrawMACDBANG1 = false;
   bool showSubDraw2 = false;
-  bool canDrawMACD2 = false;
+  bool canDrawMACD2 = true;
   bool canDrawVR2 = false,
       canDrawVOL2 = false,
-      canDrawKDJ2 = true,
+      canDrawKDJ2 = false,
       canDrawRSI2 = false,
       canDrawCCI2 = false,
       canDrawBIAS2 = false,
@@ -157,6 +180,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   final menuController2 = FlyoutController();
   final menuController3 = FlyoutController();
   bool isDrawCrossLine = false;
+  bool isDrawing = false;
+  bool orderDrawing = false;
+  int orderDrawType = 0;
+  int num = 0;
+  String price = "市价";
 
   ///一档报价
   int level = 1;
@@ -166,6 +194,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   /// 当前纵坐标
   double currentY = -1;
+  double horizontalLineY = -1;
+
   bool isNeedAddData = true;
 
   /// MACD数据
@@ -233,8 +263,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   double mChartWidth = 0;
   int MIN_CANDLE_NUM = 12;
   int mPreSize = 0;
-  num mStartX = 0;
-  num mStartY = 0;
+  double mStartX = 0;
+  double mStartY = 0;
   int mDownIndext = 0;
 
   double mCandleWidth = Port.CandleWidth;
@@ -258,14 +288,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Color pankouColor = HexColor("#ff204a");
   Color pankouHighColor = HexColor("#ff204a");
   Color pankouLowColor = HexColor("#ff204a");
-  String chartTradeAllAssest = "--";
-  String chartTradeCanuse = "--";
-  String tradeBuyCanOpen = "--";
-  String tradeBuyCanClose = "--";
-  String tradeSaleCanOpen = "--";
-  String tradeSaleCanClose = "--";
-  String chartTradeFloatProfit = "--";
-  double leftMarginSpace = ChartPainter.getStringWidth("000.000", TextPainter(), size: Port.ChartTextSize);
+  int selectedLine = -1;
+  bool moveLine = false;
+  SystemMouseCursor cursor = SystemMouseCursors.basic;
+  double leftMarginSpace = 80;
+  final contextController = FlyoutController();
 
   getKPeriod() async {
     kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
@@ -281,11 +308,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   void setOHLCData(List<OHLCEntity> OHLCData) {
-    if (mChartWidth == 0) {
-      num right = BaseKChartPainter.mCursorWidth;
-      double chartWidth = ChartPainter.kChartViewWidth - 2 * BaseKChartPainter.MARGINLEFT - right - ChartPainter.leftMarginSpace;
-      mChartWidth = chartWidth;
-    }
+    // if (mChartWidth == 0) {
+    double right = BaseKChartPainter.mCursorWidth;
+    double chartWidth = ChartPainter.kChartViewWidth - 2 * BaseKChartPainter.MARGINLEFT - right - ChartPainter.leftMarginSpace;
+    mChartWidth = chartWidth;
+    // }
     int count = 0; //增加的数据量
 
     if (OHLCData.isEmpty) {
@@ -308,9 +335,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       count = 0;
       mPreSize = mOHLCData.length;
     } else {
-      if (mOHLCData.length - mPreSize != 0) {
-        // mChartViewListener.enterNext(); //K线数量有变化
-      }
+      // if (mOHLCData.length - mPreSize != 0) {
+      // mChartViewListener.enterNext(); //K线数量有变化
+      // }
       count = mOHLCData.length - mPreSize == 0 ? 1 : mOHLCData.length - mPreSize + 1;
       mPreSize = mOHLCData.length;
     }
@@ -500,7 +527,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (mShowDataNum > mOHLCData.length) {
       mShowDataNum = mOHLCData.length;
     }
-    mDataStartIndext = ADD_DATA == true ? Utils.getStartIndex(mStartDate, mOHLCData) : mOHLCData.length - mShowDataNum;
+    // mDataStartIndext = ADD_DATA ? Utils.getStartIndex(mStartDate, mOHLCData) : mOHLCData.length - mShowDataNum;
     SWITHING_TIME = false; //数据切换结束
     SWITHING_CODE = false; //切换商品代码结束
     isSwithSmart = false; //智能系统切换
@@ -964,6 +991,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     isAllowAdd = true;
   }
 
+  Future getDrawLines() async {
+    WebSocketServer.drawOrderLines.clear();
+    String? string = await SpUtils.getString(SpKey.drawLines);
+    if (string != null) {
+      Map temp = jsonDecode(string);
+      if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
+        for (var e in temp["${contract?.exCode}${contract?.code}${contract?.comType}"]) {
+          WebSocketServer.drawOrderLines.add(CustomLine.fromJson(e));
+        }
+      }
+    }
+  }
+
+  double calculatePrice(double Y, ChartPainter painter) {
+    double rate = painter.mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = Port.defult_margin_top;
+    double price = double.parse((mMaxPrice - ((Y - textBottom) / rate)).toStringAsFixed(2));
+    return price;
+  }
+
   void refreshData() {
     String vol = "";
     if ((contract?.volume ?? 0) > 10000) {
@@ -1025,7 +1072,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       pankouColor = HexColor("#ffffff");
     }
 
-    if (contract!.highPrice! < contract!.openPrice!) {
+    if (contract?.highPrice != null && contract?.openPrice != null && (contract!.highPrice! < contract!.openPrice!)) {
       pankouHighColor = HexColor("#3aff20");
     }
 
@@ -1141,7 +1188,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             mOHLCList[mOHLCList.length - 1].amount = (mOHLCList[mOHLCList.length - 1].amount ?? 0) + (data.amount ?? 0);
             mOHLCList[mOHLCList.length - 1].volume = (mOHLCList[mOHLCList.length - 1].volume ?? 0) + (data.volume ?? 0);
           } else {
-            num amount = (data.amount ?? 0) - (mOHLCList[mOHLCList.length - 1].customAmount ?? 0);
+            int amount = (data.amount ?? 0) - (mOHLCList[mOHLCList.length - 1].customAmount ?? 0);
             int volume = (data.volume ?? 0) - (mOHLCList[mOHLCList.length - 1].customVolume ?? 0);
             mOHLCList[mOHLCList.length - 1].amount = (mOHLCList[mOHLCList.length - 1].amount ?? 0) + amount;
             mOHLCList[mOHLCList.length - 1].volume = (mOHLCList[mOHLCList.length - 1].volume ?? 0) + volume;
@@ -1240,6 +1287,32 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
   }
 
+  ///添加条件单
+  void addLineCondition(
+      String? ExchangeNo,
+      String? CommodityNo,
+      int? CommodityType,
+      String? ContractNo,
+      int? OrderType,
+      int? TimeInForce,
+      String? ExpireTime,
+      int? OrderSide,
+      double? OrderPrice,
+      int? OrderQty,
+      int? PositionEffect,
+      int? PriceType,
+      int? ConditionType,
+      double? ConditionPrice) async {
+    await ConditionServer.addCondition(ExchangeNo, CommodityNo, CommodityType, ContractNo, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+            OrderQty, PositionEffect, PriceType, ConditionType, ConditionPrice)
+        .then((value) {
+      // if (value) {
+      // InfoBarUtils.showSuccessBar("添加条件单成功");
+      // qryCondition(0);
+      // }
+    });
+  }
+
   void initContract() {
     var con = widget.contract;
     Contract? mContract = MarketUtils.getVariety(con.exCode, con.code, con.comType);
@@ -1247,10 +1320,18 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (con.isMain == true) {
       contract?.isMain = true;
     }
+    getDrawLines();
     refreshData();
   }
 
   void listener() {
+    ///登录信息
+    EventBusUtil.getInstance().on<LoginSuccess>().listen((event) {
+      if (event.success) {
+        logic.requestHold();
+      }
+    });
+
     ///K线缩放
     EventBusUtil.getInstance().on<ScaleKLine>().listen((event) {
       if (isDrawTime) {
@@ -1345,7 +1426,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           volume: event.data?.volume?.toInt(),
         );
         if (event.data?.amount != 0) {
-          ohlc.amount = event.data?.amount;
+          ohlc.amount = event.data?.amount?.toInt();
         }
         ohlc.date = Utils.timeMillisToDate(event.data?.uxTime?.toInt() ?? 0);
         ohlc.time = Utils.timeMillisToTime(event.data?.uxTime?.toInt() ?? 0);
@@ -1371,6 +1452,34 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       requestAllData();
       subscriptionKlineData(true);
     });
+
+    ///画线下单
+    EventBusUtil.getInstance().on<OrderDrawing>().listen((event) {
+      orderDrawType = event.type;
+      if (orderDrawType == 0) {
+        orderDrawing = false;
+      } else {
+        orderDrawing = true;
+        num = event.num;
+        price = event.price;
+      }
+      if (mounted) setState(() {});
+    });
+
+    ///持仓变化
+    EventBusUtil.getInstance().on<RefreshHold>().listen((event) async {
+      getPosition();
+    });
+  }
+
+  getPosition() {
+    if (logic.mHoldList.isNotEmpty) {
+      for (HoldOrder e in logic.mHoldList) {
+        if (e.exCode == contract?.exCode && e.code == contract?.code && e.comType == contract?.comType) {
+          holdOrder = e;
+        }
+      }
+    }
   }
 
   @override
@@ -1379,6 +1488,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     ChartPainter.setTradeTimes(contract?.trTime);
     listener();
     getKPeriod();
+    getPosition();
     subscriptionQuote(true);
     subscriptionFill(true);
     super.initState();
@@ -1393,9 +1503,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    appTheme = context.watch<AppTheme>();
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [Expanded(child: appTheme.showChart ? kChart() : statement()), if (showPanKou) dataWidget()],
+    );
+  }
+
+  Widget kChart() {
     final painter = ChartPainter(
       isDrawTime: isDrawTime,
       isDrawCrossLine: isDrawCrossLine,
+      orderDrawing: orderDrawing,
       mKPeriod: kPeriod,
       mOHLCData: mOHLCData,
       SWITHING_TIME: SWITHING_TIME,
@@ -1413,6 +1533,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mMinPrice: mMinPrice,
       currentX: currentX,
       currentY: currentY,
+      drawOrderLines: WebSocketServer.drawOrderLines,
       isDrawBollinger: isDrawBollinger,
       isDrawCost: isDrawCost,
       isDrawCost1: isDrawCost1,
@@ -1437,17 +1558,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mVRData: mVRData,
       isDrawTimeDown: isDrawTimeDown,
     );
-    appTheme = context.watch<AppTheme>();
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [Expanded(child: appTheme.showChart ? kChart(painter) : statement()), if (showPanKou) dataWidget()],
-    );
-  }
-
-  Widget kChart(painter) {
-    final contextController = FlyoutController();
-    final contextAttachKey = GlobalKey();
     final paint = SubChartPainter(
       mDataStartIndext: mDataStartIndext,
       mShowDataNum: mShowDataNum,
@@ -1556,7 +1666,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mVolData: mVolData,
       mVRData: mVRData,
     );
-
+    final contextAttachKey = GlobalKey();
     return Column(
       children: [
         Row(
@@ -1610,1445 +1720,1597 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 currentX = e.localPosition.dx;
                 currentY = e.localPosition.dy;
                 if (mounted) setState(() {});
+              } else if (!isDrawTime && WebSocketServer.drawOrderLines.isNotEmpty) {
+                for (var element in WebSocketServer.drawOrderLines) {
+                  if (element.lineY != null && (element.lineY! - e.localPosition.dy).abs() < 5) {
+                    element.color = Colors.red;
+                    cursor = SystemMouseCursors.click;
+                    selectedLine = WebSocketServer.drawOrderLines.indexOf(element);
+                    break;
+                  }
+                  element.color = Colors.white;
+                  cursor = SystemMouseCursors.basic;
+                  selectedLine = -1;
+                }
               }
             },
-            child: GestureDetector(
-              onTap: null,
-              behavior: HitTestBehavior.opaque,
-              onDoubleTapDown: (event) {
-                isDrawCrossLine = !isDrawCrossLine;
-              },
-              onHorizontalDragStart: (event) {
-                if (isDrawTime) {
-                  return;
-                }
-                mDownIndext = mDataStartIndext;
-                mStartX = event.localPosition.dx;
-              },
-              onHorizontalDragUpdate: (event) {
-                if (mOHLCData.isEmpty || isDrawTime) {
-                  return;
-                }
-                if (!isDrawCrossLine) {
-                  double horizontalSpacing = event.localPosition.dx - mStartX;
-                  if (horizontalSpacing < 0) {
-                    mDataStartIndext = (mDownIndext + (horizontalSpacing / mCandleWidth).abs()).toInt();
-                  } else if (horizontalSpacing > 0) {
-                    mDataStartIndext = (mDownIndext - horizontalSpacing / mCandleWidth).toInt();
-                    if (mDataStartIndext < 0) {
-                      mDataStartIndext = 0;
-                    }
-                  }
-
-                  if (mOHLCData.length - mPreSize != 0) {
-                    //检查数据集合在没有刷新阶段是否有增加，增加的应该去除掉
-                    int number = mOHLCData.length - mPreSize;
-                    for (int i = 1; i <= number; i++) {
-                      mOHLCData.removeAt(mOHLCData.length - 1);
-                    }
-                  }
-
-                  int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
-
-                  if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
-                    //到达指定位置控制数据的向前加载
-                    isNeedAddData = false;
-                    mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
-                    requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
-                  }
-                  if (isNeedAddData) {
-                    setCurrentData();
-                  }
-                } else {
-                  currentX = event.localPosition.dx;
-                  currentY = event.localPosition.dy;
-                }
-                if (mounted) setState(() {});
-              },
-              onSecondaryTapUp: (d) {
-                // logger.i(d.localPosition);
-                final targetContext = contextAttachKey.currentContext;
-                if (targetContext == null) return;
-                final box = targetContext.findRenderObject() as RenderBox;
-                final position = box.localToGlobal(
-                  d.localPosition,
-                  ancestor: Navigator.of(context).context.findRenderObject(),
-                );
-                contextController.showFlyout(
-                  barrierColor: Colors.black.withOpacity(0.1),
-                  position: position,
-                  builder: (context) {
-                    return MenuFlyout(items: [
-                      MenuFlyoutItem(
-                        text: const Text('下单'),
-                        onPressed: () {
-                          EventBusUtil.getInstance().fire(LoginEvent());
-                          Flyout.of(context).close();
-                        },
-                      ),
-                      MenuFlyoutItem(
-                          text: const Text('加入自选'),
-                          onPressed: () {
-                            logic.optionOperate(logic.selectedContract.value, add: true);
-                            Flyout.of(context).close();
-                          }),
-                      MenuFlyoutItem(
-                          text: const Text('移除自选'),
-                          onPressed: () {
-                            logic.optionOperate(logic.selectedContract.value, add: false);
-                            Flyout.of(context).close();
-                          }),
-                      MenuFlyoutSubItem(
-                        text: const Text('切换画面'),
-                        leading: const Icon(
-                          FluentIcons.accept,
-                          color: Colors.transparent,
+            child: MouseRegion(
+              cursor: cursor,
+              child: GestureDetector(
+                key: _globalKey1,
+                behavior: HitTestBehavior.opaque,
+                onTapDown: (e) async {
+                  if (isDrawTime) return;
+                  Size? size = _globalKey.currentContext?.findRenderObject()?.paintBounds.size;
+                  Size? mainSize = _globalKey1.currentContext?.findRenderObject()?.paintBounds.size;
+                  Size? subSize = _subGlobalKey.currentContext?.findRenderObject()?.paintBounds.size;
+                  Size? size1 = _subGlobalKey1.currentContext?.findRenderObject()?.paintBounds.size;
+                  Size? size2 = _subGlobalKey2.currentContext?.findRenderObject()?.paintBounds.size;
+                  Size? size3 = _subGlobalKey3.currentContext?.findRenderObject()?.paintBounds.size;
+                  if (e.localPosition.dx > leftMarginSpace) {
+                    if (e.localPosition.dx < (size?.width ?? 0) && e.localPosition.dy < (size?.height ?? 0)) {
+                      mainMenuController.showFlyout(
+                        autoModeConfiguration: FlyoutAutoConfiguration(
+                          preferredMode: FlyoutPlacementMode.topLeft,
                         ),
-                        items: (context) => [
-                          MenuFlyoutItem(
-                              text: const Text('报价页面'),
-                              onPressed: () {
-                                appTheme.viewIndex = 0;
-                                Flyout.of(context).close();
-                              }),
-                          isDrawTime
-                              ? MenuFlyoutItem(
-                                  text: const Text('K线'),
-                                  onPressed: () {
-                                    KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                                    if (kPeriod == fs) return;
-                                    appTheme.selectCommandBarIndex = 1;
-                                    subscriptionKlineData(false);
-                                    kPeriod = fs;
-                                    mOHLCData.clear();
-                                    SWITHING_TIME = true;
-                                    isDrawTime = false;
-                                    requestAllData();
-                                    subscriptionKlineData(true);
-                                    Flyout.of(context).close();
-                                  })
-                              : MenuFlyoutItem(
-                                  text: const Text('分时'),
-                                  onPressed: () {
-                                    KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                    if (kPeriod == fs) return;
-                                    appTheme.selectCommandBarIndex = 0;
-                                    subscriptionKlineData(false);
-                                    kPeriod = fs;
-                                    mOHLCData.clear();
-                                    SWITHING_TIME = true;
-                                    isDrawTime = true;
-                                    requestAllData();
-                                    subscriptionKlineData(true);
-                                    Flyout.of(context).close();
-                                  }),
-                          if (!isDrawTime)
+                        builder: (context) {
+                          return MenuFlyout(items: [
                             MenuFlyoutItem(
-                              text: const Text('成交报表'),
+                              text: const Text('MA组合'),
                               onPressed: () {
-                                appTheme.showChart = false;
+                                Flyout.of(context).close;
+                                switchIndex("MA");
                                 if (mounted) setState(() {});
                               },
                             ),
-                        ],
-                      ),
-                      MenuFlyoutSubItem(
-                        text: const Text('技术指标'),
-                        leading: const Icon(
-                          FluentIcons.accept,
-                          color: Colors.transparent,
+                            MenuFlyoutItem(
+                              text: const Text('BOLL'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                switchIndex("BOLL");
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('PUBU'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                switchIndex("PBX");
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('DSX全形量化'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('DDHX高低点划线'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                          ]);
+                        },
+                      );
+                    } else if (e.localPosition.dx < (subSize?.width ?? 0) &&
+                        e.localPosition.dy > (mainSize?.height ?? 0) * (1 - subCount / 6) &&
+                        e.localPosition.dy < ((mainSize?.height ?? 0) * (1 - subCount / 6) + (subSize?.height ?? 0))) {
+                      menuController.showFlyout(
+                        autoModeConfiguration: FlyoutAutoConfiguration(
+                          preferredMode: FlyoutPlacementMode.topLeft,
                         ),
-                        items: (context) => [
-                          MenuFlyoutSubItem(
-                            text: const Text('趋势分析指标（主图）'),
-                            items: (_) => [
-                              MenuFlyoutItem(
-                                text: const Text('MA组合'),
-                                trailing: const Text('移动平均线组合'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('BOLL'),
-                                trailing: const Text('布林通道线'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('PUBU'),
-                                trailing: const Text('瀑布线'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('DSX'),
-                                trailing: const Text('全形量化'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('DDHX'),
-                                trailing: const Text('高低点划线'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                            ],
-                          ),
-                          MenuFlyoutSubItem(
-                            text: const Text('量仓分析'),
-                            items: (_) => [
-                              MenuFlyoutItem(
-                                text: const Text('VOL'),
-                                trailing: const Text('成交量'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('VR'),
-                                trailing: const Text('VR容量比率'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('OBV'),
-                                trailing: const Text('能量潮'),
-                                onPressed: Flyout.of(context).close,
-                              )
-                            ],
-                          ),
-                          MenuFlyoutSubItem(
-                            text: const Text('摆动分析'),
-                            items: (_) => [
-                              MenuFlyoutItem(
-                                text: const Text('MACD'),
-                                trailing: const Text('平滑移动平均线'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('KDJ'),
-                                trailing: const Text('随机指标'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('RSI'),
-                                trailing: const Text('相对强弱指标'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('CCI'),
-                                trailing: const Text('顺势指标'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('VOL'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = false;
+                                canDrawVR = false;
+                                canDrawVOL = true;
+                                canDrawKDJ = false;
+                                canDrawRSI = false;
+                                canDrawCCI = false;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('VR'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = false;
+                                canDrawVR = true;
+                                canDrawVOL = false;
+                                canDrawKDJ = false;
+                                canDrawRSI = false;
+                                canDrawCCI = false;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('MACD'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = true;
+                                canDrawVR = false;
+                                canDrawVOL = false;
+                                canDrawKDJ = false;
+                                canDrawRSI = false;
+                                canDrawCCI = false;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('KDJ'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = false;
+                                canDrawVR = false;
+                                canDrawVOL = false;
+                                canDrawKDJ = true;
+                                canDrawRSI = false;
+                                canDrawCCI = false;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('RSI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = false;
+                                canDrawVR = false;
+                                canDrawVOL = false;
+                                canDrawKDJ = false;
+                                canDrawRSI = true;
+                                canDrawCCI = false;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('CCI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD = false;
+                                canDrawVR = false;
+                                canDrawVOL = false;
+                                canDrawKDJ = false;
+                                canDrawRSI = false;
+                                canDrawCCI = true;
+                                canDrawBIAS = false;
+                                canDrawWR = false;
+                                canDrawPSY = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
                                 text: const Text('BIAS'),
-                                trailing: const Text('乖离率'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD = false;
+                                  canDrawVR = false;
+                                  canDrawVOL = false;
+                                  canDrawKDJ = false;
+                                  canDrawRSI = false;
+                                  canDrawCCI = false;
+                                  canDrawBIAS = true;
+                                  canDrawWR = false;
+                                  canDrawPSY = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('OBV'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
                                 text: const Text('WR'),
-                                trailing: const Text('威廉指标'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
-                                text: const Text('DMA'),
-                                trailing: const Text('平均线差'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                              MenuFlyoutItem(
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD = false;
+                                  canDrawVR = false;
+                                  canDrawVOL = false;
+                                  canDrawKDJ = false;
+                                  canDrawRSI = false;
+                                  canDrawCCI = false;
+                                  canDrawBIAS = false;
+                                  canDrawWR = true;
+                                  canDrawPSY = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('DMA'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
                                 text: const Text('PSY'),
-                                trailing: const Text('心理线'),
-                                onPressed: Flyout.of(context).close,
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('指标修改'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('显示盘口数据'),
-                        leading: Icon(
-                          FluentIcons.accept,
-                          color: showPanKou ? Colors.green : Colors.transparent,
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD = false;
+                                  canDrawVR = false;
+                                  canDrawVOL = false;
+                                  canDrawKDJ = false;
+                                  canDrawRSI = false;
+                                  canDrawCCI = false;
+                                  canDrawBIAS = false;
+                                  canDrawWR = false;
+                                  canDrawPSY = true;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('MACD能量棒'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                          ]);
+                        },
+                      );
+                    } else if (e.localPosition.dx < (size1?.width ?? 0) &&
+                        e.localPosition.dy > (mainSize?.height ?? 0) * (7 / 6 - subCount / 6) &&
+                        e.localPosition.dy < ((mainSize?.height ?? 0) * (7 / 6 - subCount / 6) + (size1?.height ?? 0))) {
+                      menuController1.showFlyout(
+                        autoModeConfiguration: FlyoutAutoConfiguration(
+                          preferredMode: FlyoutPlacementMode.topLeft,
                         ),
-                        onPressed: () {
-                          showPanKou = !showPanKou;
-                          if (mounted) setState(() {});
-                          Flyout.of(context).close;
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('VOL'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = false;
+                                canDrawVR1 = false;
+                                canDrawVOL1 = true;
+                                canDrawKDJ1 = false;
+                                canDrawRSI1 = false;
+                                canDrawCCI1 = false;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('VR'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = false;
+                                canDrawVR1 = true;
+                                canDrawVOL1 = false;
+                                canDrawKDJ1 = false;
+                                canDrawRSI1 = false;
+                                canDrawCCI1 = false;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('MACD'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = true;
+                                canDrawVR1 = false;
+                                canDrawVOL1 = false;
+                                canDrawKDJ1 = false;
+                                canDrawRSI1 = false;
+                                canDrawCCI1 = false;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('KDJ'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = false;
+                                canDrawVR1 = false;
+                                canDrawVOL1 = false;
+                                canDrawKDJ1 = true;
+                                canDrawRSI1 = false;
+                                canDrawCCI1 = false;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('RSI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = false;
+                                canDrawVR1 = false;
+                                canDrawVOL1 = false;
+                                canDrawKDJ1 = false;
+                                canDrawRSI1 = true;
+                                canDrawCCI1 = false;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('CCI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD1 = false;
+                                canDrawVR1 = false;
+                                canDrawVOL1 = false;
+                                canDrawKDJ1 = false;
+                                canDrawRSI1 = false;
+                                canDrawCCI1 = true;
+                                canDrawBIAS1 = false;
+                                canDrawWR1 = false;
+                                canDrawPSY1 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('BIAS'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD1 = false;
+                                  canDrawVR1 = false;
+                                  canDrawVOL1 = false;
+                                  canDrawKDJ1 = false;
+                                  canDrawRSI1 = false;
+                                  canDrawCCI1 = false;
+                                  canDrawBIAS1 = true;
+                                  canDrawWR1 = false;
+                                  canDrawPSY1 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('OBV'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('WR'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD1 = false;
+                                  canDrawVR1 = false;
+                                  canDrawVOL1 = false;
+                                  canDrawKDJ1 = false;
+                                  canDrawRSI1 = false;
+                                  canDrawCCI1 = false;
+                                  canDrawBIAS1 = false;
+                                  canDrawWR1 = true;
+                                  canDrawPSY1 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('DMA'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('PSY'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD1 = false;
+                                  canDrawVR1 = false;
+                                  canDrawVOL1 = false;
+                                  canDrawKDJ1 = false;
+                                  canDrawRSI1 = false;
+                                  canDrawCCI1 = false;
+                                  canDrawBIAS1 = false;
+                                  canDrawWR1 = false;
+                                  canDrawPSY1 = true;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('MACD能量棒'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                          ]);
                         },
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('增加副图'),
-                        onPressed: () {
-                          Flyout.of(context).close;
-                          if (showSubDraw && showSubDraw1 && showSubDraw2 && showSubDraw3 || subCount >= 4) {
-                            InfoBarUtils.showWarningBar("分析区域不能超过5个");
-                          } else if (!showSubDraw) {
-                            showSubDraw = true;
-                            subCount++;
-                          } else if (!showSubDraw1) {
-                            showSubDraw1 = true;
-                            subCount++;
-                          } else if (!showSubDraw2) {
-                            showSubDraw2 = true;
-                            subCount++;
-                          } else if (!showSubDraw3) {
-                            showSubDraw3 = true;
-                            subCount++;
-                          }
-                          if (mounted) setState(() {});
-                        },
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('删除副图'),
-                        onPressed: () {
-                          Flyout.of(context).close;
-                          if (subCount <= 0 || !showSubDraw && !showSubDraw1 && !showSubDraw2 && !showSubDraw3) {
-                            return;
-                          } else if (showSubDraw3) {
-                            showSubDraw3 = false;
-                            subCount--;
-                          } else if (showSubDraw2) {
-                            showSubDraw2 = false;
-                            subCount--;
-                          } else if (showSubDraw1) {
-                            showSubDraw1 = false;
-                            subCount--;
-                          } else if (showSubDraw) {
-                            showSubDraw = false;
-                            subCount--;
-                          }
-                          if (mounted) setState(() {});
-                        },
-                      ),
-                      MenuFlyoutSubItem(
-                        text: const Text('周期切换'),
-                        leading: const Icon(
-                          FluentIcons.accept,
-                          color: Colors.transparent,
+                      );
+                    } else if (e.localPosition.dx < (size2?.width ?? 0) &&
+                        e.localPosition.dy > (mainSize?.height ?? 0) * (4 / 3 - subCount / 6) &&
+                        e.localPosition.dy < ((mainSize?.height ?? 0) * (4 / 3 - subCount / 6) + (size2?.height ?? 0))) {
+                      menuController2.showFlyout(
+                        autoModeConfiguration: FlyoutAutoConfiguration(
+                          preferredMode: FlyoutPlacementMode.topLeft,
                         ),
-                        items: (context) => [
-                          MenuFlyoutItem(
-                            text: const Text('日线'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('VOL'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = false;
+                                canDrawVR2 = false;
+                                canDrawVOL2 = true;
+                                canDrawKDJ2 = false;
+                                canDrawRSI2 = false;
+                                canDrawCCI2 = false;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
                             ),
+                            MenuFlyoutItem(
+                              text: const Text('VR'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = false;
+                                canDrawVR2 = true;
+                                canDrawVOL2 = false;
+                                canDrawKDJ2 = false;
+                                canDrawRSI2 = false;
+                                canDrawCCI2 = false;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('MACD'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = true;
+                                canDrawVR2 = false;
+                                canDrawVOL2 = false;
+                                canDrawKDJ2 = false;
+                                canDrawRSI2 = false;
+                                canDrawCCI2 = false;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('KDJ'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = false;
+                                canDrawVR2 = false;
+                                canDrawVOL2 = false;
+                                canDrawKDJ2 = true;
+                                canDrawRSI2 = false;
+                                canDrawCCI2 = false;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('RSI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = false;
+                                canDrawVR2 = false;
+                                canDrawVOL2 = false;
+                                canDrawKDJ2 = false;
+                                canDrawRSI2 = true;
+                                canDrawCCI2 = false;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('CCI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD2 = false;
+                                canDrawVR2 = false;
+                                canDrawVOL2 = false;
+                                canDrawKDJ2 = false;
+                                canDrawRSI2 = false;
+                                canDrawCCI2 = true;
+                                canDrawBIAS2 = false;
+                                canDrawWR2 = false;
+                                canDrawPSY2 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('BIAS'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD2 = false;
+                                  canDrawVR2 = false;
+                                  canDrawVOL2 = false;
+                                  canDrawKDJ2 = false;
+                                  canDrawRSI2 = false;
+                                  canDrawCCI2 = false;
+                                  canDrawBIAS2 = true;
+                                  canDrawWR2 = false;
+                                  canDrawPSY2 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('OBV'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('WR'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD2 = false;
+                                  canDrawVR2 = false;
+                                  canDrawVOL2 = false;
+                                  canDrawKDJ2 = false;
+                                  canDrawRSI2 = false;
+                                  canDrawCCI2 = false;
+                                  canDrawBIAS2 = false;
+                                  canDrawWR2 = true;
+                                  canDrawPSY2 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('DMA'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('PSY'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD2 = false;
+                                  canDrawVR2 = false;
+                                  canDrawVOL2 = false;
+                                  canDrawKDJ2 = false;
+                                  canDrawRSI2 = false;
+                                  canDrawCCI2 = false;
+                                  canDrawBIAS2 = false;
+                                  canDrawWR2 = false;
+                                  canDrawPSY2 = true;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('MACD能量棒'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                          ]);
+                        },
+                      );
+                    } else if (e.localPosition.dx < (size3?.width ?? 0) &&
+                        e.localPosition.dy > (mainSize?.height ?? 0) * (3 / 2 - subCount / 6) &&
+                        e.localPosition.dy < ((mainSize?.height ?? 0) * (3 / 2 - subCount / 6) + (size3?.height ?? 0))) {
+                      menuController3.showFlyout(
+                        autoModeConfiguration: FlyoutAutoConfiguration(
+                          preferredMode: FlyoutPlacementMode.topLeft,
+                        ),
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('VOL'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = false;
+                                canDrawVR3 = false;
+                                canDrawVOL3 = true;
+                                canDrawKDJ3 = false;
+                                canDrawRSI3 = false;
+                                canDrawCCI3 = false;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('VR'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = false;
+                                canDrawVR3 = true;
+                                canDrawVOL3 = false;
+                                canDrawKDJ3 = false;
+                                canDrawRSI3 = false;
+                                canDrawCCI3 = false;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('MACD'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = true;
+                                canDrawVR3 = false;
+                                canDrawVOL3 = false;
+                                canDrawKDJ3 = false;
+                                canDrawRSI3 = false;
+                                canDrawCCI3 = false;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('KDJ'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = false;
+                                canDrawVR3 = false;
+                                canDrawVOL3 = false;
+                                canDrawKDJ3 = true;
+                                canDrawRSI3 = false;
+                                canDrawCCI3 = false;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('RSI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = false;
+                                canDrawVR3 = false;
+                                canDrawVOL3 = false;
+                                canDrawKDJ3 = false;
+                                canDrawRSI3 = true;
+                                canDrawCCI3 = false;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('CCI'),
+                              onPressed: () {
+                                Flyout.of(context).close;
+                                canDrawMACD3 = false;
+                                canDrawVR3 = false;
+                                canDrawVOL3 = false;
+                                canDrawKDJ3 = false;
+                                canDrawRSI3 = false;
+                                canDrawCCI3 = true;
+                                canDrawBIAS3 = false;
+                                canDrawWR3 = false;
+                                canDrawPSY3 = false;
+                                if (mounted) setState(() {});
+                              },
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('BIAS'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD3 = false;
+                                  canDrawVR3 = false;
+                                  canDrawVOL3 = false;
+                                  canDrawKDJ3 = false;
+                                  canDrawRSI3 = false;
+                                  canDrawCCI3 = false;
+                                  canDrawBIAS3 = true;
+                                  canDrawWR3 = false;
+                                  canDrawPSY3 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('OBV'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('WR'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD3 = false;
+                                  canDrawVR3 = false;
+                                  canDrawVOL3 = false;
+                                  canDrawKDJ3 = false;
+                                  canDrawRSI3 = false;
+                                  canDrawCCI3 = false;
+                                  canDrawBIAS3 = false;
+                                  canDrawWR3 = true;
+                                  canDrawPSY3 = false;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('DMA'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('PSY'),
+                                onPressed: () {
+                                  Flyout.of(context).close;
+                                  canDrawMACD3 = false;
+                                  canDrawVR3 = false;
+                                  canDrawVOL3 = false;
+                                  canDrawKDJ3 = false;
+                                  canDrawRSI3 = false;
+                                  canDrawCCI3 = false;
+                                  canDrawBIAS3 = false;
+                                  canDrawWR3 = false;
+                                  canDrawPSY3 = true;
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                              text: const Text('MACD能量棒'),
+                              onPressed: Flyout.of(context).close,
+                            ),
+                          ]);
+                        },
+                      );
+                    }
+                  }
+
+                  if (orderDrawing) {
+                    if (orderDrawType == 3 && holdOrder == null) {
+                      InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
+                      await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+                      return;
+                    }
+                    double kPrice = calculatePrice(e.localPosition.dy, painter);
+                    String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
+                    CustomLine cus = CustomLine(code: name, type: orderDrawType, num: num, price: price, lineY: e.localPosition.dy, kPrice: kPrice);
+                    if (orderDrawType == 3) {
+                      cus.side = holdOrder?.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
+                    }
+                    WebSocketServer.drawOrderLines.add(cus);
+                    EventBusUtil.getInstance().fire(OrderEvent(cus));
+                    orderDrawing = false;
+                    String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}$name": WebSocketServer.drawOrderLines});
+                    await SpUtils.set(SpKey.drawLines, tmp);
+                    await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+                  }
+                },
+                onDoubleTapDown: (event) {
+                  isDrawCrossLine = !isDrawCrossLine;
+                  if (isDrawCrossLine) {
+                    currentX = event.localPosition.dx;
+                    currentY = event.localPosition.dy;
+                  } else {
+                    currentX = -1;
+                    currentY = -1;
+                  }
+                  if (mounted) setState(() {});
+                },
+                onHorizontalDragStart: (event) {
+                  if (isDrawTime) {
+                    return;
+                  }
+                  mDownIndext = mDataStartIndext;
+                  mStartX = event.localPosition.dx;
+                },
+                onHorizontalDragUpdate: (event) {
+                  if (mOHLCData.isEmpty || isDrawTime) {
+                    return;
+                  }
+                  if (!isDrawCrossLine) {
+                    double horizontalSpacing = event.localPosition.dx - mStartX;
+                    if (horizontalSpacing < 0) {
+                      mDataStartIndext = (mDownIndext + (horizontalSpacing / mCandleWidth).abs()).toInt();
+                    } else if (horizontalSpacing > 0) {
+                      mDataStartIndext = (mDownIndext - horizontalSpacing / mCandleWidth).toInt();
+                      if (mDataStartIndext < 0) {
+                        mDataStartIndext = 0;
+                      }
+                    }
+
+                    if (mOHLCData.length - mPreSize != 0) {
+                      //检查数据集合在没有刷新阶段是否有增加，增加的应该去除掉
+                      int number = mOHLCData.length - mPreSize;
+                      for (int i = 1; i <= number; i++) {
+                        mOHLCData.removeAt(mOHLCData.length - 1);
+                      }
+                    }
+
+                    int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
+
+                    if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
+                      //到达指定位置控制数据的向前加载
+                      isNeedAddData = false;
+                      mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
+                      requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
+                    }
+                    if (isNeedAddData) {
+                      setCurrentData();
+                    }
+                  } else {
+                    currentX = event.localPosition.dx;
+                    currentY = event.localPosition.dy;
+                  }
+                  if (mounted) setState(() {});
+                },
+                onSecondaryTapUp: (d) {
+                  final targetContext = contextAttachKey.currentContext;
+                  if (targetContext == null) return;
+                  final box = targetContext.findRenderObject() as RenderBox;
+                  final position = box.localToGlobal(
+                    d.localPosition,
+                    ancestor: Navigator.of(context).context.findRenderObject(),
+                  );
+
+                  if (cursor == SystemMouseCursors.click && selectedLine != -1) {
+                    contextController.showFlyout(
+                      barrierColor: Colors.black.withOpacity(0.1),
+                      position: position,
+                      builder: (context) {
+                        return MenuFlyout(items: [
+                          MenuFlyoutItem(
+                            text: const Text('画线属性'),
                             onPressed: () {
-                              appTheme.selectCommandBarIndex = 1;
-                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
+                              CustomLine customLine = WebSocketServer.drawOrderLines[selectedLine].copyWith();
+                              showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
+                                      WebSocketServer.drawOrderLines[selectedLine] = customLine;
+                                      String tmp = jsonEncode({
+                                        "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
+                                            WebSocketServer.drawOrderLines
+                                      });
+                                      await SpUtils.set(SpKey.drawLines, tmp);
+                                      if (mounted) setState(() {});
+                                    });
+                                  });
                             },
                           ),
                           MenuFlyoutItem(
-                            text: const Text('周线'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 2;
-                              KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
+                              text: const Text('删除画线'),
+                              onPressed: () async {
+                                WebSocketServer.drawOrderLines.removeAt(selectedLine);
+                                selectedLine = -1;
+                                cursor = SystemMouseCursors.basic;
+                                String tmp = jsonEncode({
+                                  "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
+                                      WebSocketServer.drawOrderLines
+                                });
+                                await SpUtils.set(SpKey.drawLines, tmp);
+                                if (mounted) setState(() {});
+                              }),
                           MenuFlyoutItem(
-                            text: const Text('月线'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
-                            ),
+                              text: const Text('全部删除'),
+                              onPressed: () async {
+                                WebSocketServer.drawOrderLines.clear();
+                                selectedLine = -1;
+                                cursor = SystemMouseCursors.basic;
+                                String tmp = jsonEncode({
+                                  "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
+                                      WebSocketServer.drawOrderLines
+                                });
+                                await SpUtils.set(SpKey.drawLines, tmp);
+                                if (mounted) setState(() {});
+                              }),
+                        ]);
+                      },
+                    );
+                    return;
+                  }
+                  contextController.showFlyout(
+                    barrierColor: Colors.black.withOpacity(0.1),
+                    position: position,
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('下单'),
+                          onPressed: () {
+                            EventBusUtil.getInstance().fire(LoginEvent());
+                            Flyout.of(context).close();
+                          },
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('加入自选'),
                             onPressed: () {
-                              appTheme.selectCommandBarIndex = 3;
-                              KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('年线'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
-                            ),
+                              logic.optionOperate(logic.selectedContract.value, add: true);
+                              Flyout.of(context).close();
+                            }),
+                        MenuFlyoutItem(
+                            text: const Text('移除自选'),
                             onPressed: () {
-                              appTheme.selectCommandBarIndex = 4;
-                              KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
+                              logic.optionOperate(logic.selectedContract.value, add: false);
+                              Flyout.of(context).close();
+                            }),
+                        MenuFlyoutSubItem(
+                          text: const Text('切换画面'),
+                          leading: const Icon(
+                            FluentIcons.accept,
+                            color: Colors.transparent,
                           ),
-                          MenuFlyoutItem(
-                            text: const Text('任意天'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 5;
-                              // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                              // if (kPeriod == fs) return;
-                              // subscriptionKlineData(false);
-                              // kPeriod = fs;
-                              // mOHLCData.clear();
-                              // SWITHING_TIME = true;
-                              // isDrawTime = false;
-                              // requestAllData();
-                              // subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('1分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 6;
-                              KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('3分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 7;
-                              KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('5分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 8;
-                              KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('10分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 9;
-                              KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('15分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 10;
-                              KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('30分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 11;
-                              KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('60分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 12;
-                              KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('120分钟'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 13;
-                              KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                              if (kPeriod == fs) return;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                            },
-                          ),
-                          MenuFlyoutItem(
-                            text: const Text('任意分'),
-                            leading: Icon(
-                              FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
-                            ),
-                            onPressed: () {
-                              appTheme.selectCommandBarIndex = 14;
-                              // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                              // if (kPeriod == fs) return;
-                              // subscriptionKlineData(false);
-                              // kPeriod = fs;
-                              // mOHLCData.clear();
-                              // SWITHING_TIME = true;
-                              // isDrawTime = false;
-                              // requestAllData();
-                              // subscriptionKlineData(true);
-                            },
-                          ),
-                        ],
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('画线下单'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('最大化'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('横向分页'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('纵向分页'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('关闭窗口'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                    ]);
-                  },
-                );
-              },
-              child: FlyoutTarget(
-                key: contextAttachKey,
-                controller: contextController,
-                child: Container(
-                  decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.red))),
-                  child: isDrawTime
-                      ? RepaintBoundary(
-                          child: CustomPaint(
-                          size: Size(1.sw, 1.sh),
-                          painter: painter,
-                        ))
-                      : Column(
-                          children: [
-                            Expanded(
-                              flex: 6 - subCount,
-                              child: Stack(
-                                children: [
-                                  IgnorePointer(
-                                    child: RepaintBoundary(child: CustomPaint(size: Size(1.sw, 1.sh), painter: painter)),
-                                  ),
-                                  Container(
-                                      margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
-                                      width: Port.defult_icon_width,
-                                      child: FlyoutTarget(
-                                        controller: mainMenuController,
-                                        child: IconButton(
-                                          icon: const Icon(FluentIcons.query_list),
-                                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                                          onPressed: () {
-                                            mainMenuController.showFlyout(
-                                              autoModeConfiguration: FlyoutAutoConfiguration(
-                                                preferredMode: FlyoutPlacementMode.topLeft,
-                                              ),
-                                              builder: (context) {
-                                                return MenuFlyout(items: [
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MA组合'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      switchIndex("MA");
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('BOLL'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      switchIndex("BOLL");
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('PUBU'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      switchIndex("PBX");
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DSX全形量化'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DDHX高低点划线'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                ]);
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      )),
-                                ],
-                              ),
-                            ),
-                            if (showSubDraw)
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    IgnorePointer(
-                                      child: CustomPaint(
-                                        key: UniqueKey(),
-                                        size: Size(1.sw, 1.sh),
-                                        painter: paint,
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
-                                      width: Port.defult_icon_width,
-                                      child: FlyoutTarget(
-                                        controller: menuController,
-                                        child: IconButton(
-                                          icon: const Icon(FluentIcons.query_list),
-                                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                                          onPressed: () {
-                                            menuController.showFlyout(
-                                              autoModeConfiguration: FlyoutAutoConfiguration(
-                                                preferredMode: FlyoutPlacementMode.topLeft,
-                                              ),
-                                              builder: (context) {
-                                                return MenuFlyout(items: [
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VOL'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = false;
-                                                      canDrawVR = false;
-                                                      canDrawVOL = true;
-                                                      canDrawKDJ = false;
-                                                      canDrawRSI = false;
-                                                      canDrawCCI = false;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VR'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = false;
-                                                      canDrawVR = true;
-                                                      canDrawVOL = false;
-                                                      canDrawKDJ = false;
-                                                      canDrawRSI = false;
-                                                      canDrawCCI = false;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = true;
-                                                      canDrawVR = false;
-                                                      canDrawVOL = false;
-                                                      canDrawKDJ = false;
-                                                      canDrawRSI = false;
-                                                      canDrawCCI = false;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('KDJ'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = false;
-                                                      canDrawVR = false;
-                                                      canDrawVOL = false;
-                                                      canDrawKDJ = true;
-                                                      canDrawRSI = false;
-                                                      canDrawCCI = false;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('RSI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = false;
-                                                      canDrawVR = false;
-                                                      canDrawVOL = false;
-                                                      canDrawKDJ = false;
-                                                      canDrawRSI = true;
-                                                      canDrawCCI = false;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('CCI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD = false;
-                                                      canDrawVR = false;
-                                                      canDrawVOL = false;
-                                                      canDrawKDJ = false;
-                                                      canDrawRSI = false;
-                                                      canDrawCCI = true;
-                                                      canDrawBIAS = false;
-                                                      canDrawWR = false;
-                                                      canDrawPSY = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('BIAS'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD = false;
-                                                        canDrawVR = false;
-                                                        canDrawVOL = false;
-                                                        canDrawKDJ = false;
-                                                        canDrawRSI = false;
-                                                        canDrawCCI = false;
-                                                        canDrawBIAS = true;
-                                                        canDrawWR = false;
-                                                        canDrawPSY = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('OBV'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('WR'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD = false;
-                                                        canDrawVR = false;
-                                                        canDrawVOL = false;
-                                                        canDrawKDJ = false;
-                                                        canDrawRSI = false;
-                                                        canDrawCCI = false;
-                                                        canDrawBIAS = false;
-                                                        canDrawWR = true;
-                                                        canDrawPSY = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DMA'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('PSY'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD = false;
-                                                        canDrawVR = false;
-                                                        canDrawVOL = false;
-                                                        canDrawKDJ = false;
-                                                        canDrawRSI = false;
-                                                        canDrawCCI = false;
-                                                        canDrawBIAS = false;
-                                                        canDrawWR = false;
-                                                        canDrawPSY = true;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD能量棒'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                ]);
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            if (showSubDraw1)
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    IgnorePointer(
-                                      child: CustomPaint(
-                                        key: UniqueKey(),
-                                        size: Size(1.sw, 1.sh),
-                                        painter: paint1,
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
-                                      width: Port.defult_icon_width,
-                                      child: FlyoutTarget(
-                                        controller: menuController1,
-                                        child: IconButton(
-                                          icon: const Icon(FluentIcons.query_list),
-                                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                                          onPressed: () {
-                                            menuController1.showFlyout(
-                                              autoModeConfiguration: FlyoutAutoConfiguration(
-                                                preferredMode: FlyoutPlacementMode.topLeft,
-                                              ),
-                                              builder: (context) {
-                                                return MenuFlyout(items: [
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VOL'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = false;
-                                                      canDrawVR1 = false;
-                                                      canDrawVOL1 = true;
-                                                      canDrawKDJ1 = false;
-                                                      canDrawRSI1 = false;
-                                                      canDrawCCI1 = false;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VR'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = false;
-                                                      canDrawVR1 = true;
-                                                      canDrawVOL1 = false;
-                                                      canDrawKDJ1 = false;
-                                                      canDrawRSI1 = false;
-                                                      canDrawCCI1 = false;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = true;
-                                                      canDrawVR1 = false;
-                                                      canDrawVOL1 = false;
-                                                      canDrawKDJ1 = false;
-                                                      canDrawRSI1 = false;
-                                                      canDrawCCI1 = false;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('KDJ'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = false;
-                                                      canDrawVR1 = false;
-                                                      canDrawVOL1 = false;
-                                                      canDrawKDJ1 = true;
-                                                      canDrawRSI1 = false;
-                                                      canDrawCCI1 = false;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('RSI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = false;
-                                                      canDrawVR1 = false;
-                                                      canDrawVOL1 = false;
-                                                      canDrawKDJ1 = false;
-                                                      canDrawRSI1 = true;
-                                                      canDrawCCI1 = false;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('CCI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD1 = false;
-                                                      canDrawVR1 = false;
-                                                      canDrawVOL1 = false;
-                                                      canDrawKDJ1 = false;
-                                                      canDrawRSI1 = false;
-                                                      canDrawCCI1 = true;
-                                                      canDrawBIAS1 = false;
-                                                      canDrawWR1 = false;
-                                                      canDrawPSY1 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('BIAS'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD1 = false;
-                                                        canDrawVR1 = false;
-                                                        canDrawVOL1 = false;
-                                                        canDrawKDJ1 = false;
-                                                        canDrawRSI1 = false;
-                                                        canDrawCCI1 = false;
-                                                        canDrawBIAS1 = true;
-                                                        canDrawWR1 = false;
-                                                        canDrawPSY1 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('OBV'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('WR'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD1 = false;
-                                                        canDrawVR1 = false;
-                                                        canDrawVOL1 = false;
-                                                        canDrawKDJ1 = false;
-                                                        canDrawRSI1 = false;
-                                                        canDrawCCI1 = false;
-                                                        canDrawBIAS1 = false;
-                                                        canDrawWR1 = true;
-                                                        canDrawPSY1 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DMA'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('PSY'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD1 = false;
-                                                        canDrawVR1 = false;
-                                                        canDrawVOL1 = false;
-                                                        canDrawKDJ1 = false;
-                                                        canDrawRSI1 = false;
-                                                        canDrawCCI1 = false;
-                                                        canDrawBIAS1 = false;
-                                                        canDrawWR1 = false;
-                                                        canDrawPSY1 = true;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD能量棒'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                ]);
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            if (showSubDraw2)
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    IgnorePointer(
-                                      child: CustomPaint(
-                                        key: UniqueKey(),
-                                        size: Size(1.sw, 1.sh),
-                                        painter: paint2,
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
-                                      width: Port.defult_icon_width,
-                                      child: FlyoutTarget(
-                                        controller: menuController2,
-                                        child: IconButton(
-                                          icon: const Icon(FluentIcons.query_list),
-                                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                                          onPressed: () {
-                                            menuController2.showFlyout(
-                                              autoModeConfiguration: FlyoutAutoConfiguration(
-                                                preferredMode: FlyoutPlacementMode.topLeft,
-                                              ),
-                                              builder: (context) {
-                                                return MenuFlyout(items: [
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VOL'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = false;
-                                                      canDrawVR2 = false;
-                                                      canDrawVOL2 = true;
-                                                      canDrawKDJ2 = false;
-                                                      canDrawRSI2 = false;
-                                                      canDrawCCI2 = false;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VR'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = false;
-                                                      canDrawVR2 = true;
-                                                      canDrawVOL2 = false;
-                                                      canDrawKDJ2 = false;
-                                                      canDrawRSI2 = false;
-                                                      canDrawCCI2 = false;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = true;
-                                                      canDrawVR2 = false;
-                                                      canDrawVOL2 = false;
-                                                      canDrawKDJ2 = false;
-                                                      canDrawRSI2 = false;
-                                                      canDrawCCI2 = false;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('KDJ'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = false;
-                                                      canDrawVR2 = false;
-                                                      canDrawVOL2 = false;
-                                                      canDrawKDJ2 = true;
-                                                      canDrawRSI2 = false;
-                                                      canDrawCCI2 = false;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('RSI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = false;
-                                                      canDrawVR2 = false;
-                                                      canDrawVOL2 = false;
-                                                      canDrawKDJ2 = false;
-                                                      canDrawRSI2 = true;
-                                                      canDrawCCI2 = false;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('CCI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD2 = false;
-                                                      canDrawVR2 = false;
-                                                      canDrawVOL2 = false;
-                                                      canDrawKDJ2 = false;
-                                                      canDrawRSI2 = false;
-                                                      canDrawCCI2 = true;
-                                                      canDrawBIAS2 = false;
-                                                      canDrawWR2 = false;
-                                                      canDrawPSY2 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('BIAS'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD2 = false;
-                                                        canDrawVR2 = false;
-                                                        canDrawVOL2 = false;
-                                                        canDrawKDJ2 = false;
-                                                        canDrawRSI2 = false;
-                                                        canDrawCCI2 = false;
-                                                        canDrawBIAS2 = true;
-                                                        canDrawWR2 = false;
-                                                        canDrawPSY2 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('OBV'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('WR'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD2 = false;
-                                                        canDrawVR2 = false;
-                                                        canDrawVOL2 = false;
-                                                        canDrawKDJ2 = false;
-                                                        canDrawRSI2 = false;
-                                                        canDrawCCI2 = false;
-                                                        canDrawBIAS2 = false;
-                                                        canDrawWR2 = true;
-                                                        canDrawPSY2 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DMA'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('PSY'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD2 = false;
-                                                        canDrawVR2 = false;
-                                                        canDrawVOL2 = false;
-                                                        canDrawKDJ2 = false;
-                                                        canDrawRSI2 = false;
-                                                        canDrawCCI2 = false;
-                                                        canDrawBIAS2 = false;
-                                                        canDrawWR2 = false;
-                                                        canDrawPSY2 = true;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD能量棒'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                ]);
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            if (showSubDraw3)
-                              Expanded(
-                                child: Stack(
-                                  children: [
-                                    IgnorePointer(
-                                      child: CustomPaint(
-                                        key: UniqueKey(),
-                                        size: Size(1.sw, 1.sh),
-                                        painter: paint3,
-                                      ),
-                                    ),
-                                    Container(
-                                      margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
-                                      width: Port.defult_icon_width,
-                                      child: FlyoutTarget(
-                                        controller: menuController3,
-                                        child: IconButton(
-                                          icon: const Icon(FluentIcons.query_list),
-                                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                                          onPressed: () {
-                                            menuController3.showFlyout(
-                                              autoModeConfiguration: FlyoutAutoConfiguration(
-                                                preferredMode: FlyoutPlacementMode.topLeft,
-                                              ),
-                                              builder: (context) {
-                                                return MenuFlyout(items: [
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VOL'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = false;
-                                                      canDrawVR3 = false;
-                                                      canDrawVOL3 = true;
-                                                      canDrawKDJ3 = false;
-                                                      canDrawRSI3 = false;
-                                                      canDrawCCI3 = false;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('VR'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = false;
-                                                      canDrawVR3 = true;
-                                                      canDrawVOL3 = false;
-                                                      canDrawKDJ3 = false;
-                                                      canDrawRSI3 = false;
-                                                      canDrawCCI3 = false;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = true;
-                                                      canDrawVR3 = false;
-                                                      canDrawVOL3 = false;
-                                                      canDrawKDJ3 = false;
-                                                      canDrawRSI3 = false;
-                                                      canDrawCCI3 = false;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('KDJ'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = false;
-                                                      canDrawVR3 = false;
-                                                      canDrawVOL3 = false;
-                                                      canDrawKDJ3 = true;
-                                                      canDrawRSI3 = false;
-                                                      canDrawCCI3 = false;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('RSI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = false;
-                                                      canDrawVR3 = false;
-                                                      canDrawVOL3 = false;
-                                                      canDrawKDJ3 = false;
-                                                      canDrawRSI3 = true;
-                                                      canDrawCCI3 = false;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('CCI'),
-                                                    onPressed: () {
-                                                      Flyout.of(context).close;
-                                                      canDrawMACD3 = false;
-                                                      canDrawVR3 = false;
-                                                      canDrawVOL3 = false;
-                                                      canDrawKDJ3 = false;
-                                                      canDrawRSI3 = false;
-                                                      canDrawCCI3 = true;
-                                                      canDrawBIAS3 = false;
-                                                      canDrawWR3 = false;
-                                                      canDrawPSY3 = false;
-                                                      if (mounted) setState(() {});
-                                                    },
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('BIAS'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD3 = false;
-                                                        canDrawVR3 = false;
-                                                        canDrawVOL3 = false;
-                                                        canDrawKDJ3 = false;
-                                                        canDrawRSI3 = false;
-                                                        canDrawCCI3 = false;
-                                                        canDrawBIAS3 = true;
-                                                        canDrawWR3 = false;
-                                                        canDrawPSY3 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('OBV'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('WR'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD3 = false;
-                                                        canDrawVR3 = false;
-                                                        canDrawVOL3 = false;
-                                                        canDrawKDJ3 = false;
-                                                        canDrawRSI3 = false;
-                                                        canDrawCCI3 = false;
-                                                        canDrawBIAS3 = false;
-                                                        canDrawWR3 = true;
-                                                        canDrawPSY3 = false;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('DMA'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                  MenuFlyoutItem(
-                                                      text: const Text('PSY'),
-                                                      onPressed: () {
-                                                        Flyout.of(context).close;
-                                                        canDrawMACD3 = false;
-                                                        canDrawVR3 = false;
-                                                        canDrawVOL3 = false;
-                                                        canDrawKDJ3 = false;
-                                                        canDrawRSI3 = false;
-                                                        canDrawCCI3 = false;
-                                                        canDrawBIAS3 = false;
-                                                        canDrawWR3 = false;
-                                                        canDrawPSY3 = true;
-                                                        if (mounted) setState(() {});
-                                                      }),
-                                                  MenuFlyoutItem(
-                                                    text: const Text('MACD能量棒'),
-                                                    onPressed: Flyout.of(context).close,
-                                                  ),
-                                                ]);
-                                              },
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                    )
-                                  ],
-                                ),
+                          items: (context) => [
+                            MenuFlyoutItem(
+                                text: const Text('报价页面'),
+                                onPressed: () {
+                                  appTheme.viewIndex = 0;
+                                  Flyout.of(context).close();
+                                }),
+                            isDrawTime
+                                ? MenuFlyoutItem(
+                                    text: const Text('K线'),
+                                    onPressed: () {
+                                      KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                      if (kPeriod == fs) return;
+                                      appTheme.selectCommandBarIndex = 1;
+                                      subscriptionKlineData(false);
+                                      kPeriod = fs;
+                                      mOHLCData.clear();
+                                      SWITHING_TIME = true;
+                                      isDrawTime = false;
+                                      requestAllData();
+                                      subscriptionKlineData(true);
+                                      Flyout.of(context).close();
+                                    })
+                                : MenuFlyoutItem(
+                                    text: const Text('分时'),
+                                    onPressed: () {
+                                      KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                      if (kPeriod == fs) return;
+                                      appTheme.selectCommandBarIndex = 0;
+                                      subscriptionKlineData(false);
+                                      kPeriod = fs;
+                                      mOHLCData.clear();
+                                      SWITHING_TIME = true;
+                                      isDrawTime = true;
+                                      requestAllData();
+                                      subscriptionKlineData(true);
+                                      Flyout.of(context).close();
+                                    }),
+                            if (!isDrawTime)
+                              MenuFlyoutItem(
+                                text: const Text('成交报表'),
+                                onPressed: () {
+                                  appTheme.showChart = false;
+                                  if (mounted) setState(() {});
+                                },
                               ),
                           ],
                         ),
+                        MenuFlyoutSubItem(
+                          text: const Text('技术指标'),
+                          leading: const Icon(
+                            FluentIcons.accept,
+                            color: Colors.transparent,
+                          ),
+                          items: (context) => [
+                            MenuFlyoutSubItem(
+                              text: const Text('趋势分析指标（主图）'),
+                              items: (_) => [
+                                MenuFlyoutItem(
+                                  text: const Text('MA组合'),
+                                  trailing: const Text('移动平均线组合'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('BOLL'),
+                                  trailing: const Text('布林通道线'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('PUBU'),
+                                  trailing: const Text('瀑布线'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('DSX'),
+                                  trailing: const Text('全形量化'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('DDHX'),
+                                  trailing: const Text('高低点划线'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                              ],
+                            ),
+                            MenuFlyoutSubItem(
+                              text: const Text('量仓分析'),
+                              items: (_) => [
+                                MenuFlyoutItem(
+                                  text: const Text('VOL'),
+                                  trailing: const Text('成交量'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('VR'),
+                                  trailing: const Text('VR容量比率'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('OBV'),
+                                  trailing: const Text('能量潮'),
+                                  onPressed: Flyout.of(context).close,
+                                )
+                              ],
+                            ),
+                            MenuFlyoutSubItem(
+                              text: const Text('摆动分析'),
+                              items: (_) => [
+                                MenuFlyoutItem(
+                                  text: const Text('MACD'),
+                                  trailing: const Text('平滑移动平均线'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('KDJ'),
+                                  trailing: const Text('随机指标'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('RSI'),
+                                  trailing: const Text('相对强弱指标'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('CCI'),
+                                  trailing: const Text('顺势指标'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('BIAS'),
+                                  trailing: const Text('乖离率'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('WR'),
+                                  trailing: const Text('威廉指标'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('DMA'),
+                                  trailing: const Text('平均线差'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                                MenuFlyoutItem(
+                                  text: const Text('PSY'),
+                                  trailing: const Text('心理线'),
+                                  onPressed: Flyout.of(context).close,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('指标修改'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('显示盘口数据'),
+                          leading: Icon(
+                            FluentIcons.accept,
+                            color: showPanKou ? Colors.green : Colors.transparent,
+                          ),
+                          onPressed: () {
+                            showPanKou = !showPanKou;
+                            if (mounted) setState(() {});
+                            Flyout.of(context).close;
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('增加副图'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            if (showSubDraw && showSubDraw1 && showSubDraw2 && showSubDraw3 || subCount >= 4) {
+                              InfoBarUtils.showWarningDialog("分析区域不能超过5个");
+                            } else if (!showSubDraw) {
+                              showSubDraw = true;
+                              subCount++;
+                            } else if (!showSubDraw1) {
+                              showSubDraw1 = true;
+                              subCount++;
+                            } else if (!showSubDraw2) {
+                              showSubDraw2 = true;
+                              subCount++;
+                            } else if (!showSubDraw3) {
+                              showSubDraw3 = true;
+                              subCount++;
+                            }
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('删除副图'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            if (subCount <= 0 || !showSubDraw && !showSubDraw1 && !showSubDraw2 && !showSubDraw3) {
+                              return;
+                            } else if (showSubDraw3) {
+                              showSubDraw3 = false;
+                              subCount--;
+                            } else if (showSubDraw2) {
+                              showSubDraw2 = false;
+                              subCount--;
+                            } else if (showSubDraw1) {
+                              showSubDraw1 = false;
+                              subCount--;
+                            } else if (showSubDraw) {
+                              showSubDraw = false;
+                              subCount--;
+                            }
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutSubItem(
+                          text: const Text('周期切换'),
+                          leading: const Icon(
+                            FluentIcons.accept,
+                            color: Colors.transparent,
+                          ),
+                          items: (context) => [
+                            MenuFlyoutItem(
+                              text: const Text('日线'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 1;
+                                KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('周线'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 2;
+                                KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('月线'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 3;
+                                KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('年线'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 4;
+                                KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('任意天'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 5;
+                                KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return PeriodDialog().showPeriodDialog(mKPFlag, "天");
+                                    });
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('1分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 6;
+                                KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('3分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 7;
+                                KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('5分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 8;
+                                KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('10分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 9;
+                                KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('15分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 10;
+                                KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('30分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 11;
+                                KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('60分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 12;
+                                KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('120分钟'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 13;
+                                KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                                if (kPeriod == fs) return;
+                                subscriptionKlineData(false);
+                                kPeriod = fs;
+                                mOHLCData.clear();
+                                SWITHING_TIME = true;
+                                isDrawTime = false;
+                                requestAllData();
+                                subscriptionKlineData(true);
+                              },
+                            ),
+                            MenuFlyoutItem(
+                              text: const Text('任意分'),
+                              leading: Icon(
+                                FluentIcons.radio_btn_on,
+                                color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                              ),
+                              onPressed: () {
+                                appTheme.selectCommandBarIndex = 14;
+                                KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
+                                    });
+                              },
+                            ),
+                          ],
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('画线下单'),
+                          onPressed: () async {
+                            if (LoginServer.isLogin) {
+                              await rustDeskWinManager.newDrawOrder("drawOrder");
+                            } else {
+                              InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+                            }
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('最大化'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('横向分页'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('纵向分页'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('关闭窗口'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                },
+                onLongPressStart: (e) {
+                  if (selectedLine != -1) {
+                    moveLine = true;
+                  }
+                },
+                onLongPressMoveUpdate: (e) {
+                  if (moveLine) {
+                    WebSocketServer.drawOrderLines[selectedLine].kPrice = null;
+                    WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
+                  }
+                },
+                onLongPressEnd: (e) async {
+                  if (moveLine) {
+                    WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
+                    moveLine = false;
+                    selectedLine = -1;
+                    String tmp = jsonEncode({
+                      "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": WebSocketServer.drawOrderLines
+                    });
+                    await SpUtils.set(SpKey.drawLines, tmp);
+                    if (mounted) setState(() {});
+                  }
+                },
+                child: FlyoutTarget(
+                  key: contextAttachKey,
+                  controller: contextController,
+                  child: Container(
+                    decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.red))),
+                    child: isDrawTime
+                        ? RepaintBoundary(
+                            child: CustomPaint(
+                            size: Size(1.sw, 1.sh),
+                            painter: painter,
+                          ))
+                        : Column(
+                            children: [
+                              Expanded(
+                                flex: 6 - subCount,
+                                child: Stack(
+                                  children: [
+                                    RepaintBoundary(
+                                        child: CustomPaint(
+                                      size: Size(1.sw, 1.sh),
+                                      painter: painter,
+                                    )),
+                                    Container(
+                                        key: _globalKey,
+                                        margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
+                                        width: Port.defult_icon_width,
+                                        child: FlyoutTarget(
+                                            controller: mainMenuController,
+                                            child: IgnorePointer(
+                                              child: IconButton(
+                                                  icon: const Icon(FluentIcons.query_list),
+                                                  style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                                                  onPressed: () {}),
+                                            ))),
+                                  ],
+                                ),
+                              ),
+                              if (showSubDraw)
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          key: UniqueKey(),
+                                          size: Size(1.sw, 1.sh),
+                                          painter: paint,
+                                        ),
+                                      ),
+                                      Container(
+                                        key: _subGlobalKey,
+                                        margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
+                                        width: Port.defult_icon_width,
+                                        child: FlyoutTarget(
+                                            controller: menuController,
+                                            child: IgnorePointer(
+                                              child: IconButton(
+                                                  icon: const Icon(FluentIcons.query_list),
+                                                  style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                                                  onPressed: () {}),
+                                            )),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              if (showSubDraw1)
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          key: UniqueKey(),
+                                          size: Size(1.sw, 1.sh),
+                                          painter: paint1,
+                                        ),
+                                      ),
+                                      Container(
+                                        key: _subGlobalKey1,
+                                        margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
+                                        width: Port.defult_icon_width,
+                                        child: FlyoutTarget(
+                                          controller: menuController1,
+                                          child: IgnorePointer(
+                                            child: IconButton(
+                                                icon: const Icon(FluentIcons.query_list),
+                                                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                                                onPressed: () {}),
+                                          ),
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              if (showSubDraw2)
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          key: UniqueKey(),
+                                          size: Size(1.sw, 1.sh),
+                                          painter: paint2,
+                                        ),
+                                      ),
+                                      Container(
+                                        key: _subGlobalKey2,
+                                        margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
+                                        width: Port.defult_icon_width,
+                                        child: FlyoutTarget(
+                                          controller: menuController2,
+                                          child: IgnorePointer(
+                                            child: IconButton(
+                                                icon: const Icon(FluentIcons.query_list),
+                                                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                                                onPressed: () {}),
+                                          ),
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                              if (showSubDraw3)
+                                Expanded(
+                                  child: Stack(
+                                    children: [
+                                      IgnorePointer(
+                                        child: CustomPaint(
+                                          key: UniqueKey(),
+                                          size: Size(1.sw, 1.sh),
+                                          painter: paint3,
+                                        ),
+                                      ),
+                                      Container(
+                                        key: _subGlobalKey3,
+                                        margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
+                                        width: Port.defult_icon_width,
+                                        child: FlyoutTarget(
+                                          controller: menuController3,
+                                          child: IgnorePointer(
+                                            child: IconButton(
+                                                icon: const Icon(FluentIcons.query_list),
+                                                style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+                                                onPressed: () {}),
+                                          ),
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -3251,15 +3513,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ),
                       onPressed: () {
                         appTheme.selectCommandBarIndex = 5;
-                        // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                        // if (kPeriod == fs) return;
-                        // subscriptionKlineData(false);
-                        // kPeriod = fs;
-                        // mOHLCData.clear();
-                        // SWITHING_TIME = true;
-                        // isDrawTime = false;
-                        // requestAllData();
-                        // subscriptionKlineData(true);
+                        KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return PeriodDialog().showPeriodDialog(mKPFlag, "天");
+                            });
                       },
                     ),
                     MenuFlyoutItem(
@@ -3422,15 +3681,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ),
                       onPressed: () {
                         appTheme.selectCommandBarIndex = 14;
-                        // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                        // if (kPeriod == fs) return;
-                        // subscriptionKlineData(false);
-                        // kPeriod = fs;
-                        // mOHLCData.clear();
-                        // SWITHING_TIME = true;
-                        // isDrawTime = false;
-                        // requestAllData();
-                        // subscriptionKlineData(true);
+                        KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
+                            });
                       },
                     ),
                   ],
@@ -3527,7 +3783,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         ));
   }
 
-  Widget statementColorItem(num? value, num? lastClose) {
+  Widget statementColorItem(double? value, double? lastClose) {
     return Expanded(
         flex: 1,
         child: Text(
@@ -3615,16 +3871,20 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  if (level == 10) priceItem("卖十", "0.00", "0"),
-                  if (level == 10) priceItem("卖九", "0.00", "0"),
-                  if (level == 10) priceItem("卖八", "0.00", "0"),
-                  if (level == 10) priceItem("卖七", "0.00", "0"),
-                  if (level == 10) priceItem("卖六", "0.00", "0"),
-                  if (level == 10 || level == 5) priceItem("卖五", "0.00", "0"),
-                  if (level == 10 || level == 5) priceItem("卖四", "0.00", "0"),
-                  if (level == 10 || level == 5) priceItem("卖三", "0.00", "0"),
-                  if (level == 10 || level == 5) priceItem("卖二", "0.00", "0"),
-                  priceItem("卖一", "74.21", "13", fontSize: 22),
+                  if (level == 10) priceItem("卖十", "${contract!.level2List?[29].price ?? 0.00}", "${contract!.level2List?[29].volume ?? 0}"),
+                  if (level == 10) priceItem("卖九", "${contract!.level2List?[28].price ?? 0.00}", "${contract!.level2List?[28].volume ?? 0}"),
+                  if (level == 10) priceItem("卖八", "${contract!.level2List?[27].price ?? 0.00}", "${contract!.level2List?[27].volume ?? 0}"),
+                  if (level == 10) priceItem("卖七", "${contract!.level2List?[26].price ?? 0.00}", "${contract!.level2List?[26].volume ?? 0}"),
+                  if (level == 10) priceItem("卖六", "${contract!.level2List?[25].price ?? 0.00}", "${contract!.level2List?[25].volume ?? 0}"),
+                  if (level == 10 || level == 5)
+                    priceItem("卖五", "${contract!.level2List?[24].price ?? 0.00}", "${contract!.level2List?[24].volume ?? 0}"),
+                  if (level == 10 || level == 5)
+                    priceItem("卖四", "${contract!.level2List?[23].price ?? 0.00}", "${contract!.level2List?[23].volume ?? 0}"),
+                  if (level == 10 || level == 5)
+                    priceItem("卖三", "${contract!.level2List?[22].price ?? 0.00}", "${contract!.level2List?[22].volume ?? 0}"),
+                  if (level == 10 || level == 5)
+                    priceItem("卖二", "${contract!.level2List?[21].price ?? 0.00}", "${contract!.level2List?[21].volume ?? 0}"),
+                  priceItem("卖一", "${contract!.level2List?[20].price ?? 0.00}", "${contract!.level2List?[20].volume ?? 0}", fontSize: 22),
                 ],
               ),
             ),
@@ -3632,16 +3892,20 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(border: Border.all(color: Colors.red)),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                priceItem("买一", "74.21", "13", fontSize: 22),
-                if (level == 10 || level == 5) priceItem("买二", "0.00", "0"),
-                if (level == 10 || level == 5) priceItem("买三", "0.00", "0"),
-                if (level == 10 || level == 5) priceItem("买四", "0.00", "0"),
-                if (level == 10 || level == 5) priceItem("买五", "0.00", "0"),
-                if (level == 10) priceItem("买六", "0.00", "0"),
-                if (level == 10) priceItem("买七", "0.00", "0"),
-                if (level == 10) priceItem("买八", "0.00", "0"),
-                if (level == 10) priceItem("买九", "0.00", "0"),
-                if (level == 10) priceItem("买十", "0.00", "0"),
+                priceItem("买一", "${contract!.level2List?[0].price ?? 0.00}", "${contract!.level2List?[0].volume ?? 0}", fontSize: 22),
+                if (level == 10 || level == 5)
+                  priceItem("买二", "${contract!.level2List?[1].price ?? 0.00}", "${contract!.level2List?[1].volume ?? 0}"),
+                if (level == 10 || level == 5)
+                  priceItem("买三", "${contract!.level2List?[2].price ?? 0.00}", "${contract!.level2List?[2].volume ?? 0}"),
+                if (level == 10 || level == 5)
+                  priceItem("买四", "${contract!.level2List?[3].price ?? 0.00}", "${contract!.level2List?[3].volume ?? 0}"),
+                if (level == 10 || level == 5)
+                  priceItem("买五", "${contract!.level2List?[4].price ?? 0.00}", "${contract!.level2List?[4].volume ?? 0}"),
+                if (level == 10) priceItem("买六", "${contract!.level2List?[5].price ?? 0.00}", "${contract!.level2List?[5].volume ?? 0}"),
+                if (level == 10) priceItem("买七", "${contract!.level2List?[6].price ?? 0.00}", "${contract!.level2List?[6].volume ?? 0}"),
+                if (level == 10) priceItem("买八", "${contract!.level2List?[7].price ?? 0.00}", "${contract!.level2List?[7].volume ?? 0}"),
+                if (level == 10) priceItem("买九", "${contract!.level2List?[8].price ?? 0.00}", "${contract!.level2List?[8].volume ?? 0}"),
+                if (level == 10) priceItem("买十", "${contract!.level2List?[9].price ?? 0.00}", "${contract!.level2List?[9].volume ?? 0}"),
               ]),
             ),
             Container(
@@ -3773,7 +4037,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(children: [
         Expanded(child: Text(title, style: TextStyle(fontSize: fontSize ?? 14, color: appTheme.color))),
-        Expanded(child: Text(price, textAlign: TextAlign.right, style: TextStyle(fontSize: fontSize ?? 16, color: Colors.red))),
+        Expanded(child: Text(price, textAlign: TextAlign.right, style: TextStyle(fontSize: fontSize ?? 16, color: pankouColor))),
         const SizedBox(width: 10),
         Expanded(flex: 2, child: Text(count, style: TextStyle(fontSize: fontSize ?? 16, color: Colors.yellow))),
       ]),
@@ -3787,12 +4051,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         text ?? "--",
         textAlign: TextAlign.center,
         style: TextStyle(
-            fontSize: fontSize ?? 15,
-            color: up == 1
-                ? Colors.red
-                : up == 2
-                    ? Colors.green
-                    : appTheme.color),
+          fontSize: fontSize ?? 15,
+          color: Colors.red,
+          // color: up == 1
+          //     ? Colors.red
+          //     : up == 2
+          //         ? Colors.green
+          //         : appTheme.color,
+        ),
       ),
     );
   }

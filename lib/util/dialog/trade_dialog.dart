@@ -10,7 +10,7 @@ import '../../server/trade/deal.dart';
 import '../theme/theme.dart';
 
 class TradeDialog {
-  Widget addOrderDialog(AddOrder order, {void Function()? function}) {
+  Widget addOrderDialog(AddOrder order) {
     String type = order.OrderSide == SideType.SIDE_SELL ? "卖出" : "买入";
     String open = order.PositionEffect == PositionEffectType.PositionEffect_OPEN ? "开仓" : "平仓";
     String mPrice = "";
@@ -93,9 +93,6 @@ class TradeDialog {
                         order.OrderQty ?? 0,
                         order.PositionEffect ?? 0,
                         order.needBackHand);
-                    if (function != null) {
-                      function();
-                    }
                   },
                 ),
                 Button(

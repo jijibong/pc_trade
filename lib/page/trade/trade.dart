@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
@@ -11,11 +10,9 @@ import 'package:linked_scroll_controller/linked_scroll_controller.dart';
 import 'package:omni_datetime_picker/omni_datetime_picker.dart';
 import 'package:provider/provider.dart';
 import 'package:trade/model/user/user.dart';
-import 'package:trade/util/event_bus/events.dart';
 import '../../config/common.dart';
 import '../../config/config.dart';
 import '../../main.dart';
-import '../../model/broker/broker.dart';
 import '../../model/condition/condition.dart';
 import '../../model/delegation/comOrder.dart';
 import '../../model/delegation/delegateOrder.dart';
@@ -31,7 +28,6 @@ import '../../model/quote/order_type.dart';
 import '../../model/quote/position_effect_type.dart';
 import '../../model/quote/side_type.dart';
 import '../../model/quote/time_in_force_type.dart';
-import '../../model/socket_packet/operation.dart' as socket_operation;
 import '../../model/trade/fund.dart';
 import '../../model/trade/hold_order.dart';
 import '../../model/trade/margin.dart';
@@ -50,7 +46,6 @@ import '../../server/login/login.dart';
 import '../../server/pl/pl.dart';
 import '../../server/position/position.dart';
 import '../../server/socket/trade_webSocket.dart';
-import '../../server/socket/webSocket.dart';
 import '../../server/trade/deal.dart';
 import '../../server/trade/settle.dart';
 import '../../server/user/user.dart';
@@ -111,6 +106,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
   List<HoldOrder> mCloseList = [];
   List<Condition> mConditionList = [];
   List<Exchange> exchangeList = [];
+  List<Commodity> initCommodityList = [];
   List<Commodity> commodityList = [];
   Contract contract = Contract();
   int closeIndex = 0;
@@ -139,6 +135,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
   bool inputting = false;
   bool waiting = false;
   bool defaultTradeType = true;
+  int defaultTradeMenu = 0;
   void Function(void Function())? globalStateFund;
   void Function(void Function())? globalStateFirst;
   void Function(void Function())? globalStateSecond;
@@ -161,6 +158,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
   LinkedScrollControllerGroup conditionControllerGroup = LinkedScrollControllerGroup();
   ScrollController conditionTitleController = ScrollController(keepScrollOffset: true);
   ScrollController conditionItemController = ScrollController(keepScrollOffset: true);
+  TextEditingController textController = TextEditingController();
 
   @override
   bool get wantKeepAlive => true;
@@ -274,6 +272,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     String? userInfo = await SpUtils.getString(SpKey.currentUser);
     exchangeList = await Utils.getMyExchange(true);
     defaultTradeType = await SpUtils.getBool(SpKey.defaultTradeType) ?? true;
+    defaultTradeMenu = await SpUtils.getInt(SpKey.defaultTradeMenu) ?? 0;
     String? commodity = await SpUtils.getString(SpKey.commodity);
     if (baseUrl != null && userInfo != null) {
       Config.URL = baseUrl;
@@ -288,7 +287,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     }
     if (!defaultTradeType) {
       price = "市价";
-      if (mounted) setState(() {});
+      textController.text = price;
+    }
+    if (defaultTradeMenu != 0) {
+      appTheme.tradeIndex = defaultTradeMenu;
     }
 
     if (widget.params['contract'] != null) {
@@ -307,9 +309,11 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       MarketUtils.contractList = allContracts;
     }
     if (commodity != null) {
+      commodityList.clear();
       List temp = jsonDecode(commodity);
       MarketUtils.commodityList = temp.map((e) => Commodity.fromJson(e)).toList();
-      commodityList = Utils.getVariety(exchangeList[0].exchangeNo);
+      initCommodityList = Utils.getVariety(exchangeList[0].exchangeNo);
+      commodityList.addAll(initCommodityList);
     }
   }
 
@@ -405,12 +409,11 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     if (globalStateFirst != null) globalStateFund!(() {});
   }
 
-  /// 获取限价价格
+  /// 获取限价价格 side true卖出
   double getLimitPrice(bool side) {
     double value = 0;
     switch (price.trim()) {
       case "排队价":
-        //side true卖出
         if (side) {
           value = Utils.getIntegerPrice(contract.salePrice, contract.futureTickSize);
         } else {
@@ -441,7 +444,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     if (price != "市价" && price != "排队价" && price != "对手价" && price != "最新价" && price != "超价") {
       String str = price.trim();
       if (str.startsWith(".") || str.endsWith(".") || str == "") {
-        InfoBarUtils.showWarningBar("请输入正确价格");
+        InfoBarUtils.showWarningDialog("请输入正确价格");
       } else {
         value = double.parse(price.trim());
         value = Utils.getIntegerPrice(value, contract.futureTickSize);
@@ -896,7 +899,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                 const SizedBox(
                                   width: 15,
                                 ),
-                                const Flexible(child: Text("确认要删除全部订单吗?")),
+                                Flexible(child: Text("确认要删除${condition.ConditionOrderNo}的条件单吗?")),
                               ],
                             )),
                       ),
@@ -1356,32 +1359,44 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
 
   ///资金状况
   Future getCapitals() async {
+    capitals.clear();
     capitals = await SettleServer.getCapital(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
+    if (mounted) setState(() {});
   }
 
   ///平仓明细
   Future getCloseDetailed() async {
+    close.clear();
     close = await SettleServer.getCloseDetailed(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
+    if (mounted) setState(() {});
   }
 
   ///持仓明细
   Future getPositionDetailed() async {
+    positions.clear();
     positions = await SettleServer.getPositionDetailed(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
+    if (mounted) setState(() {});
   }
 
   ///持仓汇总
   Future getPositionSummary() async {
+    positionSummary.clear();
     positionSummary = await SettleServer.getPositionSummary(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime), 1);
+    if (mounted) setState(() {});
   }
 
   ///历史成交/成交记录
   Future getFillRecord() async {
+    transactionRecord.clear();
     transactionRecord = await SettleServer.getFillRecord(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime));
+    if (mounted) setState(() {});
   }
 
   ///出入金
   Future getCashReport() async {
+    withdrawalRecord.clear();
     withdrawalRecord = await SettleServer.getCashReport(UserUtils.currentUser?.id, formatter.format(startTime), formatter.format(endTime));
+    if (mounted) setState(() {});
   }
 
   void startDragging(bool isMainWindow) {
@@ -1397,9 +1412,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     if (list.isNotEmpty) {
       exchangeList.clear();
       exchangeList.addAll(list);
-      commodityList = Utils.getVariety(exchangeList[0].exchangeNo);
-      // if (mounted) setState(() {});
+      commodityList.clear();
+      initCommodityList = Utils.getVariety(exchangeList[0].exchangeNo);
+      commodityList.addAll(initCommodityList);
     }
+  }
+
+  loginOut() {
+    Future.delayed(Duration.zero, () async {
+      await WindowController.fromWindowId(kWindowId!).hide();
+      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+    });
   }
 
   @override
@@ -1428,8 +1451,6 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
   @override
   void dispose() {
     DesktopMultiWindow.removeListener(this);
-    WebSocketServer().dispose();
-    TradeWebSocketServer().dispose();
     super.dispose();
   }
 
@@ -1502,13 +1523,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     ),
                     Button(
                         style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
-                        child: const Text("退出"),
-                        onPressed: () {
-                          Future.delayed(Duration.zero, () async {
-                            await WindowController.fromWindowId(kWindowId!).hide();
-                            await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
-                          });
-                        }),
+                        onPressed: loginOut,
+                        child: const Text("退出")),
                   ],
                 )
               ],
@@ -1605,13 +1621,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                   IconButton(
                       icon: const Icon(FluentIcons.sign_out, size: 22),
                       style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
-                      onPressed: () async {
-                        Future.delayed(Duration.zero, () async {
-                          await WindowController.fromWindowId(kWindowId!).hide();
-                          await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
-                        });
-                        // EventBusUtil.getInstance().fire(LoginEvent(false));
-                      }),
+                      onPressed: loginOut),
                 ]),
               ),
               content: Row(
@@ -1624,7 +1634,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                       tabItem("当日委托", 2),
                       tabItem("当日成交", 3),
                       tabItem("持仓", 4),
-                      tabItem("查询", 5),
+                      tabItem("结算单", 5),
                       tabItem("交易设置", 6),
                     ],
                   ),
@@ -1658,7 +1668,27 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     );
   }
 
-  Widget tableTitleItem(String? text, {Color? color}) {
+  Widget tableTitleItem(String text) {
+    return Container(
+      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      alignment: Alignment.center,
+      child: AnimatedFluentTheme(
+        data: FluentThemeData(),
+        child: Tooltip(
+            message: text ?? "--",
+            style: const TooltipThemeData(preferBelow: true),
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: appTheme.exchangeTextColor),
+            )),
+      ),
+    );
+  }
+
+  Widget tableContentItem(String? text, {Color? color}) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
@@ -1682,16 +1712,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       alignment: Alignment.center,
-      padding: const EdgeInsets.all(3),
+      padding: const EdgeInsets.all(1),
       child: AnimatedFluentTheme(
           data: FluentThemeData(),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              CircleAvatar(
-                radius: 15,
-                backgroundColor: status == 1 || status == 3 ? Colors.red : Colors.grey,
-                child: const Text("盈", style: TextStyle(color: Colors.white)),
+              SizedBox(
+                child: CircleAvatar(
+                  radius: 15,
+                  backgroundColor: status == 1 || status == 3 ? Colors.red : Colors.grey,
+                  child: const Text("盈", style: TextStyle(color: Colors.white)),
+                ),
               ),
               CircleAvatar(
                 radius: 15,
@@ -1703,7 +1735,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     );
   }
 
-  Widget tableRadioItem(String check, String uncheck, {bool? checked}) {
+  Widget tableRadioItem(String check, String uncheck, int index, {bool? checked}) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       alignment: Alignment.center,
@@ -1715,7 +1747,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                 content: Text(check),
                 onChanged: (v) {
                   if (v) {
-                    state(() => checked = true);
+                    checked = true;
+                    state(() {});
                   }
                 }),
             RadioButton(
@@ -1723,7 +1756,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                 content: Text(uncheck),
                 onChanged: (v) {
                   if (v) {
-                    state(() => checked = false);
+                    checked = false;
+                    state(() {});
                   }
                 }),
           ],
@@ -1732,7 +1766,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     );
   }
 
-  Widget tablePointItem({int? value}) {
+  Widget tablePointItem(int index, {int? value}) {
     return Container(
       decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
       child: StatefulBuilder(builder: (_, state) {
@@ -1740,7 +1774,11 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
           value: value ?? 0,
           min: 0,
           clearButton: false,
-          onChanged: (v) => state(() => value = v ?? 0),
+          onChanged: (v) {
+            value = v ?? 0;
+            // commodityList[index];
+            state(() {});
+          },
         );
       }),
     );
@@ -1756,7 +1794,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
             "重置",
             style: TextStyle(color: Colors.blue),
           )),
-      onTap: () {},
+      onTap: () {
+        commodityList[index] = initCommodityList[index];
+        if (mounted) setState(() {});
+      },
     );
   }
 
@@ -1929,6 +1970,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                         height: 38,
                         margin: const EdgeInsets.fromLTRB(18, 0, 0, 0),
                         child: my_combo.EditableComboBox<String>(
+                          textController: textController,
                           value: price,
                           mathValue: double.tryParse(price) ?? contract.lastPrice?.toDouble(),
                           items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
@@ -2546,8 +2588,6 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                           child: my_combo.EditableComboBox<String>(
                             value: price,
                             mathValue: double.tryParse(price) ?? contract.lastPrice?.toDouble(),
-
-                            ///Todo
                             items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
                               return my_combo.ComboBoxItem<String>(
                                 value: e,
@@ -2598,7 +2638,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                           TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
                           ExpireTime: "",
                           OrderSide: dir ? SideType.SIDE_BUY : SideType.SIDE_SELL,
-                          OrderPrice: getLimitPrice(dir),
+                          OrderPrice: getLimitPrice(!dir),
                           StopPrice: 0,
                           OrderQty: num,
                           PositionEffect: open ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
@@ -2762,7 +2802,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                         Expanded(flex: 2, child: tableTitleItem("保证金占用")),
                                         Expanded(flex: 1, child: tableTitleItem("币种")),
                                         Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                        Expanded(flex: 3, child: tableTitleItem(tradeDetailIndex == 0 ? "止盈止损" : "持仓编号")),
+                                        if (tradeDetailIndex == 0) Expanded(flex: 2, child: tableTitleItem("止盈止损")),
+                                        if (tradeDetailIndex == 1) Expanded(flex: 3, child: tableTitleItem("持仓编号")),
                                       ]),
                                     ),
                                   ),
@@ -2778,6 +2819,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                             width: 320.sp,
                                             child: ListView.builder(
                                                 shrinkWrap: true,
+                                                key: const PageStorageKey<String>('pos'),
                                                 controller: ScrollController(keepScrollOffset: true),
                                                 itemCount: tradeDetailIndex == 0 ? mHoldDetailList.length : mHoldList.length,
                                                 padding: const EdgeInsets.only(bottom: 10),
@@ -2790,36 +2832,36 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                             child: Row(
                                                           crossAxisAlignment: CrossAxisAlignment.stretch,
                                                           children: [
-                                                            Expanded(flex: 2, child: tableTitleItem(mHoldDetailList[index].code)),
+                                                            Expanded(flex: 2, child: tableContentItem(mHoldDetailList[index].code)),
                                                             Expanded(
                                                                 flex: 1,
-                                                                child: tableTitleItem(
+                                                                child: tableContentItem(
                                                                     mHoldDetailList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
                                                             Expanded(
-                                                                flex: 1, child: tableTitleItem((mHoldDetailList[index].quantity ?? 0).toString())),
+                                                                flex: 1, child: tableContentItem((mHoldDetailList[index].quantity ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 1,
-                                                                child: tableTitleItem((mHoldDetailList[index].AvailableQty ?? 0).toString())),
+                                                                child: tableContentItem((mHoldDetailList[index].AvailableQty ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem(Utils.d2SBySrc(
+                                                                child: tableContentItem(Utils.d2SBySrc(
                                                                     mHoldDetailList[index].open, mHoldDetailList[index].FutureTickSize))),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
+                                                                child: tableContentItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
+                                                                child: tableContentItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
                                                                     color: (mHoldDetailList[index].floatProfit ?? 0) > 0
                                                                         ? Common.quoteRedColor
                                                                         : (mHoldDetailList[index].floatProfit ?? 0) < 0
                                                                             ? Common.quoteGreenColor
                                                                             : null)),
                                                             Expanded(
-                                                                flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
-                                                            Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index].CurrencyType)),
-                                                            Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index].name)),
-                                                            Expanded(flex: 3, child: tablePlItem(mHoldDetailList[index].plStatus)),
+                                                                flex: 2, child: tableContentItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
+                                                            Expanded(flex: 1, child: tableContentItem(mHoldDetailList[index].CurrencyType)),
+                                                            Expanded(flex: 3, child: tableContentItem(mHoldDetailList[index].name)),
+                                                            Expanded(flex: 2, child: tablePlItem(mHoldDetailList[index].plStatus)),
                                                           ],
                                                         )),
                                                       ),
@@ -2842,31 +2884,32 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                             child: Row(
                                                           crossAxisAlignment: CrossAxisAlignment.stretch,
                                                           children: [
-                                                            Expanded(flex: 2, child: tableTitleItem(mHoldList[index].code)),
+                                                            Expanded(flex: 2, child: tableContentItem(mHoldList[index].code)),
                                                             Expanded(
                                                                 flex: 1,
                                                                 child:
-                                                                    tableTitleItem(mHoldList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
-                                                            Expanded(flex: 1, child: tableTitleItem((mHoldList[index].quantity ?? 0).toString())),
-                                                            Expanded(flex: 1, child: tableTitleItem((mHoldList[index].AvailableQty ?? 0).toString())),
+                                                                    tableContentItem(mHoldList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                            Expanded(flex: 1, child: tableContentItem((mHoldList[index].quantity ?? 0).toString())),
+                                                            Expanded(
+                                                                flex: 1, child: tableContentItem((mHoldList[index].AvailableQty ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem(
+                                                                child: tableContentItem(
                                                                     Utils.d2SBySrc(mHoldList[index].open, mHoldList[index].FutureTickSize))),
                                                             Expanded(
-                                                                flex: 2, child: tableTitleItem((mHoldList[index].CalculatePrice ?? 0).toString())),
+                                                                flex: 2, child: tableContentItem((mHoldList[index].CalculatePrice ?? 0).toString())),
                                                             Expanded(
                                                                 flex: 2,
-                                                                child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2),
+                                                                child: tableContentItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2),
                                                                     color: (mHoldList[index].floatProfit ?? 0) > 0
                                                                         ? Common.quoteRedColor
                                                                         : (mHoldList[index].floatProfit ?? 0) < 0
                                                                             ? Common.quoteGreenColor
                                                                             : null)),
-                                                            Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
-                                                            Expanded(flex: 1, child: tableTitleItem(mHoldList[index].CurrencyType)),
-                                                            Expanded(flex: 3, child: tableTitleItem(mHoldList[index].name)),
-                                                            Expanded(flex: 3, child: tableTitleItem(mHoldList[index].PositionNo)),
+                                                            Expanded(flex: 2, child: tableContentItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
+                                                            Expanded(flex: 1, child: tableContentItem(mHoldList[index].CurrencyType)),
+                                                            Expanded(flex: 3, child: tableContentItem(mHoldList[index].name)),
+                                                            Expanded(flex: 3, child: tableContentItem(mHoldList[index].PositionNo)),
                                                           ],
                                                         )),
                                                       ),
@@ -3015,23 +3058,26 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                         children: [
                                                           Expanded(
                                                               flex: 4,
-                                                              child: tableTitleItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
-                                                          Expanded(flex: 2, child: tableTitleItem(mPendList[index].code)),
+                                                              child:
+                                                                  tableContentItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
+                                                          Expanded(flex: 2, child: tableContentItem(mPendList[index].code)),
                                                           Expanded(
                                                               flex: 1,
-                                                              child: tableTitleItem(mPendList[index].bs,
+                                                              child: tableContentItem(mPendList[index].bs,
                                                                   color: mPendList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                           Expanded(
-                                                              flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index].OpenClose))),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mPendList[index].price ?? ""}")),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mPendList[index].deleNum ?? "0"}")),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mPendList[index].comNum ?? "0"}")),
-                                                          Expanded(flex: 1, child: tableTitleItem(mPendList[index].CurrencyType)),
-                                                          Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mPendList[index].orderOpType))),
-                                                          Expanded(flex: 2, child: tableTitleItem(mPendList[index].state)),
-                                                          Expanded(flex: 4, child: tableTitleItem(mPendList[index].ErrorText)),
-                                                          Expanded(flex: 4, child: tableTitleItem(mPendList[index].deleNo)),
-                                                          Expanded(flex: 3, child: tableTitleItem(mPendList[index].name)),
+                                                              flex: 1,
+                                                              child: tableContentItem(PositionEffectType.getName(mPendList[index].OpenClose))),
+                                                          Expanded(flex: 2, child: tableContentItem("${mPendList[index].price ?? ""}")),
+                                                          Expanded(flex: 2, child: tableContentItem("${mPendList[index].deleNum ?? "0"}")),
+                                                          Expanded(flex: 2, child: tableContentItem("${mPendList[index].comNum ?? "0"}")),
+                                                          Expanded(flex: 1, child: tableContentItem(mPendList[index].CurrencyType)),
+                                                          Expanded(
+                                                              flex: 2, child: tableContentItem(OrderOpType.getName(mPendList[index].orderOpType))),
+                                                          Expanded(flex: 2, child: tableContentItem(mPendList[index].state)),
+                                                          Expanded(flex: 4, child: tableContentItem(mPendList[index].ErrorText)),
+                                                          Expanded(flex: 4, child: tableContentItem(mPendList[index].deleNo)),
+                                                          Expanded(flex: 3, child: tableContentItem(mPendList[index].name)),
                                                         ],
                                                       )),
                                                     ),
@@ -3054,23 +3100,25 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                         children: [
                                                           Expanded(
                                                               flex: 4,
-                                                              child: tableTitleItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
-                                                          Expanded(flex: 2, child: tableTitleItem(mDelList[index].code)),
+                                                              child: tableContentItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
+                                                          Expanded(flex: 2, child: tableContentItem(mDelList[index].code)),
                                                           Expanded(
                                                               flex: 1,
-                                                              child: tableTitleItem(mDelList[index].bs,
+                                                              child: tableContentItem(mDelList[index].bs,
                                                                   color: mDelList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                           Expanded(
-                                                              flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index].OpenClose))),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mDelList[index].price ?? ""}")),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mDelList[index].deleNum ?? "0"}")),
-                                                          Expanded(flex: 2, child: tableTitleItem("${mDelList[index].comNum ?? "0"}")),
-                                                          Expanded(flex: 1, child: tableTitleItem(mDelList[index].CurrencyType)),
-                                                          Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index].orderOpType))),
-                                                          Expanded(flex: 2, child: tableTitleItem(mDelList[index].state)),
-                                                          Expanded(flex: 4, child: tableTitleItem(mDelList[index].ErrorText)),
-                                                          Expanded(flex: 4, child: tableTitleItem(mDelList[index].deleNo)),
-                                                          Expanded(flex: 3, child: tableTitleItem(mDelList[index].name)),
+                                                              flex: 1,
+                                                              child: tableContentItem(PositionEffectType.getName(mDelList[index].OpenClose))),
+                                                          Expanded(flex: 2, child: tableContentItem("${mDelList[index].price ?? ""}")),
+                                                          Expanded(flex: 2, child: tableContentItem("${mDelList[index].deleNum ?? "0"}")),
+                                                          Expanded(flex: 2, child: tableContentItem("${mDelList[index].comNum ?? "0"}")),
+                                                          Expanded(flex: 1, child: tableContentItem(mDelList[index].CurrencyType)),
+                                                          Expanded(
+                                                              flex: 2, child: tableContentItem(OrderOpType.getName(mDelList[index].orderOpType))),
+                                                          Expanded(flex: 2, child: tableContentItem(mDelList[index].state)),
+                                                          Expanded(flex: 4, child: tableContentItem(mDelList[index].ErrorText)),
+                                                          Expanded(flex: 4, child: tableContentItem(mDelList[index].deleNo)),
+                                                          Expanded(flex: 3, child: tableContentItem(mDelList[index].name)),
                                                         ],
                                                       )),
                                                     ),
@@ -3220,23 +3268,23 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                     children: [
                                                       Expanded(
                                                           flex: 4,
-                                                          child: tableTitleItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
-                                                      Expanded(flex: 2, child: tableTitleItem(mPendList[index].code)),
+                                                          child: tableContentItem("${mPendList[index].date ?? ""} ${mPendList[index].time ?? ""}")),
+                                                      Expanded(flex: 2, child: tableContentItem(mPendList[index].code)),
                                                       Expanded(
                                                           flex: 1,
-                                                          child: tableTitleItem(mPendList[index].bs,
+                                                          child: tableContentItem(mPendList[index].bs,
                                                               color: mPendList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                       Expanded(
-                                                          flex: 1, child: tableTitleItem(PositionEffectType.getName(mPendList[index].OpenClose))),
-                                                      Expanded(flex: 1, child: tableTitleItem("${mPendList[index].price ?? ""}")),
-                                                      Expanded(flex: 2, child: tableTitleItem("${mPendList[index].deleNum ?? "0"}")),
-                                                      Expanded(flex: 2, child: tableTitleItem("${mPendList[index].comNum ?? "0"}")),
-                                                      Expanded(flex: 1, child: tableTitleItem(mPendList[index].CurrencyType)),
-                                                      Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mPendList[index].orderOpType))),
-                                                      Expanded(flex: 2, child: tableTitleItem(mPendList[index].state)),
-                                                      Expanded(flex: 5, child: tableTitleItem(mPendList[index].ErrorText)),
-                                                      Expanded(flex: 4, child: tableTitleItem(mPendList[index].deleNo)),
-                                                      Expanded(flex: 3, child: tableTitleItem(mPendList[index].name)),
+                                                          flex: 1, child: tableContentItem(PositionEffectType.getName(mPendList[index].OpenClose))),
+                                                      Expanded(flex: 1, child: tableContentItem("${mPendList[index].price ?? ""}")),
+                                                      Expanded(flex: 2, child: tableContentItem("${mPendList[index].deleNum ?? "0"}")),
+                                                      Expanded(flex: 2, child: tableContentItem("${mPendList[index].comNum ?? "0"}")),
+                                                      Expanded(flex: 1, child: tableContentItem(mPendList[index].CurrencyType)),
+                                                      Expanded(flex: 2, child: tableContentItem(OrderOpType.getName(mPendList[index].orderOpType))),
+                                                      Expanded(flex: 2, child: tableContentItem(mPendList[index].state)),
+                                                      Expanded(flex: 5, child: tableContentItem(mPendList[index].ErrorText)),
+                                                      Expanded(flex: 4, child: tableContentItem(mPendList[index].deleNo)),
+                                                      Expanded(flex: 3, child: tableContentItem(mPendList[index].name)),
                                                     ],
                                                   )),
                                                 ),
@@ -3259,22 +3307,23 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                     children: [
                                                       Expanded(
                                                           flex: 4,
-                                                          child: tableTitleItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
-                                                      Expanded(flex: 2, child: tableTitleItem(mDelList[index].code)),
+                                                          child: tableContentItem("${mDelList[index].date ?? ""} ${mDelList[index].time ?? ""}")),
+                                                      Expanded(flex: 2, child: tableContentItem(mDelList[index].code)),
                                                       Expanded(
                                                           flex: 1,
-                                                          child: tableTitleItem(mDelList[index].bs,
+                                                          child: tableContentItem(mDelList[index].bs,
                                                               color: mDelList[index].bs == "买入" ? Colors.red : Colors.green)),
-                                                      Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mDelList[index].OpenClose))),
-                                                      Expanded(flex: 1, child: tableTitleItem("${mDelList[index].price ?? ""}")),
-                                                      Expanded(flex: 2, child: tableTitleItem("${mDelList[index].deleNum ?? "0"}")),
-                                                      Expanded(flex: 2, child: tableTitleItem("${mDelList[index].comNum ?? "0"}")),
-                                                      Expanded(flex: 1, child: tableTitleItem(mDelList[index].CurrencyType)),
-                                                      Expanded(flex: 2, child: tableTitleItem(OrderOpType.getName(mDelList[index].orderOpType))),
-                                                      Expanded(flex: 2, child: tableTitleItem(mDelList[index].state)),
-                                                      Expanded(flex: 5, child: tableTitleItem(mDelList[index].ErrorText)),
-                                                      Expanded(flex: 4, child: tableTitleItem(mDelList[index].deleNo)),
-                                                      Expanded(flex: 3, child: tableTitleItem(mDelList[index].name)),
+                                                      Expanded(
+                                                          flex: 1, child: tableContentItem(PositionEffectType.getName(mDelList[index].OpenClose))),
+                                                      Expanded(flex: 1, child: tableContentItem("${mDelList[index].price ?? ""}")),
+                                                      Expanded(flex: 2, child: tableContentItem("${mDelList[index].deleNum ?? "0"}")),
+                                                      Expanded(flex: 2, child: tableContentItem("${mDelList[index].comNum ?? "0"}")),
+                                                      Expanded(flex: 1, child: tableContentItem(mDelList[index].CurrencyType)),
+                                                      Expanded(flex: 2, child: tableContentItem(OrderOpType.getName(mDelList[index].orderOpType))),
+                                                      Expanded(flex: 2, child: tableContentItem(mDelList[index].state)),
+                                                      Expanded(flex: 5, child: tableContentItem(mDelList[index].ErrorText)),
+                                                      Expanded(flex: 4, child: tableContentItem(mDelList[index].deleNo)),
+                                                      Expanded(flex: 3, child: tableContentItem(mDelList[index].name)),
                                                     ],
                                                   )),
                                                 ),
@@ -3353,17 +3402,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                   child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  Expanded(flex: 1, child: tableTitleItem((index + 1).toString())),
-                                  Expanded(flex: 3, child: tableTitleItem(mComList[index].name)),
-                                  Expanded(flex: 2, child: tableTitleItem(mComList[index].code)),
-                                  Expanded(flex: 4, child: tableTitleItem(mComList[index].comNo)),
-                                  Expanded(flex: 4, child: tableTitleItem(mComList[index].deleNo)),
-                                  Expanded(flex: 1, child: tableTitleItem(mComList[index].bs)),
-                                  Expanded(flex: 1, child: tableTitleItem(PositionEffectType.getName(mComList[index].OpenClose))),
-                                  Expanded(flex: 1, child: tableTitleItem("${mComList[index].comNum ?? 0}")),
-                                  Expanded(flex: 2, child: tableTitleItem("${mComList[index].price ?? 0.0}")),
-                                  Expanded(flex: 2, child: tableTitleItem("${mComList[index].FeeValue ?? 0.0}")),
-                                  Expanded(flex: 4, child: tableTitleItem("${mComList[index].date ?? ""} ${mComList[index].time ?? ""}")),
+                                  Expanded(flex: 1, child: tableContentItem((index + 1).toString())),
+                                  Expanded(flex: 3, child: tableContentItem(mComList[index].name)),
+                                  Expanded(flex: 2, child: tableContentItem(mComList[index].code)),
+                                  Expanded(flex: 4, child: tableContentItem(mComList[index].comNo)),
+                                  Expanded(flex: 4, child: tableContentItem(mComList[index].deleNo)),
+                                  Expanded(flex: 1, child: tableContentItem(mComList[index].bs)),
+                                  Expanded(flex: 1, child: tableContentItem(PositionEffectType.getName(mComList[index].OpenClose))),
+                                  Expanded(flex: 1, child: tableContentItem("${mComList[index].comNum ?? 0}")),
+                                  Expanded(flex: 2, child: tableContentItem("${mComList[index].price ?? 0.0}")),
+                                  Expanded(flex: 2, child: tableContentItem("${mComList[index].FeeValue ?? 0.0}")),
+                                  Expanded(flex: 4, child: tableContentItem("${mComList[index].date ?? ""} ${mComList[index].time ?? ""}")),
                                 ],
                               )),
                             ),
@@ -3530,28 +3579,28 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                   child: Row(
                                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                                 children: [
-                                                  Expanded(flex: 2, child: tableTitleItem(mHoldDetailList[index].code)),
+                                                  Expanded(flex: 2, child: tableContentItem(mHoldDetailList[index].code)),
                                                   Expanded(
                                                       flex: 1,
-                                                      child: tableTitleItem(mHoldDetailList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
-                                                  Expanded(flex: 1, child: tableTitleItem((mHoldDetailList[index].quantity ?? 0).toString())),
-                                                  Expanded(flex: 1, child: tableTitleItem((mHoldDetailList[index].AvailableQty ?? 0).toString())),
+                                                      child: tableContentItem(mHoldDetailList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                  Expanded(flex: 1, child: tableContentItem((mHoldDetailList[index].quantity ?? 0).toString())),
+                                                  Expanded(flex: 1, child: tableContentItem((mHoldDetailList[index].AvailableQty ?? 0).toString())),
                                                   Expanded(
                                                       flex: 2,
-                                                      child: tableTitleItem(
+                                                      child: tableContentItem(
                                                           Utils.d2SBySrc(mHoldDetailList[index].open, mHoldDetailList[index].FutureTickSize))),
-                                                  Expanded(flex: 2, child: tableTitleItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
+                                                  Expanded(flex: 2, child: tableContentItem((mHoldDetailList[index].CalculatePrice ?? 0).toString())),
                                                   Expanded(
                                                       flex: 2,
-                                                      child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
+                                                      child: tableContentItem(Utils.d2SBySrc(mHoldDetailList[index].floatProfit, 2),
                                                           color: (mHoldDetailList[index].floatProfit ?? 0) > 0
                                                               ? Common.quoteRedColor
                                                               : (mHoldDetailList[index].floatProfit ?? 0) < 0
                                                                   ? Common.quoteGreenColor
                                                                   : null)),
-                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
-                                                  Expanded(flex: 1, child: tableTitleItem(mHoldDetailList[index].CurrencyType)),
-                                                  Expanded(flex: 3, child: tableTitleItem(mHoldDetailList[index].name)),
+                                                  Expanded(flex: 2, child: tableContentItem(Utils.d2SBySrc(mHoldDetailList[index].margin, 2))),
+                                                  Expanded(flex: 1, child: tableContentItem(mHoldDetailList[index].CurrencyType)),
+                                                  Expanded(flex: 3, child: tableContentItem(mHoldDetailList[index].name)),
                                                   Expanded(flex: 3, child: tablePlItem(mHoldDetailList[index].plStatus)),
                                                 ],
                                               )),
@@ -3575,20 +3624,22 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                                   child: Row(
                                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                                 children: [
-                                                  Expanded(flex: 2, child: tableTitleItem(mHoldList[index].code)),
+                                                  Expanded(flex: 2, child: tableContentItem(mHoldList[index].code)),
                                                   Expanded(
-                                                      flex: 1, child: tableTitleItem(mHoldList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
-                                                  Expanded(flex: 1, child: tableTitleItem((mHoldList[index].quantity ?? 0).toString())),
-                                                  Expanded(flex: 1, child: tableTitleItem((mHoldList[index].AvailableQty ?? 0).toString())),
+                                                      flex: 1,
+                                                      child: tableContentItem(mHoldList[index].orderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                  Expanded(flex: 1, child: tableContentItem((mHoldList[index].quantity ?? 0).toString())),
+                                                  Expanded(flex: 1, child: tableContentItem((mHoldList[index].AvailableQty ?? 0).toString())),
                                                   Expanded(
                                                       flex: 2,
-                                                      child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].open, mHoldList[index].FutureTickSize))),
-                                                  Expanded(flex: 2, child: tableTitleItem((mHoldList[index].CalculatePrice ?? 0).toString())),
-                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2))),
-                                                  Expanded(flex: 2, child: tableTitleItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
-                                                  Expanded(flex: 1, child: tableTitleItem(mHoldList[index].CurrencyType)),
-                                                  Expanded(flex: 3, child: tableTitleItem(mHoldList[index].name)),
-                                                  Expanded(flex: 3, child: tableTitleItem(mHoldList[index].PositionNo)),
+                                                      child:
+                                                          tableContentItem(Utils.d2SBySrc(mHoldList[index].open, mHoldList[index].FutureTickSize))),
+                                                  Expanded(flex: 2, child: tableContentItem((mHoldList[index].CalculatePrice ?? 0).toString())),
+                                                  Expanded(flex: 2, child: tableContentItem(Utils.d2SBySrc(mHoldList[index].floatProfit, 2))),
+                                                  Expanded(flex: 2, child: tableContentItem(Utils.d2SBySrc(mHoldList[index].margin, 2))),
+                                                  Expanded(flex: 1, child: tableContentItem(mHoldList[index].CurrencyType)),
+                                                  Expanded(flex: 3, child: tableContentItem(mHoldList[index].name)),
+                                                  Expanded(flex: 3, child: tableContentItem(mHoldList[index].PositionNo)),
                                                 ],
                                               )),
                                             ),
@@ -4092,22 +4143,24 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                             child: Row(
                                           crossAxisAlignment: CrossAxisAlignment.stretch,
                                           children: [
-                                            Expanded(flex: 3, child: tableTitleItem(mConditionList[index].ConditionOrderNo)),
-                                            Expanded(flex: 2, child: tableTitleItem(status)),
-                                            Expanded(flex: 6, child: tableTitleItem(constr)),
+                                            Expanded(flex: 3, child: tableContentItem(mConditionList[index].ConditionOrderNo)),
+                                            Expanded(flex: 2, child: tableContentItem(status)),
+                                            Expanded(flex: 6, child: tableContentItem(constr)),
                                             Expanded(
                                                 flex: 2,
-                                                child: tableTitleItem(mConditionList[index].OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : "限价")),
-                                            Expanded(flex: 2, child: tableTitleItem("${mConditionList[index].OrderPrice ?? 0}")),
+                                                child:
+                                                    tableContentItem(mConditionList[index].OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : "限价")),
+                                            Expanded(flex: 2, child: tableContentItem("${mConditionList[index].OrderPrice ?? 0}")),
                                             Expanded(
-                                                flex: 1, child: tableTitleItem(mConditionList[index].OrderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                flex: 1,
+                                                child: tableContentItem(mConditionList[index].OrderSide == SideType.SIDE_SELL ? "卖出" : "买入")),
                                             Expanded(
-                                                flex: 1, child: tableTitleItem(PositionEffectType.getName(mConditionList[index].PositionEffect))),
-                                            Expanded(flex: 1, child: tableTitleItem("${mConditionList[index].OrderQty ?? 0}")),
-                                            Expanded(flex: 2, child: tableTitleItem(mConditionList[index].TimeInForce == 1 ? "当日有效" : "永久有效")),
-                                            Expanded(flex: 3, child: tableTitleItem(mConditionList[index].SubmitResultsMsg)),
-                                            Expanded(flex: 3, child: tableTitleItem(mConditionList[index].CreateAt)),
-                                            Expanded(flex: 3, child: tableTitleItem(mConditionList[index].UpdateAt)),
+                                                flex: 1, child: tableContentItem(PositionEffectType.getName(mConditionList[index].PositionEffect))),
+                                            Expanded(flex: 1, child: tableContentItem("${mConditionList[index].OrderQty ?? 0}")),
+                                            Expanded(flex: 2, child: tableContentItem(mConditionList[index].TimeInForce == 1 ? "当日有效" : "永久有效")),
+                                            Expanded(flex: 3, child: tableContentItem(mConditionList[index].SubmitResultsMsg)),
+                                            Expanded(flex: 3, child: tableContentItem(mConditionList[index].CreateAt)),
+                                            Expanded(flex: 3, child: tableContentItem(mConditionList[index].UpdateAt)),
                                           ],
                                         )),
                                       ),
@@ -4132,435 +4185,488 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     ));
   }
 
-  ///查询 Todo
+  ///结算单 Todo
   Widget queryWidget() {
     TextEditingController startController = TextEditingController(text: formatter.format(startTime));
     TextEditingController endController = TextEditingController(text: formatter.format(endTime));
     return Expanded(
       child: StatefulBuilder(builder: (_, state) {
-        return Row(
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 388,
-              color: appTheme.commandBarColor,
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                          child: GestureDetector(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                alignment: Alignment.center,
-                                decoration:
-                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 0 ? Colors.yellow : Colors.transparent))),
-                                child: Text(
-                                  "资金状况",
-                                  style: TextStyle(color: queryIndex == 0 ? Colors.yellow : appTheme.exchangeTextColor),
-                                ),
-                              ),
-                              onTap: () => state(() => queryIndex = 0))),
-                      Expanded(
-                          child: GestureDetector(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                alignment: Alignment.center,
-                                decoration:
-                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 1 ? Colors.yellow : Colors.transparent))),
-                                child: Text(
-                                  "历史成交",
-                                  style: TextStyle(color: queryIndex == 1 ? Colors.yellow : appTheme.exchangeTextColor),
-                                ),
-                              ),
-                              onTap: () => state(() => queryIndex = 1))),
-                      Expanded(
-                          child: GestureDetector(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                alignment: Alignment.center,
-                                decoration:
-                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 2 ? Colors.yellow : Colors.transparent))),
-                                child: Text(
-                                  "结算单",
-                                  style: TextStyle(color: queryIndex == 2 ? Colors.yellow : appTheme.exchangeTextColor),
-                                ),
-                              ),
-                              onTap: () => state(() => queryIndex = 2))),
-                      Expanded(
-                          child: GestureDetector(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                alignment: Alignment.center,
-                                decoration:
-                                    BoxDecoration(border: Border(bottom: BorderSide(color: queryIndex == 3 ? Colors.yellow : Colors.transparent))),
-                                child: Text(
-                                  "出入金",
-                                  style: TextStyle(color: queryIndex == 3 ? Colors.yellow : appTheme.exchangeTextColor),
-                                ),
-                              ),
-                              onTap: () => state(() => queryIndex = 3))),
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 13,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      Text("开始日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)),
-                      SizedBox(
-                        width: 108,
-                        child: TextBox(
-                          decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
-                          controller: startController,
-                          inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
-                          suffix: IconButton(
-                            icon: const Icon(FluentIcons.calendar),
-                            style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
-                            onPressed: () async {
-                              await showOmniDateTimePicker(
-                                context: context,
-                                initialDate: startTime,
-                                type: OmniDateTimePickerType.date,
-                                borderRadius: BorderRadius.zero,
-                                constraints: const BoxConstraints(
-                                  maxWidth: 350,
-                                  maxHeight: 380,
-                                ),
-                                transitionDuration: const Duration(milliseconds: 200),
-                                barrierDismissible: true,
-                              ).then((value) => {
-                                    if (value != null) {startTime = value, startController.text = formatter.format(startTime), state(() {})}
-                                  });
-                            },
-                          ),
+            Row(children: [
+              Text("开始日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)).marginOnly(right: 15),
+              SizedBox(
+                width: 108,
+                child: TextBox(
+                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
+                  controller: startController,
+                  inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
+                  suffix: IconButton(
+                    icon: const Icon(FluentIcons.calendar),
+                    style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
+                    onPressed: () async {
+                      await showOmniDateTimePicker(
+                        context: context,
+                        initialDate: startTime,
+                        type: OmniDateTimePickerType.date,
+                        borderRadius: BorderRadius.zero,
+                        constraints: const BoxConstraints(
+                          maxWidth: 350,
+                          maxHeight: 380,
                         ),
-                      ),
-                      Text("结束日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)),
-                      SizedBox(
-                          width: 108,
-                          child: TextBox(
-                            decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
-                            controller: endController,
-                            inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
-                            suffix: IconButton(
-                              icon: const Icon(FluentIcons.calendar),
-                              style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
-                              onPressed: () async {
-                                await showOmniDateTimePicker(
-                                  context: context,
-                                  initialDate: endTime,
-                                  type: OmniDateTimePickerType.date,
-                                  borderRadius: BorderRadius.zero,
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 350,
-                                    maxHeight: 380,
-                                  ),
-                                  transitionDuration: const Duration(milliseconds: 200),
-                                  barrierDismissible: true,
-                                ).then((value) => {
-                                      if (value != null) {endTime = value, endController.text = formatter.format(endTime), state(() {})}
-                                    });
-                              },
-                            ),
-                          )),
-                    ],
+                        transitionDuration: const Duration(milliseconds: 200),
+                        barrierDismissible: true,
+                      ).then((value) => {
+                            if (value != null) {startTime = value, startController.text = formatter.format(startTime), state(() {})}
+                          });
+                    },
                   ),
-                  const SizedBox(
-                    height: 38,
+                ),
+              ).marginOnly(right: 15),
+              Text("结束日期:", style: TextStyle(color: appTheme.exchangeTextColor, fontSize: 13)).marginOnly(right: 15),
+              SizedBox(
+                  width: 108,
+                  child: TextBox(
+                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
+                    controller: endController,
+                    inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
+                    suffix: IconButton(
+                      icon: const Icon(FluentIcons.calendar),
+                      style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 3))),
+                      onPressed: () async {
+                        await showOmniDateTimePicker(
+                          context: context,
+                          initialDate: endTime,
+                          type: OmniDateTimePickerType.date,
+                          borderRadius: BorderRadius.zero,
+                          constraints: const BoxConstraints(
+                            maxWidth: 350,
+                            maxHeight: 380,
+                          ),
+                          transitionDuration: const Duration(milliseconds: 200),
+                          barrierDismissible: true,
+                        ).then((value) => {
+                              if (value != null) {endTime = value, endController.text = formatter.format(endTime), state(() {})}
+                            });
+                      },
+                    ),
+                  )).marginOnly(right: 30),
+              Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Colors.yellow),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 25)),
+                      shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                  child: const Text(
+                    "查询",
+                    style: TextStyle(color: Colors.black),
                   ),
-                  Button(
-                      style: ButtonStyle(
-                          backgroundColor: WidgetStatePropertyAll(Colors.yellow),
-                          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 25)),
-                          shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                      child: const Text(
-                        "查询",
-                        style: TextStyle(color: Colors.black),
-                      ),
-                      onPressed: () {
-                        if (queryIndex == 0) {
-                          getCapitals();
-                        } else if (queryIndex == 1) {
-                          getFillRecord();
-                        } else if (queryIndex == 2) {
-                          getCapitals();
-                          getFillRecord();
-                          getCloseDetailed();
-                          getPositionDetailed();
-                          getPositionSummary();
-                        } else if (queryIndex == 3) {
-                          getCashReport();
-                        }
-                        state(() {});
-                      })
-                ],
-              ),
-            ),
+                  onPressed: () {
+                    if (queryIndex == 0) {
+                      getCapitals();
+                    } else if (queryIndex == 1) {
+                      getFillRecord();
+                    } else if (queryIndex == 2) {
+                      getCloseDetailed();
+                    } else if (queryIndex == 3) {
+                      getPositionDetailed();
+                      // } else if (queryIndex == 4) {
+                      //   getPositionSummary();
+                    } else if (queryIndex == 5) {
+                      getCashReport();
+                    }
+                    state(() {});
+                  })
+            ]).marginSymmetric(vertical: 15),
+            Row(
+              children: [
+                Button(
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(queryIndex == 0 ? appTheme.exchangeTextColor : null),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                        shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                    onPressed: () => state(() => queryIndex = 0),
+                    child: Text(
+                      "资金状况",
+                      style: TextStyle(fontSize: 14, color: queryIndex == 0 ? appTheme.color : appTheme.exchangeTextColor),
+                    )),
+                Button(
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(queryIndex == 1 ? appTheme.exchangeTextColor : null),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                        shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                    onPressed: () => state(() => queryIndex = 1),
+                    child: Text(
+                      "历史成交",
+                      style: TextStyle(fontSize: 14, color: queryIndex == 1 ? appTheme.color : appTheme.exchangeTextColor),
+                    )).marginOnly(left: 15),
+                Button(
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(queryIndex == 2 ? appTheme.exchangeTextColor : null),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                        shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                    onPressed: () => state(() => queryIndex = 2),
+                    child: Text(
+                      "平仓明细",
+                      style: TextStyle(fontSize: 14, color: queryIndex == 2 ? appTheme.color : appTheme.exchangeTextColor),
+                    )).marginOnly(left: 15),
+                Button(
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(queryIndex == 3 ? appTheme.exchangeTextColor : null),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                        shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                    onPressed: () => state(() => queryIndex = 3),
+                    child: Text(
+                      "持仓明细",
+                      style: TextStyle(fontSize: 14, color: queryIndex == 3 ? appTheme.color : appTheme.exchangeTextColor),
+                    )).marginOnly(left: 15),
+                // Button(
+                //     style: ButtonStyle(
+                //         backgroundColor: WidgetStatePropertyAll(queryIndex == 4 ? appTheme.exchangeTextColor : null),
+                //         padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                //         shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                //     onPressed: () => state(() => queryIndex = 4),
+                //     child: Text(
+                //       "持仓汇总",
+                //       style: TextStyle(fontSize: 14, color: queryIndex == 4 ? appTheme.color : appTheme.exchangeTextColor),
+                //     )).marginOnly(left: 15),
+                Button(
+                    style: ButtonStyle(
+                        backgroundColor: WidgetStatePropertyAll(queryIndex == 5 ? appTheme.exchangeTextColor : null),
+                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
+                        shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
+                    onPressed: () => state(() => queryIndex = 5),
+                    child: Text(
+                      "出入金",
+                      style: TextStyle(fontSize: 14, color: queryIndex == 5 ? appTheme.color : appTheme.exchangeTextColor),
+                    )).marginOnly(left: 15),
+              ],
+            ).marginOnly(bottom: 15),
             Expanded(
               child: queryIndex == 0
-                  ? ScrollConfiguration(
-                      behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10),
-                        decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
-                        child: Scrollbar(
-                          key: UniqueKey(),
-                          // controller: gController,
-                          style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                          child: SingleChildScrollView(
-                              // controller: gController,
-                              scrollDirection: Axis.horizontal,
-                              physics: const AlwaysScrollableScrollPhysics(),
-                              child: Container(
-                                  width: 0.8.sw,
-                                  alignment: Alignment.topLeft,
-                                  child: ListView.builder(
-                                      shrinkWrap: true,
-                                      itemCount: capitals.length + 1,
-                                      itemBuilder: (BuildContext context, int index) {
-                                        if (index == 0) {
-                                          return Row(
-                                            children: [
-                                              Expanded(flex: 1, child: tableTitleItem("初期资金")),
-                                              Expanded(flex: 1, child: tableTitleItem("期末资金")),
-                                              Expanded(flex: 1, child: tableTitleItem("用户权益")),
-                                              Expanded(flex: 1, child: tableTitleItem("可用资金")),
-                                              Expanded(flex: 1, child: tableTitleItem("保证金占用")),
-                                              Expanded(flex: 1, child: tableTitleItem("出入金")),
-                                              Expanded(flex: 1, child: tableTitleItem("平仓盈亏")),
-                                              Expanded(flex: 1, child: tableTitleItem("浮动盈亏")),
-                                              Expanded(flex: 1, child: tableTitleItem("手续费")),
-                                              Expanded(flex: 1, child: tableTitleItem("风险度")),
-                                            ],
-                                          );
-                                        } else {
-                                          return GestureDetector(
-                                            child: Container(
-                                              color: capitals[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
-                                              child: IntrinsicHeight(
-                                                  child: Row(
-                                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                children: [
-                                                  Expanded(
-                                                      flex: 1, child: tableTitleItem(capitals[index - 1].TermInitial?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].TermEnd?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Equity?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Available1?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(
-                                                      flex: 1, child: tableTitleItem(capitals[index - 1].OccupyDeposit?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].CashValue?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(
-                                                      flex: 1, child: tableTitleItem(capitals[index - 1].CloseProfit?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(
-                                                      flex: 1, child: tableTitleItem(capitals[index - 1].PositionFloat?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Fee?.toStringAsFixed(2) ?? "0")),
-                                                  Expanded(flex: 1, child: tableTitleItem(capitals[index - 1].Equity?.toStringAsFixed(2) ?? "0")),
-                                                ],
-                                              )),
-                                            ),
-                                            onTap: () {
-                                              if (capitals[index - 1].selected == true) return;
-                                              for (var element in capitals) {
-                                                element.selected = false;
-                                              }
-                                              capitals[index - 1].selected = true;
-                                              if (mounted) setState(() {});
-                                            },
-                                          );
-                                        }
-                                      }))),
-                        ),
-                      ),
-                    )
-                  : queryIndex == 2
-                      ? Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              margin: const EdgeInsets.all(10),
-                              child: RichText(
-                                text: const TextSpan(children: [TextSpan(text: "账户："), TextSpan(text: "姓名："), TextSpan(text: "日期：")]),
-                              ),
-                            ),
-                            Row(
-                              children: [
-                                const SizedBox(width: 10),
-                                Button(
-                                    style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                    onPressed: () {},
-                                    child: Text(
-                                      "资金状况",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                    )),
-                                const SizedBox(width: 15),
-                                Button(
-                                    style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                    onPressed: () {},
-                                    child: Text(
-                                      "成交记录",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                    )),
-                                const SizedBox(width: 15),
-                                Button(
-                                    style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                    onPressed: () {},
-                                    child: Text(
-                                      "平仓明细",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                    )),
-                                const SizedBox(width: 15),
-                                Button(
-                                    style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                    onPressed: () {},
-                                    child: Text(
-                                      "持仓明细",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                    )),
-                                const SizedBox(width: 15),
-                                Button(
-                                    onPressed: () {},
-                                    style: const ButtonStyle(
-                                        padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
-                                        shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                                    child: Text(
-                                      "持仓汇总",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                                    )),
-                              ],
-                            ),
-                            Expanded(
-                                child: ScrollConfiguration(
-                              behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
-                              child: Container(
-                                margin: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
-                                child: Scrollbar(
-                                  key: UniqueKey(),
-                                  // controller: gController,
-                                  style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
-                                  child: SingleChildScrollView(
-                                      // controller: gController,
-                                      scrollDirection: Axis.horizontal,
-                                      physics: const AlwaysScrollableScrollPhysics(),
-                                      child: Container(
-                                          width: 0.8.sw,
-                                          alignment: Alignment.topLeft,
-                                          child: ListView.builder(
-                                              shrinkWrap: true,
-                                              itemCount: 1,
-                                              // itemCount: data.length + 1,
-                                              itemBuilder: (BuildContext context, int index) {
-                                                // if (index == 0) {
-                                                return Row(
-                                                  children: [
-                                                    Expanded(flex: 1, child: tableTitleItem("初期资金")),
-                                                    Expanded(flex: 1, child: tableTitleItem("期末资金")),
-                                                    Expanded(flex: 1, child: tableTitleItem("用户权益")),
-                                                    Expanded(flex: 1, child: tableTitleItem("可用资金")),
-                                                    Expanded(flex: 1, child: tableTitleItem("保证金占用")),
-                                                    Expanded(flex: 1, child: tableTitleItem("出入金")),
-                                                    Expanded(flex: 1, child: tableTitleItem("平仓盈亏")),
-                                                    Expanded(flex: 1, child: tableTitleItem("浮动盈亏")),
-                                                    Expanded(flex: 1, child: tableTitleItem("手续费")),
-                                                    Expanded(flex: 1, child: tableTitleItem("风险度")),
-                                                  ],
-                                                );
-                                                // }
-                                                // else {
-                                                //   return GestureDetector(
-                                                //     child: Container(
-                                                //       color: data[index - 1].selected
-                                                //           ? Colors.black.withOpacity(0.2)
-                                                //           : Colors.transparent,
-                                                //       child: IntrinsicHeight(
-                                                //           child: Row(
-                                                //             crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                //             children: [
-                                                //               Expanded(flex: 1, child: tableItem(data[index - 1].OrderQty.toString())),
-                                                //               Expanded(flex: 2, child: tableItem(data[index - 1].Account)),
-                                                //               Expanded(flex: 3, child: tableItem(data[index - 1].SubmitResultsMsg)),
-                                                //               Expanded(flex: 3, child: tableItem(data[index - 1].CreateAt)),
-                                                //               Expanded(flex: 3, child: tableItem(data[index - 1].UpdateAt)),
-                                                //               Expanded(flex: 2, child: buttonItem(data[index - 1].Id))
-                                                //             ],
-                                                //           )),
-                                                //     ),
-                                                //     onTap: () {
-                                                //       // if (data[index - 1].selected == true) return;
-                                                //       // for (var element in data) {
-                                                //       //   element.selected = false;
-                                                //       // }
-                                                //       // data[index - 1].selected = true;
-                                                //       // if (mounted) setState(() {});
-                                                //     },
-                                                //   );
-                                                // }
-                                              }))),
+                  ? Container(
+                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                      child: ListView.builder(
+                          shrinkWrap: true,
+                          itemCount: capitals.length + 1,
+                          itemBuilder: (BuildContext context, int index) {
+                            if (index == 0) {
+                              return Row(
+                                children: [
+                                  Expanded(flex: 1, child: tableTitleItem("初期资金")),
+                                  Expanded(flex: 1, child: tableTitleItem("期末资金")),
+                                  Expanded(flex: 1, child: tableTitleItem("用户权益")),
+                                  Expanded(flex: 1, child: tableTitleItem("可用资金")),
+                                  Expanded(flex: 1, child: tableTitleItem("保证金占用")),
+                                  Expanded(flex: 1, child: tableTitleItem("出入金")),
+                                  Expanded(flex: 1, child: tableTitleItem("平仓盈亏")),
+                                  Expanded(flex: 1, child: tableTitleItem("浮动盈亏")),
+                                  Expanded(flex: 1, child: tableTitleItem("手续费")),
+                                  Expanded(flex: 1, child: tableTitleItem("风险度")),
+                                ],
+                              );
+                            } else {
+                              return GestureDetector(
+                                child: Container(
+                                  color: capitals[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                  child: IntrinsicHeight(
+                                      child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].TermInitial ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].TermEnd ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].Equity ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].Available ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].OccupyDeposit ?? 0.0}")),
+                                      Expanded(
+                                          flex: 1,
+                                          child: tableContentItem(
+                                              "${(capitals[index - 1].CashInValue ?? 0) + (capitals[index - 1].CashOutValue ?? 0)}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].CloseProfit ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].FloatProfit ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].Fee ?? 0.0}")),
+                                      Expanded(flex: 1, child: tableContentItem("${capitals[index - 1].OccupyDeposit ?? 0.0}")),
+                                    ],
+                                  )),
                                 ),
-                              ),
-                            )),
-                          ],
-                        )
-                      : queryIndex == 3
+                                onTap: () {
+                                  if (capitals[index - 1].selected == true) return;
+                                  for (var element in capitals) {
+                                    element.selected = false;
+                                  }
+                                  capitals[index - 1].selected = true;
+                                  if (mounted) setState(() {});
+                                },
+                              );
+                            }
+                          }))
+                  : queryIndex == 1
+                      ? Container(
+                          decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                          child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: transactionRecord.length + 1,
+                              itemBuilder: (BuildContext context, int index) {
+                                if (index == 0) {
+                                  return Row(
+                                    children: [
+                                      Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                      Expanded(flex: 2, child: tableTitleItem("合约")),
+                                      Expanded(flex: 4, child: tableTitleItem("成交编号")),
+                                      Expanded(flex: 4, child: tableTitleItem("委托编号")),
+                                      Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                      Expanded(flex: 1, child: tableTitleItem("开平")),
+                                      Expanded(flex: 1, child: tableTitleItem("数量")),
+                                      Expanded(flex: 2, child: tableTitleItem("成交价")),
+                                      Expanded(flex: 2, child: tableTitleItem("手续费")),
+                                      Expanded(flex: 3, child: tableTitleItem("成交时间")),
+                                    ],
+                                  );
+                                } else {
+                                  return GestureDetector(
+                                    child: Container(
+                                      color: transactionRecord[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                      child: IntrinsicHeight(
+                                          child: Row(
+                                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                                        children: [
+                                          Expanded(flex: 3, child: tableContentItem(transactionRecord[index - 1].ContractName)),
+                                          Expanded(
+                                              flex: 2,
+                                              child: tableContentItem(
+                                                  "${transactionRecord[index - 1].CommodityNo}${transactionRecord[index - 1].ContractNo}")),
+                                          Expanded(flex: 4, child: tableContentItem(transactionRecord[index - 1].MatchNo)),
+                                          Expanded(flex: 4, child: tableContentItem(transactionRecord[index - 1].OrderId)),
+                                          Expanded(
+                                              flex: 1,
+                                              child: tableContentItem(transactionRecord[index - 1].MatchSide == SideType.SIDE_SELL ? "卖" : "买")),
+                                          Expanded(
+                                              flex: 1,
+                                              child: tableContentItem(PositionEffectType.getName(transactionRecord[index - 1].PositionEffect))),
+                                          Expanded(flex: 1, child: tableContentItem("${transactionRecord[index - 1].MatchQty ?? 0}")),
+                                          Expanded(flex: 2, child: tableContentItem("${transactionRecord[index - 1].MatchPrice ?? 0}")),
+                                          Expanded(flex: 2, child: tableContentItem("${transactionRecord[index - 1].FeeValue ?? 0}")),
+                                          Expanded(flex: 3, child: tableContentItem(transactionRecord[index - 1].MatchTime)),
+                                        ],
+                                      )),
+                                    ),
+                                    onTap: () {
+                                      if (transactionRecord[index - 1].selected == true) return;
+                                      for (var element in transactionRecord) {
+                                        element.selected = false;
+                                      }
+                                      transactionRecord[index - 1].selected = true;
+                                      if (mounted) setState(() {});
+                                    },
+                                  );
+                                }
+                              }))
+                      : queryIndex == 2
                           ? Container(
-                              margin: const EdgeInsets.fromLTRB(10, 0, 10, 10),
                               decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
-                              alignment: Alignment.topLeft,
                               child: ListView.builder(
                                   shrinkWrap: true,
-                                  itemCount: withdrawalRecord.length + 1,
+                                  itemCount: close.length + 1,
                                   itemBuilder: (BuildContext context, int index) {
                                     if (index == 0) {
                                       return Row(
                                         children: [
-                                          Expanded(flex: 1, child: tableTitleItem("时间")),
-                                          Expanded(flex: 2, child: tableTitleItem("入金")),
-                                          Expanded(flex: 2, child: tableTitleItem("出金")),
+                                          Expanded(flex: 4, child: tableContentItem("平仓时间")),
+                                          Expanded(flex: 2, child: tableContentItem("合约")),
+                                          Expanded(flex: 2, child: tableContentItem("买卖")),
+                                          Expanded(flex: 2, child: tableContentItem("成交价")),
+                                          Expanded(flex: 2, child: tableContentItem("数量")),
+                                          Expanded(flex: 3, child: tableContentItem("开仓均价")),
+                                          Expanded(flex: 3, child: tableContentItem("平仓盈亏")),
+                                          Expanded(flex: 3, child: tableContentItem("币种")),
                                         ],
                                       );
                                     } else {
                                       return GestureDetector(
                                         child: Container(
-                                          color: withdrawalRecord[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                          color: close[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
                                           child: IntrinsicHeight(
                                               child: Row(
                                             crossAxisAlignment: CrossAxisAlignment.stretch,
                                             children: [
-                                              Expanded(flex: 1, child: tableTitleItem(withdrawalRecord[index - 1].Time.toString())),
-                                              Expanded(flex: 2, child: tableTitleItem(withdrawalRecord[index - 1].Currency)),
-                                              Expanded(flex: 2, child: tableTitleItem(withdrawalRecord[index - 1].Currency))
+                                              Expanded(flex: 4, child: tableContentItem(close[index - 1].CreateTime)),
+                                              Expanded(
+                                                  flex: 2, child: tableContentItem("${close[index - 1].CommodityNo}${close[index - 1].ContractNo}")),
+                                              Expanded(
+                                                  flex: 2, child: tableContentItem(close[index - 1].CloseSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                              Expanded(flex: 2, child: tableContentItem("${close[index - 1].ClosePrice ?? 0.0}")),
+                                              Expanded(flex: 2, child: tableContentItem("${close[index - 1].CloseQty ?? 0}")),
+                                              Expanded(flex: 3, child: tableContentItem("${close[index - 1].PositionAvgPrice ?? 0.0}")),
+                                              Expanded(flex: 3, child: tableContentItem("${close[index - 1].CloseProfit ?? 0.0}")),
+                                              Expanded(flex: 3, child: tableContentItem(close[index - 1].TradeCurrency)),
                                             ],
                                           )),
                                         ),
                                         onTap: () {
-                                          if (withdrawalRecord[index - 1].selected == true) return;
-                                          for (var element in withdrawalRecord) {
+                                          if (close[index - 1].selected == true) return;
+                                          for (var element in close) {
                                             element.selected = false;
                                           }
-                                          withdrawalRecord[index - 1].selected = true;
+                                          close[index - 1].selected = true;
                                           if (mounted) setState(() {});
                                         },
                                       );
                                     }
-                                  }),
-                            )
-                          : Container(),
+                                  }))
+                          : queryIndex == 3
+                              ? Container(
+                                  decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                                  child: ListView.builder(
+                                      shrinkWrap: true,
+                                      itemCount: positions.length + 1,
+                                      itemBuilder: (BuildContext context, int index) {
+                                        if (index == 0) {
+                                          return Row(
+                                            children: [
+                                              Expanded(flex: 2, child: tableTitleItem("合约")),
+                                              Expanded(flex: 2, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 2, child: tableTitleItem("数量")),
+                                              Expanded(flex: 3, child: tableTitleItem("开仓均价")),
+                                              Expanded(flex: 3, child: tableTitleItem("持仓盈亏")),
+                                              Expanded(flex: 3, child: tableTitleItem("保证金占用")),
+                                              Expanded(flex: 2, child: tableTitleItem("币种")),
+                                            ],
+                                          );
+                                        } else {
+                                          return GestureDetector(
+                                            child: Container(
+                                              color: positions[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                              child: IntrinsicHeight(
+                                                  child: Row(
+                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                children: [
+                                                  Expanded(flex: 2, child: tableContentItem(positions[index - 1].ContractName)),
+                                                  Expanded(
+                                                      flex: 2,
+                                                      child: tableContentItem(positions[index - 1].MatchSide == SideType.SIDE_SELL ? "卖出" : "买入")),
+                                                  Expanded(flex: 2, child: tableContentItem("${positions[index - 1].PositionQty ?? 0}")),
+                                                  Expanded(flex: 3, child: tableContentItem("${positions[index - 1].PositionPrice ?? 0}")),
+                                                  Expanded(flex: 3, child: tableContentItem("${positions[index - 1].PositionProfit ?? 0}")),
+                                                  Expanded(flex: 3, child: tableContentItem("${positions[index - 1].MarginValue ?? 0}")),
+                                                  Expanded(flex: 2, child: tableContentItem(positions[index - 1].TradeCurrency)),
+                                                ],
+                                              )),
+                                            ),
+                                            onTap: () {
+                                              if (positions[index - 1].selected == true) return;
+                                              for (var element in positions) {
+                                                element.selected = false;
+                                              }
+                                              positions[index - 1].selected = true;
+                                              if (mounted) setState(() {});
+                                            },
+                                          );
+                                        }
+                                      }))
+                              // : queryIndex == 4
+                              //     ? Container(
+                              //         decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                              //         child: ListView.builder(
+                              //             shrinkWrap: true,
+                              //             itemCount: positionSummary.length + 1,
+                              //             itemBuilder: (BuildContext context, int index) {
+                              //               if (index == 0) {
+                              //                 return Row(
+                              //                   children: [
+                              //                     Expanded(flex: 1, child: tableTitleItem("合约")),
+                              //                     Expanded(flex: 1, child: tableTitleItem("买卖")),
+                              //                     Expanded(flex: 2, child: tableTitleItem("数量")),
+                              //                     Expanded(flex: 3, child: tableTitleItem("开仓均价")),
+                              //                     Expanded(flex: 3, child: tableTitleItem("持仓盈亏")),
+                              //                     Expanded(flex: 3, child: tableTitleItem("保证金占用")),
+                              //                     Expanded(flex: 2, child: tableTitleItem("币种")),
+                              //                   ],
+                              //                 );
+                              //               } else {
+                              //                 return GestureDetector(
+                              //                   child: Container(
+                              //                     color: positionSummary[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                              //                     child: IntrinsicHeight(
+                              //                         child: Row(
+                              //                       crossAxisAlignment: CrossAxisAlignment.stretch,
+                              //                       children: [
+                              //                         Expanded(flex: 1, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 1, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 2, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 3, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 3, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 3, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                         Expanded(flex: 2, child: tableTitleItem(positionSummary[index - 1].ContractCode)),
+                              //                       ],
+                              //                     )),
+                              //                   ),
+                              //                   onTap: () {
+                              //                     if (positionSummary[index - 1].selected == true) return;
+                              //                     for (var element in positionSummary) {
+                              //                       element.selected = false;
+                              //                     }
+                              //                     positionSummary[index - 1].selected = true;
+                              //                     if (mounted) setState(() {});
+                              //                   },
+                              //                 );
+                              //               }
+                              //             }))
+                              : queryIndex == 5
+                                  ? Container(
+                                      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+                                      child: ListView.builder(
+                                          shrinkWrap: true,
+                                          itemCount: withdrawalRecord.length + 1,
+                                          itemBuilder: (BuildContext context, int index) {
+                                            if (index == 0) {
+                                              return Row(
+                                                children: [
+                                                  Expanded(flex: 1, child: tableTitleItem("时间")),
+                                                  Expanded(flex: 2, child: tableTitleItem("入金")),
+                                                  Expanded(flex: 2, child: tableTitleItem("出金")),
+                                                ],
+                                              );
+                                            } else {
+                                              return GestureDetector(
+                                                child: Container(
+                                                  color: withdrawalRecord[index - 1].selected ? Colors.black.withOpacity(0.2) : Colors.transparent,
+                                                  child: IntrinsicHeight(
+                                                      child: Row(
+                                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                    children: [
+                                                      Expanded(flex: 1, child: tableContentItem(withdrawalRecord[index - 1].CreateTime)),
+                                                      Expanded(
+                                                          flex: 2,
+                                                          child: tableContentItem(
+                                                              "${withdrawalRecord[index - 1].Currency}:${withdrawalRecord[index - 1].CashInValue ?? 0}")),
+                                                      Expanded(
+                                                          flex: 2,
+                                                          child: tableContentItem(
+                                                              "${withdrawalRecord[index - 1].Currency}:${withdrawalRecord[index - 1].CashOutValue ?? 0}")),
+                                                    ],
+                                                  )),
+                                                ),
+                                                onTap: () {
+                                                  if (withdrawalRecord[index - 1].selected == true) return;
+                                                  for (var element in withdrawalRecord) {
+                                                    element.selected = false;
+                                                  }
+                                                  withdrawalRecord[index - 1].selected = true;
+                                                  if (mounted) setState(() {});
+                                                },
+                                              );
+                                            }
+                                          }),
+                                    )
+                                  : Container(),
             )
           ],
-        );
+        ).marginOnly(left: 15, bottom: 15);
       }),
     );
   }
 
+  ///交易设置
   Widget settingWidget() {
     return Expanded(
       child: StatefulBuilder(builder: (_, state) {
@@ -4623,7 +4729,9 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                   ),
                                   onTap: () => state(() {
                                     exchangeIndex = index;
-                                    commodityList = Utils.getVariety(exchangeList[index].exchangeNo);
+                                    commodityList.clear();
+                                    initCommodityList = Utils.getVariety(exchangeList[index].exchangeNo);
+                                    commodityList.addAll(initCommodityList);
                                   }),
                                 );
                               }),
@@ -4654,14 +4762,14 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                             child: Row(
                                           crossAxisAlignment: CrossAxisAlignment.stretch,
                                           children: [
-                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].shortName)),
-                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].commodityNo)),
-                                            Expanded(flex: 4, child: tableRadioItem("限价", "追踪")),
-                                            Expanded(flex: 4, child: tableRadioItem("当日", "永久")),
-                                            Expanded(flex: 3, child: tableTitleItem(commodityList[index - 1].commodityTickSize?.toString())),
-                                            Expanded(flex: 3, child: tablePointItem()),
-                                            Expanded(flex: 3, child: tablePointItem()),
-                                            Expanded(flex: 2, child: tableOperateItem(index)),
+                                            Expanded(flex: 3, child: tableContentItem(commodityList[index - 1].shortName)),
+                                            Expanded(flex: 3, child: tableContentItem(commodityList[index - 1].commodityNo)),
+                                            Expanded(flex: 4, child: tableRadioItem("限价", "追踪", index - 1)),
+                                            Expanded(flex: 4, child: tableRadioItem("当日", "永久", index - 1)),
+                                            Expanded(flex: 3, child: tableContentItem(commodityList[index - 1].commodityTickSize?.toString())),
+                                            Expanded(flex: 3, child: tablePointItem(index - 1)),
+                                            Expanded(flex: 3, child: tablePointItem(index - 1)),
+                                            Expanded(flex: 2, child: tableOperateItem(index - 1)),
                                           ],
                                         )),
                                       ),
@@ -4691,7 +4799,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                           await SpUtils.set(SpKey.defaultTradeType, defaultTradeType);
                           if (mounted) setState(() {});
                         }),
-                        settingTypeItem("默认下单面板", 0, yes: "快手下单", no: "三键下单", or: "传统下单"),
+                        settingTypeItem("默认下单面板", defaultTradeMenu, yes: "快手下单", no: "三键下单", or: "传统下单"),
                         settingNotItem("成交提示音", "系统提示音"),
                       ],
                     ),
@@ -4732,9 +4840,36 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
           Expanded(child: Text(title)),
-          Expanded(child: RadioButton(checked: index == 0, content: Text(yes ?? "是"), onChanged: (v) {})),
-          Expanded(child: RadioButton(checked: index == 1, content: Text(no ?? "否"), onChanged: (v) {})),
-          Expanded(child: RadioButton(checked: index == 2, content: Text(or ?? "或"), onChanged: (v) {})),
+          Expanded(
+              child: RadioButton(
+                  checked: index == 0,
+                  content: Text(yes ?? "是"),
+                  onChanged: (v) async {
+                    defaultTradeMenu = 0;
+                    appTheme.tradeIndex = defaultTradeMenu;
+                    await SpUtils.set(SpKey.defaultTradeMenu, defaultTradeMenu);
+                    if (mounted) setState(() {});
+                  })),
+          Expanded(
+              child: RadioButton(
+                  checked: index == 1,
+                  content: Text(no ?? "否"),
+                  onChanged: (v) async {
+                    defaultTradeMenu = 1;
+                    appTheme.tradeIndex = defaultTradeMenu;
+                    await SpUtils.set(SpKey.defaultTradeMenu, defaultTradeMenu);
+                    if (mounted) setState(() {});
+                  })),
+          Expanded(
+              child: RadioButton(
+                  checked: index == 2,
+                  content: Text(or ?? "或"),
+                  onChanged: (v) async {
+                    defaultTradeMenu = 2;
+                    appTheme.tradeIndex = defaultTradeMenu;
+                    await SpUtils.set(SpKey.defaultTradeMenu, defaultTradeMenu);
+                    if (mounted) setState(() {});
+                  })),
         ],
       ),
     );

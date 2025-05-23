@@ -1,23 +1,25 @@
 class WithdrawalRecord {
   String? AccountName;
   String? Currency;
-  num? CashMoney;
+  double? CashInValue;
+  double? CashOutValue;
   Operation? operation;
   String? Id;
   String? Remarks;
-  String? Time;
+  String? CreateTime;
   bool selected = false;
 
-  WithdrawalRecord({this.AccountName, this.Currency, this.CashMoney, this.operation, this.Id, this.Remarks, this.Time});
+  WithdrawalRecord({this.AccountName, this.Currency, this.CashInValue, this.CashOutValue, this.operation, this.Id, this.Remarks, this.CreateTime});
 
   WithdrawalRecord.fromJson(Map<String, dynamic> json) {
     AccountName = json['AccountName'];
     Currency = json['Currency'];
-    CashMoney = json['CashMoney'];
+    CashInValue = json['CashInValue']?.toDouble();
+    CashOutValue = json['CashOutValue']?.toDouble();
     if (json['Operation'] != null) operation = Operation.fromJson(json['Operation']);
     Id = json['Id'];
     Remarks = json['Remarks'];
-    Time = json['Time'];
+    CreateTime = json['CreateTime'];
   }
 }
 

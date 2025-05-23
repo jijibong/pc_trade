@@ -5,8 +5,6 @@ import '../../config/config.dart';
 import '../../model/trade/res_hold_order.dart';
 import '../../util/http/http.dart';
 import '../../util/http/sign_data.dart';
-import '../../util/info_bar/info_bar.dart';
-import '../../util/log/log.dart';
 
 class PositionServer {
   ///查询持仓

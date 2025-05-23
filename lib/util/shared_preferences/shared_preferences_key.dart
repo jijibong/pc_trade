@@ -14,18 +14,16 @@ class SpKey {
   static String baseUrl = "baseUrl";
 
   ///交易
-  static String quoteSub = "quoteSub";
-  static String varietyMap = "varietyMap";
-  static String codeUpdateTime = "codeUpdateTime";
   static String exchange = "exchange";
   static String allContract = "allContract";
   static String option = "option";
-  static String contract = "contract";
   static String commodity = "commodity";
   static String kPeriod = "kPeriod";
   static String kPeriodCount = "kPeriodCount";
   static String comCloseToday = "ComCloseToday";
   static String defaultTradeType = "defaultTradeType";
+  static String defaultTradeMenu = "defaultTradeMenu";
+  static String drawLines = "drawLines";
 
   ///合约搜索历史记录
   static String searchHistory = "searchHistory";

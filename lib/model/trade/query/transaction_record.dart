@@ -1,58 +1,58 @@
 class TransactionRecord {
-  String? Account;
-  String? OrderNo;
-  String? MatchNo;
   String? ExchangeNo;
+  String? ClientOrderId;
+  int? CommodityType;
   String? CommodityNo;
   String? ContractNo;
-  String? FeeCurrency;
-  String? MAccount;
-  num? MatchSide;
-  num? PositionEffect;
-  num? MatchPrice;
-  num? MatchQty;
-  num? FeeValue;
-  num? BasicsFeeValue;
-  num? CloseProfit;
-  String? CreateTime;
+  String? ContractName;
+  String? MatchNo;
+  String? OrderId;
+  double? MatchPrice;
+  int? MatchQty;
+  int? MatchSide;
+  int? PositionEffect;
   String? MatchTime;
+  String? FeeCurrency;
+  double? FeeValue;
+  String? CreateTime;
+  double? CommodityTickSize;
   bool selected = false;
 
   TransactionRecord(
-      {this.Account,
-      this.OrderNo,
+      {this.ExchangeNo,
+      this.ClientOrderId,
       this.MatchNo,
-      this.ExchangeNo,
+      this.OrderId,
+      this.CommodityType,
       this.CommodityNo,
       this.ContractNo,
       this.FeeCurrency,
-      this.MAccount,
+      this.ContractName,
       this.MatchSide,
       this.PositionEffect,
       this.MatchPrice,
       this.MatchQty,
       this.FeeValue,
-      this.BasicsFeeValue,
-      this.CloseProfit,
+      this.CommodityTickSize,
       this.MatchTime,
       this.CreateTime});
 
   TransactionRecord.fromJson(Map<String, dynamic> json) {
-    Account = json['Account'];
-    OrderNo = json['OrderNo'];
+    ClientOrderId = json['ClientOrderId'];
+    OrderId = json['OrderId'];
     MatchNo = json['MatchNo'];
     ExchangeNo = json['ExchangeNo'];
     CommodityNo = json['CommodityNo'];
     ContractNo = json['ContractNo'];
     FeeCurrency = json['FeeCurrency'];
-    MAccount = json['MAccount'];
-    MatchSide = json['MatchSide'];
-    PositionEffect = json['PositionEffect'];
-    MatchPrice = json['MatchPrice'];
-    MatchQty = json['MatchQty'];
-    FeeValue = json['FeeValue'];
-    BasicsFeeValue = json['BasicsFeeValue'];
-    CloseProfit = json['CloseProfit'];
+    ContractName = json['ContractName'];
+    MatchSide = json['MatchSide']?.toInt();
+    PositionEffect = json['PositionEffect']?.toInt();
+    MatchPrice = json['MatchPrice']?.toDouble();
+    MatchQty = json['MatchQty']?.toInt();
+    FeeValue = json['FeeValue']?.toDouble();
+    CommodityTickSize = json['CommodityTickSize']?.toDouble();
+    CommodityType = json['CloseProfit']?.toInt();
     MatchTime = json['MatchTime'];
     CreateTime = json['CreateTime'];
   }

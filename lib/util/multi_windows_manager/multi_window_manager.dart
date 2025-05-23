@@ -10,7 +10,7 @@ import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Notification, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Notification, Order, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -27,6 +27,8 @@ extension Index on int {
         return WindowType.Draw;
       case 5:
         return WindowType.Notification;
+      case 6:
+        return WindowType.Order;
       default:
         return WindowType.Unknown;
     }
@@ -56,6 +58,7 @@ class RustDeskMultiWindowManager {
   final List<int> _conditionWindows = List.empty(growable: true);
   final List<int> _drawWindows = List.empty(growable: true);
   final List<int> _notificationWindows = List.empty(growable: true);
+  final List<int> _orderWindows = List.empty(growable: true);
 
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
@@ -261,6 +264,18 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newDrawOrder(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+    return await newSession(
+      WindowType.Order,
+      kWindowEventDrawOrder,
+      remoteId,
+      _orderWindows,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> newLocalNotification(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
     return await newSession(
       WindowType.Notification,
@@ -302,6 +317,8 @@ class RustDeskMultiWindowManager {
         return _drawWindows;
       case WindowType.Notification:
         return _notificationWindows;
+      case WindowType.Order:
+        return _orderWindows;
       case WindowType.Unknown:
         break;
     }
@@ -326,6 +343,9 @@ class RustDeskMultiWindowManager {
         break;
       case WindowType.Notification:
         _notificationWindows.clear();
+        break;
+      case WindowType.Order:
+        _orderWindows.clear();
         break;
       case WindowType.Unknown:
         break;

@@ -1,5 +1,6 @@
 import '../../model/delegation/res_comm_order.dart';
 import '../../model/delegation/res_del_order.dart';
+import '../../model/k/custom_line.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/pb/quote/fill.pb.dart';
 import '../../model/quote/contract.dart';
@@ -27,7 +28,10 @@ class QuoteEvent {
 ///登录
 class LoginEvent {}
 
-class LoginSuccess {}
+class LoginSuccess {
+  bool success;
+  LoginSuccess(this.success);
+}
 
 class SwitchExchange {
   int index;
@@ -55,29 +59,39 @@ class ScaleKLine {
 ///显示盘口数据
 class QuoteFilledData {
   FillData quoteFilledData;
-
   QuoteFilledData(this.quoteFilledData);
 }
 
 ///切换K线周期
 class SwitchPeriod {
   KPeriod kPeriod;
-
   SwitchPeriod(this.kPeriod);
 }
 
 ///切换合约
 class SwitchContract {
   Contract contract;
-
   SwitchContract(this.contract);
+}
+
+///画线
+class OrderDrawing {
+  int type;
+  int num;
+  String price;
+  OrderDrawing(this.type, this.num, this.price);
+}
+
+///画线下单
+class OrderEvent {
+  CustomLine customLine;
+  OrderEvent(this.customLine);
 }
 
 ///K线更新矫正
 class CorrKlineEvent {
   DataBean? data;
   String? key;
-
   CorrKlineEvent({this.data, this.key});
 }
 
@@ -89,7 +103,6 @@ class DataBean {
   num? uxTime;
   double? volume;
   double? amount;
-
   DataBean({this.close, this.high, this.low, this.open, this.uxTime, this.volume, this.amount});
 }
 
@@ -116,6 +129,9 @@ class PositionUpdateEvent {
   ResHoldOrder res;
   PositionUpdateEvent({required this.res});
 }
+
+///持仓事件刷新
+class RefreshHold {}
 
 ///持仓浮盈事件
 class PositionFloatEvent {
