@@ -109,7 +109,6 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   showRiskDialog() async {
     bool? firstOpen = await SpUtils.getBool(SpKey.firstOpen);
     if (firstOpen != false) {
-      // if (1 == 1) {
       await _controller.initialize();
       _controller
         ..setBackgroundColor(Colors.white)
@@ -125,6 +124,10 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                 return PopScope(
                     canPop: false,
                     child: ContentDialog(
+                        constraints: BoxConstraints(
+                          maxWidth: ScreenUtil().screenWidth * 0.9,
+                          maxHeight: ScreenUtil().screenHeight * 0.9,
+                        ),
                         style: const ContentDialogThemeData(decoration: BoxDecoration(color: Colors.white)),
                         content: SizedBox(
                           height: ScreenUtil().screenHeight * 0.8,
@@ -213,6 +216,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         EventBusUtil.getInstance().fire(LoginSuccess(false));
         TradeWebSocketServer().dispose();
         await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
+        await rustDeskWinManager.closeAllSubWindows();
       } else if (call.method == kWindowEventRequestQuote) {
         Contract? con = MarketUtils.getVariety(
           call.arguments['exCode'],
@@ -226,15 +230,10 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         }
       } else if (call.method == kTradeWindowId) {
         tradeWindowId = call.arguments['id'];
+      } else if (call.method == drawLineWindowId) {
+        drawToolWindowId = call.arguments['id'];
       } else if (call.method == drawOrderWindowId) {
         dOrderWindowId = call.arguments['id'];
-      } else if (call.method == kOrderEvent) {
-        // if (!LoginServer.isLogin) {
-        //   InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
-        //   return;
-        // }
-        var map = jsonDecode(call.arguments);
-        EventBusUtil.getInstance().fire(OrderDrawing(map['type'], map['num'], map['priceType']));
       }
     });
   }
@@ -645,11 +644,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.tablet_mode, color: appTheme.exchangeTextColor),
                         label: Text('画线下单', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () async {
-                          if (LoginServer.isLogin) {
-                            await rustDeskWinManager.newDrawOrder("drawOrder");
-                          } else {
-                            InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
-                          }
+                          // if (LoginServer.isLogin) {
+                          await rustDeskWinManager.newDrawOrder("drawOrder");
+                          // } else {
+                          //   InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+                          // }
                         },
                       ),
                       CommandBarButton(
@@ -844,7 +843,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           placeholder: tip,
           placeholderStyle: const TextStyle(color: Colors.grey),
           style: TextStyle(color: Colors.blue, fontSize: 17),
-          decoration: const BoxDecoration(
+          decoration: const WidgetStatePropertyAll(BoxDecoration(
               color: Colors.white,
               border: Border(
                 top: BorderSide.none,
@@ -852,7 +851,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                 right: BorderSide.none,
                 bottom: BorderSide(color: Colors.grey),
               ),
-              borderRadius: BorderRadius.zero),
+              borderRadius: BorderRadius.zero)),
           suffix: isPwd == true
               ? HyperlinkButton(
                   child: Text(

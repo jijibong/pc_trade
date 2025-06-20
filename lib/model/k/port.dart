@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:trade/model/k/transverse_line.dart';
 import 'package:trade/model/k/vertical_line.dart';
 
+import '../../util/painter/k_chart/base_k_chart_painter.dart';
 import 'OHLCEntity.dart';
 import 'golden_line.dart';
 import 'oblique_line.dart';
@@ -433,9 +434,10 @@ class Port {
   static double rsiWidth = 1;
   /**图表字体大小，单位dp,需要适配转化为px使用*/
   static double ChartTextSize = 16;
-  static double defult_margin_top = 12;
+  static double defult_margin_top = 5;
+  static double text_top = BaseKChartPainter.getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
   static double defult_icon_width = 25;
-  static double text_check = 5;
+  static double text_check = 0;
 
   //////////智能决策////////////
   /**是否使用瀑布线智能决策*/

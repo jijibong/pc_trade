@@ -1,17 +1,15 @@
 import 'dart:math' as math;
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:fluent_ui/src/controls/form/pickers/pickers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 
-import '../log/log.dart';
 part 'editable_combo_box.dart';
 
 const Duration _kComboBoxMenuDuration = Duration(milliseconds: 300);
 const double _kMenuItemBottomPadding = 6.0;
-const double kComboBoxItemHeight = kPickerHeight + _kMenuItemBottomPadding;
+const double kComboBoxItemHeight = 20 + _kMenuItemBottomPadding;
 const EdgeInsets _kMenuItemPadding = EdgeInsets.symmetric(horizontal: 12.0);
 const EdgeInsetsGeometry _kAlignedButtonPadding = EdgeInsetsDirectional.only(
   start: 11.0,

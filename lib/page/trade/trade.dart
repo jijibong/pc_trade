@@ -45,14 +45,12 @@ import '../../server/delegation/transaction.dart';
 import '../../server/login/login.dart';
 import '../../server/pl/pl.dart';
 import '../../server/position/position.dart';
-import '../../server/socket/trade_webSocket.dart';
 import '../../server/trade/deal.dart';
 import '../../server/trade/settle.dart';
 import '../../server/user/user.dart';
 import '../../util/dialog/trade_dialog.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
-import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -4199,7 +4197,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
               SizedBox(
                 width: 108,
                 child: TextBox(
-                  decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
+                  decoration: WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow))),
                   controller: startController,
                   inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
                   suffix: IconButton(
@@ -4228,7 +4226,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
               SizedBox(
                   width: 108,
                   child: TextBox(
-                    decoration: BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow)),
+                    decoration:
+                        WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.circular(0), border: Border.all(color: Colors.yellow))),
                     controller: endController,
                     inputFormatters: [FilteringTextInputFormatter(RegExp("[0-9 -:]"), allow: true)],
                     suffix: IconButton(

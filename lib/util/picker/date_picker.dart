@@ -1,3 +1,4 @@
+import 'package:auto_size_text/auto_size_text.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:fluent_ui/src/controls/pickers/pickers.dart';
 import 'package:flutter/foundation.dart';
@@ -9,10 +10,10 @@ const kYearDuration = Duration(days: 365);
 
 /// Returns the amount of months in the desired year
 Iterable<int> _monthsInYear(
-    DateTime localDate,
-    DateTime startDate,
-    DateTime endDate,
-    ) sync* {
+  DateTime localDate,
+  DateTime startDate,
+  DateTime endDate,
+) sync* {
   if (localDate.year == startDate.year) {
     for (var current = startDate.month; current <= 12; current++) {
       yield current;
@@ -72,8 +73,8 @@ class DatePicker extends StatefulWidget {
   })  : startDate = startDate ?? DateTime.now().subtract(kYearDuration * 100),
         endDate = endDate ?? DateTime.now().add(kYearDuration * 25),
         assert(
-        fieldFlex == null || fieldFlex.length == 3,
-        'fieldFlex must be null or have a length of 3',
+          fieldFlex == null || fieldFlex.length == 3,
+          'fieldFlex must be null or have a length of 3',
         );
 
   /// The current date selected date.
@@ -240,9 +241,7 @@ class DatePickerState extends State<DatePicker> {
       setState(() => date = DateTime.now());
     }
     _monthController = FixedExtentScrollController(
-      initialItem: _monthsInYear(date, widget.startDate, widget.endDate)
-          .toList()
-          .indexOf(date.month),
+      initialItem: _monthsInYear(date, widget.startDate, widget.endDate).toList().indexOf(date.month),
     );
     _dayController = FixedExtentScrollController(
       initialItem: date.day - 1,
@@ -294,16 +293,16 @@ class DatePickerState extends State<DatePicker> {
     final fieldFlex = widget.fieldFlex ?? getDateFlexFromLocale(locale);
     assert(fieldOrder.isNotEmpty);
     assert(
-    fieldOrder.where((f) => f == DatePickerField.month).length <= 1,
-    'There can be only one month field',
+      fieldOrder.where((f) => f == DatePickerField.month).length <= 1,
+      'There can be only one month field',
     );
     assert(
-    fieldOrder.where((f) => f == DatePickerField.day).length <= 1,
-    'There can be only one day field',
+      fieldOrder.where((f) => f == DatePickerField.day).length <= 1,
+      'There can be only one day field',
     );
     assert(
-    fieldOrder.where((f) => f == DatePickerField.year).length <= 1,
-    'There can be only one year field',
+      fieldOrder.where((f) => f == DatePickerField.year).length <= 1,
+      'There can be only one year field',
     );
 
     Widget picker = Picker(
@@ -333,12 +332,12 @@ class DatePickerState extends State<DatePicker> {
         onPressed: widget.onChanged == null
             ? null
             : () async {
-          _monthController.dispose();
-          _dayController.dispose();
-          _yearController.dispose();
-          initControllers();
-          await open();
-        },
+                _monthController.dispose();
+                _dayController.dispose();
+                _yearController.dispose();
+                initControllers();
+                await open();
+              },
         builder: (context, states) {
           if (states.isDisabled) states = <WidgetState>{};
           const divider = Divider(
@@ -353,13 +352,11 @@ class DatePickerState extends State<DatePicker> {
             Expanded(
               flex: fieldFlex[fieldOrder.indexOf(DatePickerField.month)],
               child: Padding(
-                padding: widget.contentPadding,
+                padding: const EdgeInsets.all(5),
                 child: Text(
                   widget.selected == null
                       ? localizations.month
-                      : DateFormat(DateFormat.STANDALONE_MONTH, '$locale')
-                      .format(widget.selected!)
-                      .uppercaseFirst(),
+                      : DateFormat(DateFormat.STANDALONE_MONTH, '$locale').format(widget.selected!).uppercaseFirst(),
                   locale: locale,
                 ),
               ),
@@ -369,15 +366,18 @@ class DatePickerState extends State<DatePicker> {
           final dayWidget = [
             Expanded(
               flex: fieldFlex[fieldOrder.indexOf(DatePickerField.day)],
-              child: Text(
-                widget.selected == null
-                    ? localizations.day
-                    : DateFormat.d('$locale').format(DateTime(
-                  0,
-                  0,
-                  widget.selected!.day,
-                )),
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(5),
+                child: Text(
+                  widget.selected == null
+                      ? localizations.day
+                      : DateFormat.d('$locale').format(DateTime(
+                          0,
+                          0,
+                          widget.selected!.day,
+                        )),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ];
@@ -385,13 +385,16 @@ class DatePickerState extends State<DatePicker> {
           final yearWidgets = [
             Expanded(
               flex: fieldFlex[fieldOrder.indexOf(DatePickerField.year)],
-              child: Text(
-                widget.selected == null
-                    ? localizations.year
-                    : DateFormat.y('$locale').format(DateTime(
-                  widget.selected!.year,
-                )),
-                textAlign: TextAlign.center,
+              child: Padding(
+                padding: const EdgeInsets.all(5),
+                child: Text(
+                  widget.selected == null
+                      ? localizations.year
+                      : DateFormat.y('$locale').format(DateTime(
+                          widget.selected!.year,
+                        )),
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
           ];
@@ -407,15 +410,20 @@ class DatePickerState extends State<DatePicker> {
           return FocusBorder(
             focused: states.isFocused,
             child: AnimatedContainer(
+              width: 160,
               duration: theme.fastAnimationDuration,
               curve: theme.animationCurve,
               height: kPickerHeight,
-              decoration: kPickerDecorationBuilder(context, states),
+              decoration: BoxDecoration(
+                color: ButtonThemeData.buttonColor(context, states),
+                border: Border.all(
+                  width: 0.15,
+                  color: theme.inactiveColor.withValues(alpha: 0.2),
+                ),
+              ),
               child: DefaultTextStyle.merge(
                 style: TextStyle(
-                  color: widget.selected == null
-                      ? theme.resources.textFillColorSecondary
-                      : null,
+                  color: widget.selected == null ? theme.resources.textFillColorSecondary : null,
                 ),
                 maxLines: 1,
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
@@ -480,8 +488,7 @@ class _DatePickerContentPopUp extends StatefulWidget {
   final List<int> fieldFlex;
 
   @override
-  State<_DatePickerContentPopUp> createState() =>
-      __DatePickerContentPopUpState();
+  State<_DatePickerContentPopUp> createState() => __DatePickerContentPopUpState();
 }
 
 class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
@@ -512,13 +519,11 @@ class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
       });
 
       final monthIndex = monthsInCurrentYear.toList().indexOf(localDate.month);
-      if (widget.showMonth &&
-          widget.monthController.selectedItem != monthIndex) {
+      if (widget.showMonth && widget.monthController.selectedItem != monthIndex) {
         widget.monthController.jumpToItem(monthIndex);
       }
 
-      if (widget.showDay &&
-          widget.dayController.selectedItem != localDate.day - 1) {
+      if (widget.showDay && widget.dayController.selectedItem != localDate.day - 1) {
         widget.dayController.jumpToItem(localDate.day - 1);
       }
     });
@@ -551,8 +556,7 @@ class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
     final months = monthsInCurrentYear;
     final monthWidget = [
       Expanded(
-        flex:
-        widget.fieldFlex[widget.fieldOrder.indexOf(DatePickerField.month)],
+        flex: widget.fieldFlex[widget.fieldOrder.indexOf(DatePickerField.month)],
         child: () {
           final formatter = DateFormat.MMMM(locale.toString());
           // MONTH
@@ -579,23 +583,28 @@ class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
               childDelegate: ListWheelChildLoopingListDelegate(
                 children: List.generate(months.length, (index) {
                   final month = months.elementAt(index);
-                  final text =
-                  formatter.format(DateTime(1, month)).uppercaseFirst();
+                  final text = formatter.format(DateTime(1, month)).uppercaseFirst();
                   final selected = month == localDate.month;
 
                   return ListTile(
                     onPressed: selected
                         ? null
                         : () {
-                      widget.monthController.animateToItem(
-                        index,
-                        duration: theme.mediumAnimationDuration,
-                        curve: theme.animationCurve,
-                      );
-                    },
-                    title: Text(
+                            widget.monthController.animateToItem(
+                              index,
+                              duration: theme.mediumAnimationDuration,
+                              curve: theme.animationCurve,
+                            );
+                          },
+                    title: AutoSizeText(
                       text,
-                      style: kPickerPopupTextStyle(context, selected),
+                      maxLines: 1,
+                      style: FluentTheme.of(context).typography.body?.copyWith(
+                            fontSize: 16,
+                            color: selected ? theme.resources.textOnAccentFillColorPrimary : theme.resources.textFillColorPrimary,
+                            fontWeight: selected ? FontWeight.w500 : FontWeight.normal,
+                          ),
+                      textAlign: TextAlign.center,
                       locale: locale,
                     ),
                   );
@@ -663,12 +672,12 @@ class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
                     onPressed: selected
                         ? null
                         : () {
-                      widget.dayController.animateToItem(
-                        index,
-                        duration: theme.mediumAnimationDuration,
-                        curve: theme.animationCurve,
-                      );
-                    },
+                            widget.dayController.animateToItem(
+                              index,
+                              duration: theme.mediumAnimationDuration,
+                              curve: theme.animationCurve,
+                            );
+                          },
                     title: Center(
                       child: Text(
                         // '$day',
@@ -755,12 +764,12 @@ class __DatePickerContentPopUpState extends State<_DatePickerContentPopUp> {
                   onPressed: selected
                       ? null
                       : () {
-                    widget.yearController.animateToItem(
-                      index,
-                      duration: theme.mediumAnimationDuration,
-                      curve: theme.animationCurve,
-                    );
-                  },
+                          widget.yearController.animateToItem(
+                            index,
+                            duration: theme.mediumAnimationDuration,
+                            curve: theme.animationCurve,
+                          );
+                        },
                   title: Text(
                     formatter.format(DateTime(realYear)),
                     style: kPickerPopupTextStyle(context, selected),

@@ -10,8 +10,10 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:system_theme/system_theme.dart';
+import 'package:trade/page/draw/color_picker.dart';
 import 'package:trade/page/draw/draw_order.dart';
 import 'package:trade/page/draw/draw_tool.dart';
+import 'package:trade/page/draw/line_setting.dart';
 import 'package:trade/page/home/home.dart';
 import 'package:trade/page/secondary/condition.dart';
 import 'package:trade/page/secondary/notification.dart';
@@ -34,6 +36,7 @@ import 'config/common.dart';
 int? kWindowId;
 int? tradeWindowId;
 int? dOrderWindowId;
+int? drawToolWindowId;
 WindowType? kWindowType;
 Size? size;
 
@@ -83,6 +86,20 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopDraw,
           );
           break;
+        case WindowType.Setting:
+          desktopType = DesktopType.setting;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopLineSetting,
+          );
+          break;
+        case WindowType.Color:
+          desktopType = DesktopType.color;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopColorPicker,
+          );
+          break;
         case WindowType.Notification:
           desktopType = DesktopType.notification;
           runMultiWindow(
@@ -130,6 +147,7 @@ Future<void> main(List<String> args) async {
       });
 
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
+      // SpUtils.clear();
     }
   }
 }
@@ -198,8 +216,36 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(160, 380))
+        ..setFrame(const Offset(0, 0) & const Size(180, 430))
         ..setTitle("画线工具箱")
+        ..center()
+        ..show();
+      break;
+    case kAppTypeDesktopLineSetting:
+      _runDrawSetting(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & const Size(500, 430))
+        ..setTitle("画线属性")
+        ..center()
+        ..show();
+      break;
+    case kAppTypeDesktopColorPicker:
+      _runColorPicker(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & const Size(680, 380))
+        ..setTitle("颜色")
         ..center()
         ..show();
       break;
@@ -389,6 +435,86 @@ void _runDrawApp(
           home: MultiProvider(
               providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
               child: DrawTool(params: argument)),
+        ),
+        localizationsDelegates: const [
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        builder: (context, child) {
+          child = _keepScaleBuilder(context, child);
+          return child;
+        },
+      ),
+    ),
+  ));
+}
+
+void _runDrawSetting(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => AnimatedFluentTheme(
+      data: FluentThemeData(visualDensity: VisualDensity.standard),
+      child: GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: title,
+        home: FluentApp(
+          debugShowCheckedModeBanner: false,
+          darkTheme: FluentThemeData(
+            brightness: Brightness.dark,
+            visualDensity: VisualDensity.standard,
+          ),
+          themeMode: _appTheme.mode,
+          theme: FluentThemeData(
+            visualDensity: VisualDensity.standard,
+          ),
+          home: MultiProvider(
+              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+              child: LineSetting(params: argument)),
+        ),
+        localizationsDelegates: const [
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        builder: (context, child) {
+          child = _keepScaleBuilder(context, child);
+          return child;
+        },
+      ),
+    ),
+  ));
+}
+
+void _runColorPicker(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => AnimatedFluentTheme(
+      data: FluentThemeData(visualDensity: VisualDensity.standard),
+      child: GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: title,
+        home: FluentApp(
+          debugShowCheckedModeBanner: false,
+          darkTheme: FluentThemeData(
+            brightness: Brightness.dark,
+            visualDensity: VisualDensity.standard,
+          ),
+          themeMode: _appTheme.mode,
+          theme: FluentThemeData(
+            visualDensity: VisualDensity.standard,
+          ),
+          home: MultiProvider(
+              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+              child: ColorPickerPage(params: argument)),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,

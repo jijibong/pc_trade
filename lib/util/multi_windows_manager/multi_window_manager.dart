@@ -10,7 +10,7 @@ import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Notification, Order, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -26,8 +26,12 @@ extension Index on int {
       case 4:
         return WindowType.Draw;
       case 5:
-        return WindowType.Notification;
+        return WindowType.Setting;
       case 6:
+        return WindowType.Color;
+      case 7:
+        return WindowType.Notification;
+      case 8:
         return WindowType.Order;
       default:
         return WindowType.Unknown;
@@ -57,8 +61,10 @@ class RustDeskMultiWindowManager {
   final List<int> _plWindows = List.empty(growable: true);
   final List<int> _conditionWindows = List.empty(growable: true);
   final List<int> _drawWindows = List.empty(growable: true);
+  final List<int> _colorWindows = List.empty(growable: true);
   final List<int> _notificationWindows = List.empty(growable: true);
   final List<int> _orderWindows = List.empty(growable: true);
+  final List<int> _settingWindows = List.empty(growable: true);
 
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
@@ -186,6 +192,7 @@ class RustDeskMultiWindowManager {
     List<int> windows, {
     String? password,
     bool? forceRelay,
+    int? preWindowId,
     String? contract,
     String? hold,
   }) async {
@@ -195,6 +202,9 @@ class RustDeskMultiWindowManager {
     }
     if (hold != null) {
       params['hold'] = hold;
+    }
+    if (preWindowId != null) {
+      params['preWindowId'] = preWindowId;
     }
     final msg = jsonEncode(params);
 
@@ -264,6 +274,32 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newColorPicker(String remoteId, {String? password, bool? forceRelay, int? preWindowId, String? hold}) async {
+    return await newSession(
+      WindowType.Color,
+      kWindowEventNewColorPicker,
+      remoteId,
+      _colorWindows,
+      password: password,
+      forceRelay: forceRelay,
+      preWindowId: preWindowId,
+      hold: hold,
+    );
+  }
+
+  Future<MultiWindowCallResult> newLineSetting(String remoteId, {String? password, bool? forceRelay, int? preWindowId, String? hold}) async {
+    return await newSession(
+      WindowType.Setting,
+      kWindowEventLineSetting,
+      remoteId,
+      _settingWindows,
+      password: password,
+      forceRelay: forceRelay,
+      preWindowId: preWindowId,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> newDrawOrder(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
     return await newSession(
       WindowType.Order,
@@ -315,6 +351,10 @@ class RustDeskMultiWindowManager {
         return _conditionWindows;
       case WindowType.Draw:
         return _drawWindows;
+      case WindowType.Color:
+        return _colorWindows;
+      case WindowType.Setting:
+        return _settingWindows;
       case WindowType.Notification:
         return _notificationWindows;
       case WindowType.Order:
@@ -341,6 +381,12 @@ class RustDeskMultiWindowManager {
       case WindowType.Draw:
         _drawWindows.clear();
         break;
+      case WindowType.Color:
+        _colorWindows.clear();
+        break;
+      case WindowType.Setting:
+        _settingWindows.clear();
+        break;
       case WindowType.Notification:
         _notificationWindows.clear();
         break;
@@ -358,6 +404,10 @@ class RustDeskMultiWindowManager {
 
   Future<void> closeAllSubWindows() async {
     await Future.wait(WindowType.values.map((e) => _closeWindows(e)));
+  }
+
+  Future<void> closeWindowByType(WindowType type) async {
+    await _closeWindows(type);
   }
 
   Future<void> _closeWindows(WindowType type) async {

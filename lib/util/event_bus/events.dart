@@ -82,10 +82,13 @@ class OrderDrawing {
   OrderDrawing(this.type, this.num, this.price);
 }
 
-///画线下单
-class OrderEvent {
-  CustomLine customLine;
-  OrderEvent(this.customLine);
+///画线工具画线
+class ToolDrawing {
+  int pathType;
+  int colorValue;
+  int widthType;
+  int lineType;
+  ToolDrawing(this.pathType, this.colorValue, this.widthType, this.lineType);
 }
 
 ///K线更新矫正

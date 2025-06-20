@@ -303,7 +303,8 @@ class CostLineEntity {
    * @param pri_type
    * @param count
    */
-  void addData(List<OHLCEntity> OHLCData, int onePeriod, int twoPeriod, int threePeriod, int fourPeriod, int fivePeriod, int type, int pri_type, int count) {
+  void addData(
+      List<OHLCEntity> OHLCData, int onePeriod, int twoPeriod, int threePeriod, int fourPeriod, int fivePeriod, int type, int pri_type, int count) {
     if (CostOne.isEmpty || CostTwo.isEmpty || CostThree.isEmpty || CostFour.isEmpty || CostFive.isEmpty) {
       return;
     }
@@ -377,10 +378,9 @@ class CostLineEntity {
     fivePaint.strokeWidth = Port.costWidth[4];
     // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
-    rate = uperChartHeight  / (mMaxPrice - mMinPrice); //计算最小单位
-    double textBottom = MARGINTOP ;
+    rate = uperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = MARGINTOP;
     double textXStart = MARGINLEFT + Port.defult_icon_width + leftMarginSpace;
-    double textMarginTop = MARGINTOP -Port.text_check;
 
     //开始绘制
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
@@ -482,7 +482,7 @@ class CostLineEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MA$CostTwoPeriod:$cost2";
@@ -490,7 +490,7 @@ class CostLineEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MA$CostThreePeriod:$cost3";
@@ -498,7 +498,7 @@ class CostLineEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MA$CostFourPeriod:$cost4";
@@ -506,7 +506,7 @@ class CostLineEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MA$CostFivePeriod:$cost5";
@@ -514,7 +514,7 @@ class CostLineEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.costFiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }

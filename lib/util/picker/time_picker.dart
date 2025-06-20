@@ -129,17 +129,15 @@ class TimePicker extends StatefulWidget {
         ifFalse: 'manual focus',
         defaultValue: false,
       ))
-      ..add(DoubleProperty('popupHeight', popupHeight,
-          defaultValue: kPickerPopupHeight))
+      ..add(DoubleProperty('popupHeight', popupHeight, defaultValue: kPickerPopupHeight))
       ..add(IntProperty('minuteIncrement', minuteIncrement, defaultValue: 1));
   }
 }
 
-class TimePickerState extends State<TimePicker>
-    with IntlScriptLocaleApplyMixin {
+class TimePickerState extends State<TimePicker> with IntlScriptLocaleApplyMixin {
   late DateTime time;
 
-  final GlobalKey _buttonKey = GlobalKey(debugLabel: 'Time Picker button key');
+  // final GlobalKey _buttonKey = GlobalKey(debugLabel: 'Time Picker button key');
 
   late FixedExtentScrollController _hourController;
   late FixedExtentScrollController _minuteController;
@@ -245,12 +243,12 @@ class TimePickerState extends State<TimePicker>
         onPressed: widget.onChanged == null
             ? null
             : () async {
-          _hourController.dispose();
-          _minuteController.dispose();
-          _amPmController.dispose();
-          initControllers();
-          await open();
-        },
+                _hourController.dispose();
+                _minuteController.dispose();
+                _amPmController.dispose();
+                initControllers();
+                await open();
+              },
         builder: (context, states) {
           const divider = Divider(
             direction: Axis.vertical,
@@ -262,22 +260,27 @@ class TimePickerState extends State<TimePicker>
           return FocusBorder(
             focused: states.isFocused,
             child: AnimatedContainer(
+              width: 78,
               duration: theme.fastAnimationDuration,
               curve: theme.animationCurve,
               height: kPickerHeight,
-              decoration: kPickerDecorationBuilder(context, states),
+              decoration: BoxDecoration(
+                color: ButtonThemeData.buttonColor(context, states),
+                border: Border.all(
+                  width: 0.15,
+                  color: theme.inactiveColor.withValues(alpha: 0.2),
+                ),
+              ),
               child: DefaultTextStyle.merge(
                 style: TextStyle(
-                  color: widget.selected == null
-                      ? theme.resources.textFillColorSecondary
-                      : null,
+                  color: widget.selected == null ? theme.resources.textFillColorSecondary : null,
                 ),
-                child: Row(key: _buttonKey, children: [
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Expanded(
                     child: Padding(
-                      padding: widget.contentPadding,
+                      padding: const EdgeInsets.all(5),
                       child: Text(
-                            () {
+                        () {
                           if (widget.selected == null) {
                             return localizations.hour;
                           }
@@ -298,29 +301,25 @@ class TimePickerState extends State<TimePicker>
                   divider,
                   Expanded(
                     child: Padding(
-                      padding: widget.contentPadding,
+                      padding: const EdgeInsets.all(5),
                       child: Text(
-                        widget.selected == null
-                            ? localizations.minute
-                            : _formatMinute(time.minute, '$locale'),
+                        widget.selected == null ? localizations.minute : _formatMinute(time.minute, '$locale'),
                         textAlign: TextAlign.center,
                       ),
                     ),
                   ),
-                  divider,
-                  if (!widget.use24Format)
-                    Expanded(
-                      child: Padding(
-                        padding: widget.contentPadding,
-                        child: Text(
-                              () {
-                            if (_isPm) return localizations.pm;
-                            return localizations.am;
-                          }(),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                    ),
+                  // divider,
+                  // if (!widget.use24Format)
+                  //   Padding(
+                  //     padding: const EdgeInsets.all(5),
+                  //     child: Text(
+                  //       () {
+                  //         if (_isPm) return localizations.pm;
+                  //         return localizations.am;
+                  //       }(),
+                  //       textAlign: TextAlign.center,
+                  //     ),
+                  //   ),
                 ]),
               ),
             ),
@@ -367,8 +366,7 @@ class _TimePickerContentPopup extends StatefulWidget {
   final int minuteIncrement;
 
   @override
-  State<_TimePickerContentPopup> createState() =>
-      __TimePickerContentPopupState();
+  State<_TimePickerContentPopup> createState() => __TimePickerContentPopupState();
 }
 
 class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
@@ -382,7 +380,7 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
     localDate = widget.date;
     final possibleMinutes = List.generate(
       60 ~/ widget.minuteIncrement,
-          (index) => index * widget.minuteIncrement,
+      (index) => index * widget.minuteIncrement,
     );
     if (!possibleMinutes.contains(localDate.minute)) {
       localDate = DateTime(
@@ -408,9 +406,8 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
   int getClosestMinute(List<int> possibleMinutes, int goal) {
     return possibleMinutes
         .reduce(
-          (prev, curr) =>
-      (curr - goal).abs() < (prev - goal).abs() ? curr : prev,
-    )
+          (prev, curr) => (curr - goal).abs() < (prev - goal).abs() ? curr : prev,
+        )
         .clamp(0, 59);
   }
 
@@ -482,12 +479,12 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
                           onPressed: selected
                               ? null
                               : () {
-                            widget.hourController.animateToItem(
-                              hour,
-                              duration: theme.mediumAnimationDuration,
-                              curve: theme.animationCurve,
-                            );
-                          },
+                                  widget.hourController.animateToItem(
+                                    hour,
+                                    duration: theme.mediumAnimationDuration,
+                                    curve: theme.animationCurve,
+                                  );
+                                },
                           title: Center(
                             child: Text(
                               _formatHour(hour, widget.locale!.toString()),
@@ -540,19 +537,19 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
                     childDelegate: ListWheelChildLoopingListDelegate(
                       children: List.generate(
                         60 ~/ widget.minuteIncrement,
-                            (index) {
+                        (index) {
                           final minute = index * widget.minuteIncrement;
                           final selected = minute == localDate.minute;
                           return ListTile(
                             onPressed: selected
                                 ? null
                                 : () {
-                              widget.minuteController.animateToItem(
-                                index,
-                                duration: theme.mediumAnimationDuration,
-                                curve: theme.animationCurve,
-                              );
-                            },
+                                    widget.minuteController.animateToItem(
+                                      index,
+                                      duration: theme.mediumAnimationDuration,
+                                      curve: theme.animationCurve,
+                                    );
+                                  },
                             title: Center(
                               child: Text(
                                 _formatMinute(minute, '${widget.locale}'),
@@ -605,18 +602,18 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
                       itemExtent: kOneLineTileHeight,
                       physics: const FixedExtentScrollPhysics(),
                       children: [
-                            () {
+                        () {
                           final selected = localDate.hour < 12;
                           return ListTile(
                             onPressed: selected
                                 ? null
                                 : () {
-                              widget.amPmController.animateToItem(
-                                0,
-                                duration: theme.mediumAnimationDuration,
-                                curve: theme.animationCurve,
-                              );
-                            },
+                                    widget.amPmController.animateToItem(
+                                      0,
+                                      duration: theme.mediumAnimationDuration,
+                                      curve: theme.animationCurve,
+                                    );
+                                  },
                             title: Center(
                               child: Text(
                                 localizations.am,
@@ -625,18 +622,18 @@ class __TimePickerContentPopupState extends State<_TimePickerContentPopup> {
                             ),
                           );
                         }(),
-                            () {
+                        () {
                           final selected = localDate.hour >= 12;
                           return ListTile(
                             onPressed: selected
                                 ? null
                                 : () {
-                              widget.amPmController.animateToItem(
-                                1,
-                                duration: theme.mediumAnimationDuration,
-                                curve: theme.animationCurve,
-                              );
-                            },
+                                    widget.amPmController.animateToItem(
+                                      1,
+                                      duration: theme.mediumAnimationDuration,
+                                      curve: theme.animationCurve,
+                                    );
+                                  },
                             title: Center(
                               child: Text(
                                 localizations.pm,

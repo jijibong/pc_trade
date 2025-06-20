@@ -64,7 +64,7 @@ class DealServer {
           "PositionEffect": PositionEffect,
           "ClientOrderId": ClientOrderId,
         };
-        logger.i(map);
+        // logger.i(map);
         data = await SignData().signData(jsonEncode(map), Config.addOrder);
       }
       Response response = await HttpUtils.getInstance().post(Config.addOrder, data: data);

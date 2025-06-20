@@ -5,27 +5,13 @@ import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:get/get.dart' hide Condition;
 import 'package:provider/provider.dart';
-import 'package:trade/server/login/login.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../config/common.dart';
-import '../../config/config.dart';
 import '../../main.dart';
-import '../../model/condition/condition.dart';
-import '../../model/quote/order_type.dart';
-import '../../model/quote/position_effect_type.dart';
-import '../../model/quote/side_type.dart';
-import '../../model/user/user.dart';
-import '../../server/condition/condition.dart';
-import '../../util/http/http.dart';
-import '../../util/info_bar/info_bar.dart';
-import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
-import '../../util/shared_preferences/shared_preferences_key.dart';
-import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/widget/number_box.dart';
 
 class DrawOrder extends StatefulWidget {

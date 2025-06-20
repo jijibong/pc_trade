@@ -75,3 +75,18 @@ class KTime {
   //   return period;
   // }
 }
+
+class PeriodType{
+  static const int Day = 0;
+  static const int Week = 1;
+  static const int Month = 2;
+  static const int Year = 3;
+  static const int X_Day = 4;
+  static const int M_1 = 5;
+  static const int M_3 = 5;
+  static const int M_5 = 5;
+  static const int M_10 = 5;
+  static const int M_15 = 5;
+  static const int M_30 = 5;
+
+}

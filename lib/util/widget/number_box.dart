@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart' hide TextDirection;
 import 'package:math_expressions/math_expressions.dart';
 
@@ -431,37 +432,37 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
       //   ),
     ];
 
-    switch (widget.mode) {
-      case SpinButtonPlacementMode.inline:
-        textFieldSuffix.addAll([
-          Column(
-            children: [
-              IconButton(
-                icon: const Icon(
-                  FluentIcons.chevron_up,
-                  size: 8,
-                ),
-                iconButtonMode: IconButtonMode.small,
-                onPressed: widget.onChanged != null ? incrementSmall : null,
-              ),
-              IconButton(
-                icon: const Icon(
-                  FluentIcons.chevron_down,
-                  size: 8,
-                ),
-                iconButtonMode: IconButtonMode.small,
-                onPressed: widget.onChanged != null ? decrementSmall : null,
-              ),
-            ],
-          )
-        ]);
-        break;
-      case SpinButtonPlacementMode.compact:
-        // textFieldSuffix.add(const SizedBox(width: kNumberBoxOverlayWidth));
-        break;
-      case SpinButtonPlacementMode.none:
-        break;
-    }
+    // switch (widget.mode) {
+    //   case SpinButtonPlacementMode.inline:
+    //     textFieldSuffix.addAll([
+    //       Column(
+    //         children: [
+    //           IconButton(
+    //             icon: const Icon(
+    //               FluentIcons.chevron_up,
+    //               size: 8,
+    //             ),
+    //             iconButtonMode: IconButtonMode.small,
+    //             onPressed: widget.onChanged != null ? incrementSmall : null,
+    //           ),
+    //           IconButton(
+    //             icon: const Icon(
+    //               FluentIcons.chevron_down,
+    //               size: 8,
+    //             ),
+    //             iconButtonMode: IconButtonMode.small,
+    //             onPressed: widget.onChanged != null ? decrementSmall : null,
+    //           ),
+    //         ],
+    //       )
+    //     ]);
+    //     break;
+    //   case SpinButtonPlacementMode.compact:
+    //     // textFieldSuffix.add(const SizedBox(width: kNumberBoxOverlayWidth));
+    //     break;
+    //   case SpinButtonPlacementMode.none:
+    //     break;
+    // }
 
     final child = TextBox(
       key: _textBoxKey,
@@ -480,7 +481,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
       controller: controller,
       keyboardType: widget.keyboardType,
       enabled: widget.onChanged != null,
-      decoration: BoxDecoration(color: Colors.transparent),
+      decoration: WidgetStateProperty.all(const BoxDecoration(color: Colors.transparent)),
       suffix: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
@@ -503,7 +504,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
             iconButtonMode: IconButtonMode.small,
           ),
         ],
-      ),
+      ).marginOnly(right: 5),
       // suffix: textFieldSuffix.isNotEmpty ? Row(children: textFieldSuffix) : null,
       unfocusedColor: widget.unfocusedColor,
       style: widget.style,

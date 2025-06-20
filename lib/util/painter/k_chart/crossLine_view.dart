@@ -243,7 +243,6 @@ class CrossLineView extends CustomPainter {
       double MARGINLEFT,
       double leftMarginSpace,
       double rightMarginSpace,
-      double MARGINRIGHT,
       int showNum,
       int startIndex,
       List<OHLCEntity> list,
@@ -271,7 +270,7 @@ class CrossLineView extends CustomPainter {
 
     startX = MARGINLEFT;
     startY = Y;
-    stopX = viewWidth - MARGINRIGHT;
+    stopX = viewWidth ;
     stopY = Y;
 
     //横线
@@ -315,9 +314,9 @@ class CrossLineView extends CustomPainter {
         textX = left + 5;
       } else {
         //右边
-        left = viewWidth - MARGINRIGHT - width - rightMarginSpace;
+        left = viewWidth  - width - rightMarginSpace;
         top = 0;
-        right = viewWidth - MARGINRIGHT - rightMarginSpace;
+        right = viewWidth -  rightMarginSpace;
         bottom = MARGINTOP + height * 12 + margin;
         textX = left + 5;
       }
@@ -400,9 +399,9 @@ class CrossLineView extends CustomPainter {
         textX = left + 5;
       } else {
         //右边
-        left = viewWidth - MARGINRIGHT - width;
+        left = viewWidth - width;
         top = 0;
-        right = viewWidth - MARGINRIGHT;
+        right = viewWidth ;
         bottom = MARGINTOP + height * 18;
         textX = left + 5;
       }

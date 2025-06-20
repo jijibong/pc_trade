@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'dart:math';
+import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path_drawing/path_drawing.dart';
 
 import '../../../model/k/OHLCEntity.dart';
 import '../../../model/k/custom_line.dart';
+import '../../../model/k/draw_tool_line.dart';
 import '../../../model/k/k_chart_data/AlligatorEntity.dart';
 import '../../../model/k/k_chart_data/BIASEntity.dart';
 import '../../../model/k/k_chart_data/BollingerEntity.dart';
@@ -40,6 +43,7 @@ class ChartPainter extends BaseKChartPainter {
   double mPointWidth = 1;
   List<OHLCEntity> mOHLCData = [];
   List<CustomLine> drawOrderLines = [];
+  List<DrawToolLine> drawToolLines = [];
   int mTimeStartIndext = 0;
   int mTimeShowNum = 1380;
   int mShowNum = 35, mStartIndex = 0;
@@ -254,6 +258,7 @@ class ChartPainter extends BaseKChartPainter {
     required this.currentX,
     required this.currentY,
     required this.drawOrderLines,
+    required this.drawToolLines,
     required this.mDataStartIndext,
     required this.mShowDataNum,
     required this.MIN_CANDLE_NUM,
@@ -318,7 +323,6 @@ class ChartPainter extends BaseKChartPainter {
       _drawLongitudes(canvas, longitudeSpacing);
       _drawTimeUpper(canvas, longitudeSpacing);
     } else {
-      mRightArea = BaseKChartPainter.mCursorWidth;
       _drawUpperRegion(canvas);
       _drawAssistLine(canvas);
       _drawTitles(canvas);
@@ -467,7 +471,7 @@ class ChartPainter extends BaseKChartPainter {
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
       double lowerHeight = kChartViewHeight - TIME_LOWER_CHART_TOP;
       CrossLineView.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, lowerHeight, currentX, currentY, mPointWidth, MARGINTOP, timeMarginLeft,
-          timeLeftMarginSpace, rightMarginSpace, timeMarginRight, showNum, 0, mOHLCData, isDrawTime, lastClose, mKPeriod);
+          timeLeftMarginSpace, rightMarginSpace, showNum, 0, mOHLCData, isDrawTime, lastClose, mKPeriod);
     }
   }
 
@@ -525,8 +529,8 @@ class ChartPainter extends BaseKChartPainter {
 
       Path path = Path();
       path.moveTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace, closeHigh);
-      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace + BaseKChartPainter.mCursorWidth, closeHigh - 10);
-      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace + BaseKChartPainter.mCursorWidth, closeHigh + 10);
+      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace, closeHigh - 10);
+      path.lineTo(BaseKChartPainter.MARGINLEFT + mChartWidth + leftMarginSpace, closeHigh + 10);
       path.close();
       canvas.drawPath(path, cursorPaint);
     }
@@ -713,7 +717,6 @@ class ChartPainter extends BaseKChartPainter {
           BaseKChartPainter.MARGINLEFT,
           leftMarginSpace,
           rightMarginSpace,
-          mRightArea,
           mShowDataNum,
           mDataStartIndext,
           mOHLCData,
@@ -1020,9 +1023,8 @@ class ChartPainter extends BaseKChartPainter {
     // double rate =
     //     (mUperChartHeight - MARGINTOP + Port.text_check - getStringHeight("0", TextPainter(), size: Port.ChartTextSize)) / (mMaxPrice - mMinPrice);
     double textBottom = MARGINTOP;
-    // double textBottom = MARGINTOP - Port.text_check + getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
     double startX = BaseKChartPainter.MARGINLEFT + leftMarginSpace;
-    double stopX = kChartViewWidth - mRightArea;
+    double stopX = kChartViewWidth;
     double Y = 0;
     framePaint.strokeWidth = Utils.dp2px(1);
     for (CustomLine e in drawOrderLines) {
@@ -1039,6 +1041,7 @@ class ChartPainter extends BaseKChartPainter {
         Path path = Path(); // 绘制虚线
         path.moveTo(startX, Y);
         path.lineTo(stopX, Y);
+        e.path = path;
         //横线
         canvas.drawPath(
           dashPath(
@@ -1062,6 +1065,512 @@ class ChartPainter extends BaseKChartPainter {
           ..layout();
       }
     }
+
+    for (DrawToolLine e in drawToolLines) {
+      Path path = Path(); // 绘制虚线
+      Path tmp = Path()
+        ..addRect(Rect.fromLTWH(BaseKChartPainter.MARGINLEFT + leftMarginSpace, 0, kChartViewWidth - BaseKChartPainter.MARGINLEFT - leftMarginSpace,
+            kChartViewHeight)); // 绘制虚线
+      double width = (e.widthType ?? 1).toDouble();
+      framePaint
+        ..color = e.selected ? Colors.red : Color(e.colorValue ?? 4294967295)
+        ..strokeWidth = width * width - ((width - 1) * (width - 1));
+      if (e.pathType == 3 && e.firstPointY != null) {
+        ///水平线
+        double Y = (mMaxPrice - e.firstPointY!) * rate + textBottom;
+        if (Y > MARGINTOP) {
+          path.moveTo(startX, Y);
+          path.lineTo(stopX, Y);
+          e.path = path;
+          _paintLines(canvas, e.lineType, path, framePaint);
+          textPaint
+            ..text = TextSpan(text: e.firstPointY!.toStringAsFixed(2))
+            ..paint(canvas, Offset(startX, Y - getStringHeight(e.firstPointY!.toStringAsFixed(2), textPaint)))
+            ..layout();
+        }
+      } //
+      else if (e.pathType == 4 && e.firstPointX != null) {
+        ///竖线
+        if (dateTOIndex(e.firstPointX!) >= mDataStartIndext) {
+          double X = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+          path.moveTo(X, MARGINTOP);
+          path.lineTo(X, kChartViewHeight);
+          e.path = path;
+          _paintLines(canvas, e.lineType, path, framePaint);
+        }
+      } //
+      else if (e.pathType == 16 && e.firstPointX != null && e.firstPointY != null) {
+        ///上45度
+        double X = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double Y = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.moveTo(X, Y);
+        if (kChartViewWidth - X > Y - MARGINTOP) {
+          path.lineTo(X + Y - MARGINTOP, MARGINTOP);
+        } else {
+          path.lineTo(kChartViewWidth, Y - kChartViewWidth + X);
+        }
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(X, Y), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 17 && e.firstPointX != null && e.firstPointY != null) {
+        ///下45度
+        double X = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double Y = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.moveTo(X, Y);
+        if (kChartViewWidth - X > kChartViewHeight - Y) {
+          path.lineTo(X + kChartViewHeight - Y, kChartViewHeight);
+        } else {
+          path.lineTo(kChartViewWidth, Y + kChartViewWidth - X);
+        }
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(X, Y), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 1 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///趋势线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        if (firstX == secondX) {
+          path.moveTo(firstX, 0);
+          path.lineTo(firstX, kChartViewHeight);
+        } else if (firstY == secondY) {
+          path.moveTo(0, firstY);
+          path.lineTo(kChartViewWidth, firstY);
+        } else {
+          final k = (secondY - firstY) / (secondX - firstX);
+          final b = firstY - k * firstX;
+          final intersections = [
+            Offset(0, b),
+            Offset(kChartViewWidth, k * kChartViewWidth + b),
+            Offset(-b / k, 0),
+            Offset((kChartViewHeight - b) / k, kChartViewHeight),
+          ];
+          final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (validPoints.length >= 2) {
+            validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(validPoints[0].dx, validPoints[0].dy);
+            path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          }
+        }
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 2 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///射线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        if (firstX == secondX) {
+          path.moveTo(firstX, firstY);
+          path.lineTo(secondX, secondY > firstY ? kChartViewHeight : 0);
+        } else if (firstY == secondY) {
+          path.moveTo(firstX, firstY);
+          path.lineTo(firstX > secondX ? 0 : kChartViewWidth, firstY);
+        } else {
+          // final k = (secondY - firstY) / (secondX - firstX);
+          // final b = firstY - k * firstX;
+          // final intersections = [
+          //   Offset(0, b),
+          //   Offset(kChartViewWidth, k * kChartViewWidth + b),
+          //   Offset(-b / k, 0),
+          //   Offset((kChartViewHeight - b) / k, kChartViewHeight),
+          // ];
+          // final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          // if (validPoints.isNotEmpty) {
+          //   validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+          //   path.moveTo(firstX, firstY);
+          //   if (k > 0) {
+          //     path.lineTo(validPoints[0].dx, validPoints[0].dy);
+          //   } else {
+          //     path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          //   }
+          // }
+          var direction = Offset(secondX, secondY) - Offset(firstX, firstY);
+          double value = 0;
+          final tValues = [
+            (0 - secondX) / direction.dx, // 左边界
+            (kChartViewWidth - secondX) / direction.dx, // 右边界
+            (0 - secondY) / direction.dy, // 上边界
+            (kChartViewHeight - secondY) / direction.dy, // 下边界
+          ];
+          value = tValues.where((t) => t.isFinite && t > 0).reduce((a, b) => a < b ? a : b);
+          path.moveTo(firstX, firstY);
+          path.lineTo(secondX + (direction.dx * value), secondY + (direction.dy * value));
+        }
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 5 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///线段
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.moveTo(firstX, firstY);
+        path.lineTo(secondX, secondY);
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 8 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///矩形
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.moveTo(firstX, firstY);
+        path.lineTo(secondX, firstY);
+        path.lineTo(secondX, secondY);
+        path.lineTo(firstX, secondY);
+        path.close();
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 10 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///圆弧
+        if (e.firstPointX != e.secondPointX) {
+          double x1 = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+          double x2 = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+          double y1 = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+          double y2 = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+          canvas.save();
+          canvas.clipPath(tmp);
+          final a = (y1 - y2) / ((x1 - x2) * (x1 - x2) / 4);
+          // 生成抛物线路径
+          path.moveTo(x1, y1);
+          if (x1 < x2) {
+            for (double x = x1; x <= x2; x += 0.5) {
+              final y = a * (x - (x2 - x1) / 2 - x1) * (x - (x2 - x1) / 2 - x1) + y2;
+              if (x != x1) {
+                path.lineTo(x, y);
+              }
+            }
+          } else {
+            for (double x = x1; x >= x2; x -= 0.5) {
+              final y = a * (x - (x2 - x1) / 2 - x1) * (x - (x2 - x1) / 2 - x1) + y2;
+              if (x != x1) {
+                path.lineTo(x, y);
+              }
+            }
+          }
+          // path.moveTo(firstX, firstY);
+          // path.cubicTo(
+          //   firstX, secondY, // 第一个控制点（上方）
+          //   secondX + secondX - firstX, secondY, // 第二个控制点（上方）
+          //   secondX + secondX - firstX, firstY, // 终点
+          // );
+          e.path = path;
+          _paintLines(canvas, e.lineType, path, framePaint);
+          _paintPoints(canvas, Offset(x1, y1), framePaint);
+          _paintPoints(canvas, Offset(x2, y2), framePaint);
+          canvas.restore();
+        }
+      } //
+      else if (e.pathType == 13 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///对称角度线
+        if (e.firstPointX != e.secondPointX) {
+          double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+          double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+          double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+          double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+          canvas.save();
+          canvas.clipPath(tmp);
+          var direction = Offset(secondX + secondX - firstX, firstY) - Offset(secondX, secondY);
+          double value = 0;
+          final tValues = [
+            (0 - (secondX + secondX - firstX)) / direction.dx, // 左边界
+            (kChartViewWidth - (secondX + secondX - firstX)) / direction.dx, // 右边界
+            (0 - firstY) / direction.dy, // 上边界
+            (kChartViewHeight - firstY) / direction.dy, // 下边界
+          ];
+          value = tValues.where((t) => t.isFinite && t > 0).reduce((a, b) => a < b ? a : b);
+          double x = secondX + secondX - firstX + (direction.dx * value);
+          double y = firstY + (direction.dy * value);
+          path.moveTo(firstX, firstY);
+          path.lineTo(secondX, secondY);
+          path.lineTo(secondX, firstY);
+          path.moveTo(secondX, secondY);
+          path.lineTo(x, y);
+          e.path = path;
+          _paintLines(canvas, e.lineType, path, framePaint);
+          _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+          _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+          canvas.restore();
+        }
+      } //
+      else if (e.pathType == 14 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///圆
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        double radius = sqrt((secondY - firstY) * (secondY - firstY) + (secondX - firstX) * (secondX - firstX));
+        path.addOval(Rect.fromCircle(center: Offset(firstX, firstY), radius: radius));
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 15 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///椭圆
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.addOval(Rect.fromCenter(
+            center: Offset((firstX + secondX) / 2, (firstY + secondY) / 2), width: (secondX - firstX).abs(), height: (secondY - firstY).abs()));
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 11 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///甘氏线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        // _paintLines(canvas, e.lineType, path, framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 12 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///阻速线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        // _paintLines(canvas, e.lineType, path, framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 18 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///多圆弧
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        // _paintLines(canvas, e.lineType, path, framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 6 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///通道线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        if (firstX == secondX) {
+          path.moveTo(firstX, 0);
+          path.lineTo(firstX, kChartViewHeight);
+        } else if (firstY == secondY) {
+          path.moveTo(0, firstY);
+          path.lineTo(kChartViewWidth, firstY);
+        } else {
+          final k = (secondY - firstY) / (secondX - firstX);
+          final b = firstY - k * firstX;
+          final intersections = [
+            Offset(0, b),
+            Offset(kChartViewWidth, k * kChartViewWidth + b),
+            Offset(-b / k, 0),
+            Offset((kChartViewHeight - b) / k, kChartViewHeight),
+          ];
+          final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (validPoints.length >= 2) {
+            validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(validPoints[0].dx, validPoints[0].dy);
+            path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          }
+        }
+        _paintLines(canvas, e.lineType, path, framePaint);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+
+        if (e.thirdPointX != null && e.thirdPointY != null) {
+          double thirdPointX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.thirdPointX!) - mDataStartIndext) + leftMarginSpace;
+          double thirdPointY = (mMaxPrice - (e.thirdPointY ?? 0)) * rate + textBottom;
+          double forPointX = firstX - thirdPointX + firstX;
+          double forPointY = firstY - thirdPointY + firstY;
+          double slope = (secondY - firstY) / (secondX - firstX);
+          double intercept = thirdPointY - slope * thirdPointX;
+          double intercept1 = forPointY - slope * forPointX;
+          // 计算平行线的两个端点（为了显示，我们选择x=0和x=size.width的点）
+          final intersections = [
+            Offset(0, intercept),
+            Offset(kChartViewWidth, slope * kChartViewWidth + intercept),
+            Offset(-intercept / slope, 0),
+            Offset((kChartViewHeight - intercept) / slope, kChartViewHeight),
+          ];
+          final intersections0 = [
+            Offset(0, intercept1),
+            Offset(kChartViewWidth, slope * kChartViewWidth + intercept1),
+            Offset(-intercept1 / slope, 0),
+            Offset((kChartViewHeight - intercept1) / slope, kChartViewHeight),
+          ];
+          final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (validPoints.length >= 2) {
+            validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(validPoints[0].dx, validPoints[0].dy);
+            path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          }
+          final points = intersections0.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (points.length >= 2) {
+            points.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(points[0].dx, points[0].dy);
+            path.lineTo(points[1].dx, points[1].dy);
+          }
+          e.path = path;
+          _paintLines(canvas, e.lineType, path, framePaint);
+          _paintPoints(canvas, Offset(thirdPointX, thirdPointY), framePaint);
+        }
+        canvas.restore();
+      } //
+      else if (e.pathType == 7 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///平行线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        if (firstX == secondX) {
+          path.moveTo(firstX, 0);
+          path.lineTo(firstX, kChartViewHeight);
+        } else if (firstY == secondY) {
+          path.moveTo(0, firstY);
+          path.lineTo(kChartViewWidth, firstY);
+        } else {
+          final k = (secondY - firstY) / (secondX - firstX);
+          final b = firstY - k * firstX;
+          final intersections = [
+            Offset(0, b),
+            Offset(kChartViewWidth, k * kChartViewWidth + b),
+            Offset(-b / k, 0),
+            Offset((kChartViewHeight - b) / k, kChartViewHeight),
+          ];
+          final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (validPoints.length >= 2) {
+            validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(validPoints[0].dx, validPoints[0].dy);
+            path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          }
+        }
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        if (e.thirdPointX != null && e.thirdPointY != null) {
+          double thirdPointX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.thirdPointX!) - mDataStartIndext) + leftMarginSpace;
+          double thirdPointY = (mMaxPrice - (e.thirdPointY ?? 0)) * rate + textBottom;
+          double slope = (secondY - firstY) / (secondX - firstX);
+          double intercept = thirdPointY - slope * thirdPointX;
+          // 计算平行线的两个端点（为了显示，我们选择x=0和x=size.width的点）
+          final intersections = [
+            Offset(0, intercept),
+            Offset(kChartViewWidth, slope * kChartViewWidth + intercept),
+            Offset(-intercept / slope, 0),
+            Offset((kChartViewHeight - intercept) / slope, kChartViewHeight),
+          ];
+          final validPoints = intersections.where((p) => p.dx >= 0 && p.dx <= kChartViewWidth && p.dy >= 0 && p.dy <= kChartViewHeight).toList();
+          if (validPoints.length >= 2) {
+            validPoints.sort((a, b) => a.dx.compareTo(b.dx));
+            path.moveTo(validPoints[0].dx, validPoints[0].dy);
+            path.lineTo(validPoints[1].dx, validPoints[1].dy);
+          }
+          _paintPoints(canvas, Offset(thirdPointX, thirdPointY), framePaint);
+          e.path = path;
+        }
+        _paintLines(canvas, e.lineType, path, framePaint);
+        canvas.restore();
+      } //
+      else if (e.pathType == 9 && e.firstPointX != null && e.firstPointY != null && e.secondPointX != null && e.secondPointY != null) {
+        ///三角线
+        double firstX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
+        double secondX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.secondPointX!) - mDataStartIndext) + leftMarginSpace;
+        double firstY = (mMaxPrice - (e.firstPointY ?? 0)) * rate + textBottom;
+        double secondY = (mMaxPrice - (e.secondPointY ?? 0)) * rate + textBottom;
+        canvas.save();
+        canvas.clipPath(tmp);
+        path.moveTo(firstX, firstY);
+        path.lineTo(secondX, secondY);
+        _paintPoints(canvas, Offset(firstX, firstY), framePaint);
+        _paintPoints(canvas, Offset(secondX, secondY), framePaint);
+        if (e.thirdPointX != null && e.thirdPointY != null) {
+          double thirdPointX = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.thirdPointX!) - mDataStartIndext) + leftMarginSpace;
+          double thirdPointY = (mMaxPrice - (e.thirdPointY ?? 0)) * rate + textBottom;
+          path.lineTo(thirdPointX, thirdPointY);
+          path.lineTo(firstX, firstY);
+          _paintPoints(canvas, Offset(thirdPointX, thirdPointY), framePaint);
+        }
+        e.path = path;
+        _paintLines(canvas, e.lineType, path, framePaint);
+        canvas.restore();
+      } //
+    }
+  }
+
+  int dateTOIndex(String date) {
+    int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == date);
+    double dx = BaseKChartPainter.MARGINLEFT + mCandleWidth * (x - mDataStartIndext) + leftMarginSpace;
+    double i = (dx - leftMarginSpace - BaseKChartPainter.MARGINLEFT) / mCandleWidth;
+    return min(i.round() + mDataStartIndext, mOHLCData.length);
+  }
+
+  _paintLines(Canvas canvas, int? type, Path path, Paint paint) {
+    canvas.drawPath(
+        type == 1
+            ? path
+            : dashPath(
+                path,
+                dashArray: CircularIntervalList<double>(type == 3
+                    ? [1, 4]
+                    : type == 4
+                        ? [4, 1, 1]
+                        : [4, 4]),
+              ),
+        paint);
+  }
+
+  _paintPoints(Canvas canvas, Offset offset, Paint paint) {
+    canvas.drawRect(Rect.fromCenter(center: offset, width: 5, height: 5), paint);
   }
 
   static double getStringWidth(String text, TextPainter paint, {double? size}) {

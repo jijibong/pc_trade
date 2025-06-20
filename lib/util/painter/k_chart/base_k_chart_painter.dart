@@ -3,7 +3,6 @@ import 'package:path_drawing/path_drawing.dart';
 import 'package:trade/util/painter/k_chart/k_chart_painter.dart';
 
 import '../../../model/k/port.dart';
-import '../../log/log.dart';
 import 'method_util.dart';
 
 abstract class BaseKChartPainter extends CustomPainter {
@@ -14,10 +13,9 @@ abstract class BaseKChartPainter extends CustomPainter {
   bool isDrawTimeDown = true;
   double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   static double MARGINLEFT = 2;
-  double MARGINTOP = Port.defult_margin_top;
+  double MARGINTOP = getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
   int UPER_LOWER_INTERVAL = 5;
   Color DEFAULT_AXIS_COLOR = Colors.black;
-  static double mCursorWidth = 0;
   Color DEFAULT_BORDER_COLOR = Colors.black;
   Color DEFAULT_LONGI_LAITUDE_COLOR = Colors.black;
   List<double> DEFAULT_DASH_EFFECT = [0.8, 5];
@@ -31,7 +29,6 @@ abstract class BaseKChartPainter extends CustomPainter {
   double UPER_CHART_BOTTOM = 0;
   double TIME_UPER_CHART_BOTTOM = 0;
   double mUperChartHeight = 0;
-  double mRightArea = 0;
   double? longitudeSpacing;
   Paint forePaint = MethodUntil().getDrawPaint(Port.foreGroundColor);
   Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
@@ -54,8 +51,7 @@ abstract class BaseKChartPainter extends CustomPainter {
       drawTimeBorders(canvas, viewHeight, viewWidth);
       drawTimeRegions(canvas, viewHeight, viewWidth);
     } else {
-      mRightArea = mCursorWidth;
-      longitudeSpacing = (viewWidth - 2 * MARGINLEFT - mRightArea) / (DEFAULT_LOGITUDE_NUM + 1);
+      longitudeSpacing = (viewWidth - 2 * MARGINLEFT) / (DEFAULT_LOGITUDE_NUM + 1);
       latitudeSpacing = ((viewHeight - MARGINTOP) ~/ (DEFAULT_UPER_LATITUDE_NUM + 1)).toDouble();
       mUperChartHeight = latitudeSpacing * (DEFAULT_UPER_LATITUDE_NUM + 1);
       UPER_CHART_BOTTOM = MARGINTOP + latitudeSpacing * (DEFAULT_UPER_LATITUDE_NUM + 1);
@@ -81,7 +77,7 @@ abstract class BaseKChartPainter extends CustomPainter {
   }
 
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
-    canvas.drawLine(Offset(viewWidth - MARGINLEFT - mRightArea, viewHeight), Offset(MARGINLEFT, viewHeight), girdPaint);
+    canvas.drawLine(Offset(viewWidth - MARGINLEFT, viewHeight), Offset(MARGINLEFT, viewHeight), girdPaint);
   }
 
   void drawLatitudes(Canvas canvas, double viewWidth, double latitudeSpacing) {
@@ -95,7 +91,7 @@ abstract class BaseKChartPainter extends CustomPainter {
       // path.lineTo(viewWidth - MARGINLEFT - mRightArea,
       //     latitudeSpacing * i + MARGINTOP - Port.text_check + getStringHeight("0", TextPainter(), size: Port.ChartTextSize));
       path.moveTo(MARGINLEFT + ChartPainter.leftMarginSpace, latitudeSpacing * i + MARGINTOP);
-      path.lineTo(viewWidth - MARGINLEFT - mRightArea, latitudeSpacing * i + MARGINTOP);
+      path.lineTo(viewWidth, latitudeSpacing * i + MARGINTOP);
       canvas.drawPath(
         dashPath(
           path,

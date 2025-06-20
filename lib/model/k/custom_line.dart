@@ -8,6 +8,7 @@ class CustomLine {
   double? kPrice;
   String? price;
   double? lineY;
+  Path? path;
   Color color = Colors.white;
 
   CustomLine({
@@ -18,9 +19,10 @@ class CustomLine {
     this.kPrice,
     this.price,
     this.lineY,
+    this.path,
   });
 
-  CustomLine copyWith({String? code, int? type, int? num, int? side, double? kPrice, String? price, double? lineY}) {
+  CustomLine copyWith({String? code, int? type, int? num, int? side, double? kPrice, String? price, double? lineY, Path? path}) {
     return CustomLine(
         code: code ?? this.code,
         type: type ?? this.type,
@@ -28,7 +30,8 @@ class CustomLine {
         side: side ?? this.side,
         kPrice: kPrice ?? this.kPrice,
         price: price ?? this.price,
-        lineY: lineY ?? this.lineY);
+        lineY: lineY ?? this.lineY,
+        path: path ?? this.path);
   }
 
   CustomLine.fromJson(Map<String, dynamic> json) {

@@ -1,21 +1,24 @@
 import 'package:fluent_ui/fluent_ui.dart';
 
 class DrawToolLine {
-  String? code;
+  String? id;
+  String? period;
   int? pathType;
   int? colorValue;
   int? widthType;
   int? lineType;
-  double? firstPointX;
+  String? firstPointX;
   double? firstPointY;
-  double? secondPointX;
+  String? secondPointX;
   double? secondPointY;
-  double? thirdPointX;
+  String? thirdPointX;
   double? thirdPointY;
   Path? path;
+  bool selected = false;
 
   DrawToolLine({
-    this.code,
+    this.id,
+    this.period,
     this.pathType,
     this.colorValue,
     this.widthType,
@@ -30,20 +33,22 @@ class DrawToolLine {
   });
 
   DrawToolLine copyWith(
-      {String? code,
+      {String? id,
+      String? period,
       int? pathType,
       int? colorValue,
       int? widthType,
       int? lineType,
-      double? firstPointX,
+      String? firstPointX,
       double? firstPointY,
-      double? secondPointX,
+      String? secondPointX,
       double? secondPointY,
-      double? thirdPointX,
+      String? thirdPointX,
       double? thirdPointY,
       Path? path}) {
     return DrawToolLine(
-        code: code ?? this.code,
+        period: period ?? this.period,
+        id: id ?? this.id,
         pathType: pathType ?? this.pathType,
         colorValue: colorValue ?? this.colorValue,
         widthType: widthType ?? this.widthType,
@@ -58,7 +63,8 @@ class DrawToolLine {
   }
 
   DrawToolLine.fromJson(Map<String, dynamic> json) {
-    code = json['code'];
+    id = json['id'];
+    period = json['period'];
     pathType = json['pathType'];
     colorValue = json['colorValue'];
     widthType = json['widthType'];
@@ -74,7 +80,8 @@ class DrawToolLine {
 
   Map<String, dynamic> toJson() {
     return {
-      'code': code,
+      'id': id,
+      'period': period,
       'pathType': pathType,
       'colorValue': colorValue,
       'widthType': widthType,
@@ -85,7 +92,6 @@ class DrawToolLine {
       'secondPointY': secondPointY,
       'thirdPointX': thirdPointX,
       'thirdPointY': thirdPointY,
-      'path': path
     };
   }
 }

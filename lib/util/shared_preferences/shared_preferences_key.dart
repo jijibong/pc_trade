@@ -2,9 +2,6 @@ class SpKey {
   static String firstOpen = "firstOpen";
   static String screenSize = "screenSize";
 
-  ///风险揭示书
-  static String readRisk = "readRisk";
-
   ///登陆信息
   static String broker = "broker";
   static String account = "account";
@@ -24,6 +21,7 @@ class SpKey {
   static String defaultTradeType = "defaultTradeType";
   static String defaultTradeMenu = "defaultTradeMenu";
   static String drawLines = "drawLines";
+  static String drawToolLines = "drawToolLines";
 
   ///合约搜索历史记录
   static String searchHistory = "searchHistory";

@@ -8,8 +8,6 @@ class KPeriod {
   int? cusType; //周期类型，1-可订阅周期，2-自定义周期
   int? kpFlag; //周期标识，1-分钟，2-小时，3-天，4-周，5-月，6-年
   bool? isDel; //是否已删除
-  bool? isSelected = false;
-  int? tabType;
 
   KPeriod({
     this.id,
@@ -18,8 +16,6 @@ class KPeriod {
     this.cusType,
     this.kpFlag,
     this.isDel,
-    this.isSelected,
-    this.tabType,
   });
 
   KPeriod.fromJson(Map<String, dynamic> json) {
@@ -29,8 +25,6 @@ class KPeriod {
     cusType = json['cusType'];
     kpFlag = json['kpFlag'];
     isDel = json['isDel'];
-    isSelected = json['isSelected'];
-    tabType = json['tabType'];
   }
 
   Map<String, dynamic> toJson() {
@@ -41,8 +35,6 @@ class KPeriod {
       'cusType': cusType,
       'kpFlag': kpFlag,
       'isDel': isDel,
-      'isSelected': isSelected,
-      'tabType': tabType,
     };
   }
 

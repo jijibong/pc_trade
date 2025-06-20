@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' hide log;
+import 'dart:ui';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -13,10 +14,12 @@ import 'package:trade/main.dart';
 import 'package:trade/model/user/user.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../../config/common.dart';
 import '../../../model/k/OHLCEntity.dart';
 import '../../../model/k/custom_line.dart';
+import '../../../model/k/draw_tool_line.dart';
 import '../../../model/k/k_chart_data/AlligatorEntity.dart';
 import '../../../model/k/k_chart_data/BIASEntity.dart';
 import '../../../model/k/k_chart_data/BollingerEntity.dart';
@@ -77,6 +80,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   List<FillData> quoteFilledData = [];
   HoldOrder? holdOrder;
   late AppTheme appTheme;
+  var uuid = const Uuid();
   final mainMenuController = FlyoutController();
   final priceController = FlyoutController();
   final GlobalKey _globalKey = GlobalKey();
@@ -182,9 +186,17 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   bool isDrawCrossLine = false;
   bool isDrawing = false;
   bool orderDrawing = false;
+  bool startDrawTool = false;
+  bool drawTooling = false;
+  bool drawToolEnd = false;
   int orderDrawType = 0;
   int num = 0;
   String price = "市价";
+  int pathType = 0;
+  int colorValue = 0;
+  int widthType = 0;
+  int lineType = 0;
+  List<DrawToolLine> drawToolLines = [];
 
   ///一档报价
   int level = 1;
@@ -289,9 +301,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Color pankouHighColor = HexColor("#ff204a");
   Color pankouLowColor = HexColor("#ff204a");
   int selectedLine = -1;
-  bool moveLine = false;
+  int selectedIndex = -1;
+  int selectedPoint = -1;
+  Offset? startMovingPoint;
+  String? initPointX1;
+  String? initPointX2;
+  String? initPointX3;
+  double? initPointY1;
+  double? initPointY2;
+  double? initPointY3;
+  // bool moveLine = false;
   SystemMouseCursor cursor = SystemMouseCursors.basic;
   double leftMarginSpace = 80;
+  final double _hitPadding = 5.0;
   final contextController = FlyoutController();
 
   getKPeriod() async {
@@ -309,8 +331,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   void setOHLCData(List<OHLCEntity> OHLCData) {
     // if (mChartWidth == 0) {
-    double right = BaseKChartPainter.mCursorWidth;
-    double chartWidth = ChartPainter.kChartViewWidth - 2 * BaseKChartPainter.MARGINLEFT - right - ChartPainter.leftMarginSpace;
+    double chartWidth = ChartPainter.kChartViewWidth - 2 * BaseKChartPainter.MARGINLEFT - ChartPainter.leftMarginSpace;
     mChartWidth = chartWidth;
     // }
     int count = 0; //增加的数据量
@@ -860,7 +881,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     isSwithing = true;
     if (kPeriod.period != null && kPeriod.period! >= 0) {
       if (kPeriod.cusType == 1) {
-        await MarketServer.queryKline(contract!, kPeriod.period!, 0, 500).then((value) {
+        await MarketServer.queryKline(contract!, kPeriod.period!, 0, 600).then((value) {
           if (kPeriod.period == null || kPeriod.period! < 0) return;
           if (value != null) {
             SWITHING_TIME = true;
@@ -993,22 +1014,49 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   Future getDrawLines() async {
     WebSocketServer.drawOrderLines.clear();
+    drawToolLines.clear();
     String? string = await SpUtils.getString(SpKey.drawLines);
+    String? lines = await SpUtils.getString(SpKey.drawToolLines);
     if (string != null) {
       Map temp = jsonDecode(string);
       if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
-        for (var e in temp["${contract?.exCode}${contract?.code}${contract?.comType}"]) {
-          WebSocketServer.drawOrderLines.add(CustomLine.fromJson(e));
-        }
+        WebSocketServer.drawOrderLines = temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"]
+            .map<CustomLine>((json) => CustomLine.fromJson(json))
+            .toList();
+      }
+    }
+    if (lines != null) {
+      Map temp = jsonDecode(lines);
+      if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
+        var tmp = temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"]
+            .map<DrawToolLine>((json) => DrawToolLine.fromJson(json))
+            .toList();
+        drawToolLines.addAll(tmp.where((e) => e.period == kPeriod.name));
       }
     }
   }
 
   double calculatePrice(double Y, ChartPainter painter) {
     double rate = painter.mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
-    double textBottom = Port.defult_margin_top;
+    double textBottom = Port.text_top;
     double price = double.parse((mMaxPrice - ((Y - textBottom) / rate)).toStringAsFixed(2));
     return price;
+  }
+
+  int calculateIndex(double X) {
+    double i = (X - leftMarginSpace - BaseKChartPainter.MARGINLEFT) / mCandleWidth;
+    return min(i.round() + mDataStartIndext, mOHLCData.length);
+  }
+
+  double dateTOX(String date) {
+    int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == date);
+    return BaseKChartPainter.MARGINLEFT + mCandleWidth * (x - mDataStartIndext) + leftMarginSpace;
+  }
+
+  double priceTOY(double y, ChartPainter painter) {
+    double rate = painter.mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
+    double textBottom = painter.MARGINTOP;
+    return (mMaxPrice - y) * rate + textBottom;
   }
 
   void refreshData() {
@@ -1313,6 +1361,68 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
   }
 
+  bool _checkHit(Path path, Offset point) {
+    // 1. 快速边界框检查
+    final bounds = path.getBounds().inflate(_hitPadding);
+    if (!bounds.contains(point)) return false;
+
+    // 2. 精确距离检查
+    final metrics = path.computeMetrics();
+    for (final metric in metrics) {
+      final closestOffset = _findClosestOffset(metric, point);
+      final tangent = metric.getTangentForOffset(closestOffset);
+
+      if (tangent != null && (tangent.position - point).distance <= _hitPadding) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  bool _checkHitPoint(double x, double y, Offset mouse) {
+    if ((mouse.dx - x).abs() < 5 && (mouse.dy - y).abs() < 5) {
+      return true;
+    }
+    return false;
+  }
+
+  double _findClosestOffset(PathMetric metric, Offset point) {
+    double minOffset = 0;
+    double maxOffset = metric.length;
+    double closestOffset = 0;
+    double closestDistance = double.infinity;
+    const double threshold = 0.5; // 精度阈值
+
+    while (maxOffset - minOffset > threshold) {
+      final mid1 = minOffset + (maxOffset - minOffset) / 3;
+      final mid2 = maxOffset - (maxOffset - minOffset) / 3;
+
+      final dist1 = _distanceAtOffset(metric, mid1, point);
+      final dist2 = _distanceAtOffset(metric, mid2, point);
+
+      if (dist1 < dist2) {
+        maxOffset = mid2;
+        if (dist1 < closestDistance) {
+          closestDistance = dist1;
+          closestOffset = mid1;
+        }
+      } else {
+        minOffset = mid1;
+        if (dist2 < closestDistance) {
+          closestDistance = dist2;
+          closestOffset = mid2;
+        }
+      }
+    }
+
+    return closestOffset;
+  }
+
+  double _distanceAtOffset(PathMetric metric, double offset, Offset point) {
+    final tangent = metric.getTangentForOffset(offset);
+    return tangent != null ? (tangent.position - point).distance : double.infinity;
+  }
+
   void initContract() {
     var con = widget.contract;
     Contract? mContract = MarketUtils.getVariety(con.exCode, con.code, con.comType);
@@ -1320,6 +1430,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (con.isMain == true) {
       contract?.isMain = true;
     }
+    getKPeriod();
     getDrawLines();
     refreshData();
   }
@@ -1438,37 +1549,81 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     ///周期变化
     EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
-      if (kPeriod == event.kPeriod) return;
-      subscriptionKlineData(false);
-      kPeriod = event.kPeriod;
-      mOHLCData.clear();
-      SWITHING_TIME = true;
-      if (event.kPeriod.period == KTime.FS) {
-        isDrawTime = true;
-        appTheme.showChart = true;
-      } else {
-        isDrawTime = false;
-      }
-      requestAllData();
-      subscriptionKlineData(true);
+      switchPeriod(event.kPeriod);
     });
 
+    ///画线工具
+    EventBusUtil.getInstance().on<ToolDrawing>().listen((event) async {});
+
     ///画线下单
-    EventBusUtil.getInstance().on<OrderDrawing>().listen((event) {
-      orderDrawType = event.type;
-      if (orderDrawType == 0) {
-        orderDrawing = false;
-      } else {
-        orderDrawing = true;
-        num = event.num;
-        price = event.price;
-      }
-      if (mounted) setState(() {});
-    });
+    EventBusUtil.getInstance().on<OrderDrawing>().listen((event) async {});
 
     ///持仓变化
     EventBusUtil.getInstance().on<RefreshHold>().listen((event) async {
       getPosition();
+    });
+
+    ///画线设置
+    rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      if (call.method == setLine) {
+        var json = jsonDecode(call.arguments["line"]);
+        DrawToolLine tmp = DrawToolLine.fromJson(json);
+        int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.firstPointX);
+        for (var e in drawToolLines) {
+          if (e.id == tmp.id) {
+            if (x == -1) {
+              tmp.firstPointX = e.firstPointX;
+            }
+            if (tmp.secondPointX != null) {
+              int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.secondPointX);
+              if (x == -1) {
+                tmp.secondPointX = e.secondPointX;
+              }
+            }
+            if (tmp.thirdPointX != null) {
+              int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.thirdPointX);
+              if (x == -1) {
+                tmp.thirdPointX = e.thirdPointX;
+              }
+            }
+            drawToolLines[drawToolLines.indexOf(e)] = tmp;
+          }
+        }
+        if (mounted) setState(() {});
+      } else if (call.method == kDrawEvent) {
+        var map = jsonDecode(call.arguments);
+        pathType = map['pathType'];
+        colorValue = map['colorValue'];
+        widthType = map['widthType'];
+        lineType = map['lineType'];
+        if (pathType != 0) {
+          startDrawTool = true;
+          if (orderDrawing) {
+            orderDrawing = false;
+            await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+          }
+        }
+        if (mounted) setState(() {});
+      } else if (call.method == kOrderEvent) {
+        if (!LoginServer.isLogin) {
+          InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+          return;
+        }
+        var map = jsonDecode(call.arguments);
+        orderDrawType = map['type'];
+        if (orderDrawType == 0) {
+          orderDrawing = false;
+        } else {
+          orderDrawing = true;
+          if (startDrawTool) {
+            startDrawTool = false;
+            await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+          }
+          num = map['num'];
+          price = map['priceType'];
+        }
+        if (mounted) setState(() {});
+      }
     });
   }
 
@@ -1482,12 +1637,40 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
   }
 
+  switchPeriod(KPeriod period, {int? index}) async {
+    if (kPeriod == period) return;
+    if (index != null) appTheme.selectCommandBarIndex = index;
+    subscriptionKlineData(false);
+    kPeriod = period;
+    mOHLCData.clear();
+    SWITHING_TIME = true;
+    if (period.period == KTime.FS) {
+      isDrawTime = true;
+      appTheme.showChart = true;
+    } else {
+      isDrawTime = false;
+    }
+    requestAllData();
+    subscriptionKlineData(true);
+
+    drawToolLines.clear();
+    String? lines = await SpUtils.getString(SpKey.drawToolLines);
+    if (lines != null) {
+      Map temp = jsonDecode(lines);
+      if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
+        var tmp = temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"]
+            .map<DrawToolLine>((json) => DrawToolLine.fromJson(json))
+            .toList();
+        drawToolLines.addAll(tmp.where((e) => e.period == kPeriod.name));
+      }
+    }
+  }
+
   @override
   void initState() {
     initContract();
     ChartPainter.setTradeTimes(contract?.trTime);
     listener();
-    getKPeriod();
     getPosition();
     subscriptionQuote(true);
     subscriptionFill(true);
@@ -1534,6 +1717,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       currentX: currentX,
       currentY: currentY,
       drawOrderLines: WebSocketServer.drawOrderLines,
+      drawToolLines: drawToolLines,
       isDrawBollinger: isDrawBollinger,
       isDrawCost: isDrawCost,
       isDrawCost1: isDrawCost1,
@@ -1715,764 +1899,962 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 if (mounted) setState(() {});
               }
             },
+            onPointerDown: (e) async {
+              if (isDrawTime || e.buttons == kSecondaryMouseButton) return;
+              Size? size = _globalKey.currentContext?.findRenderObject()?.paintBounds.size;
+              Size? mainSize = _globalKey1.currentContext?.findRenderObject()?.paintBounds.size;
+              Size? subSize = _subGlobalKey.currentContext?.findRenderObject()?.paintBounds.size;
+              Size? size1 = _subGlobalKey1.currentContext?.findRenderObject()?.paintBounds.size;
+              Size? size2 = _subGlobalKey2.currentContext?.findRenderObject()?.paintBounds.size;
+              Size? size3 = _subGlobalKey3.currentContext?.findRenderObject()?.paintBounds.size;
+              if (e.localPosition.dx > leftMarginSpace) {
+                if (e.localPosition.dx < (size?.width ?? 0) && e.localPosition.dy < (size?.height ?? 0)) {
+                  mainMenuController.showFlyout(
+                    autoModeConfiguration: FlyoutAutoConfiguration(
+                      preferredMode: FlyoutPlacementMode.topLeft,
+                    ),
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('MA组合'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            switchIndex("MA");
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('BOLL'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            switchIndex("BOLL");
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('PUBU'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            switchIndex("PBX");
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('DSX全形量化'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('DDHX高低点划线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                } else if (e.localPosition.dx < (subSize?.width ?? 0) &&
+                    e.localPosition.dy > (mainSize?.height ?? 0) * (1 - subCount / 6) &&
+                    e.localPosition.dy < ((mainSize?.height ?? 0) * (1 - subCount / 6) + (subSize?.height ?? 0))) {
+                  menuController.showFlyout(
+                    autoModeConfiguration: FlyoutAutoConfiguration(
+                      preferredMode: FlyoutPlacementMode.topLeft,
+                    ),
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('VOL'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = false;
+                            canDrawVR = false;
+                            canDrawVOL = true;
+                            canDrawKDJ = false;
+                            canDrawRSI = false;
+                            canDrawCCI = false;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('VR'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = false;
+                            canDrawVR = true;
+                            canDrawVOL = false;
+                            canDrawKDJ = false;
+                            canDrawRSI = false;
+                            canDrawCCI = false;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('MACD'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = true;
+                            canDrawVR = false;
+                            canDrawVOL = false;
+                            canDrawKDJ = false;
+                            canDrawRSI = false;
+                            canDrawCCI = false;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('KDJ'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = false;
+                            canDrawVR = false;
+                            canDrawVOL = false;
+                            canDrawKDJ = true;
+                            canDrawRSI = false;
+                            canDrawCCI = false;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('RSI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = false;
+                            canDrawVR = false;
+                            canDrawVOL = false;
+                            canDrawKDJ = false;
+                            canDrawRSI = true;
+                            canDrawCCI = false;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('CCI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD = false;
+                            canDrawVR = false;
+                            canDrawVOL = false;
+                            canDrawKDJ = false;
+                            canDrawRSI = false;
+                            canDrawCCI = true;
+                            canDrawBIAS = false;
+                            canDrawWR = false;
+                            canDrawPSY = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('BIAS'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD = false;
+                              canDrawVR = false;
+                              canDrawVOL = false;
+                              canDrawKDJ = false;
+                              canDrawRSI = false;
+                              canDrawCCI = false;
+                              canDrawBIAS = true;
+                              canDrawWR = false;
+                              canDrawPSY = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('OBV'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('WR'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD = false;
+                              canDrawVR = false;
+                              canDrawVOL = false;
+                              canDrawKDJ = false;
+                              canDrawRSI = false;
+                              canDrawCCI = false;
+                              canDrawBIAS = false;
+                              canDrawWR = true;
+                              canDrawPSY = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('DMA'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('PSY'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD = false;
+                              canDrawVR = false;
+                              canDrawVOL = false;
+                              canDrawKDJ = false;
+                              canDrawRSI = false;
+                              canDrawCCI = false;
+                              canDrawBIAS = false;
+                              canDrawWR = false;
+                              canDrawPSY = true;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('MACD能量棒'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                } else if (e.localPosition.dx < (size1?.width ?? 0) &&
+                    e.localPosition.dy > (mainSize?.height ?? 0) * (7 / 6 - subCount / 6) &&
+                    e.localPosition.dy < ((mainSize?.height ?? 0) * (7 / 6 - subCount / 6) + (size1?.height ?? 0))) {
+                  menuController1.showFlyout(
+                    autoModeConfiguration: FlyoutAutoConfiguration(
+                      preferredMode: FlyoutPlacementMode.topLeft,
+                    ),
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('VOL'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = false;
+                            canDrawVR1 = false;
+                            canDrawVOL1 = true;
+                            canDrawKDJ1 = false;
+                            canDrawRSI1 = false;
+                            canDrawCCI1 = false;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('VR'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = false;
+                            canDrawVR1 = true;
+                            canDrawVOL1 = false;
+                            canDrawKDJ1 = false;
+                            canDrawRSI1 = false;
+                            canDrawCCI1 = false;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('MACD'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = true;
+                            canDrawVR1 = false;
+                            canDrawVOL1 = false;
+                            canDrawKDJ1 = false;
+                            canDrawRSI1 = false;
+                            canDrawCCI1 = false;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('KDJ'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = false;
+                            canDrawVR1 = false;
+                            canDrawVOL1 = false;
+                            canDrawKDJ1 = true;
+                            canDrawRSI1 = false;
+                            canDrawCCI1 = false;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('RSI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = false;
+                            canDrawVR1 = false;
+                            canDrawVOL1 = false;
+                            canDrawKDJ1 = false;
+                            canDrawRSI1 = true;
+                            canDrawCCI1 = false;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('CCI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD1 = false;
+                            canDrawVR1 = false;
+                            canDrawVOL1 = false;
+                            canDrawKDJ1 = false;
+                            canDrawRSI1 = false;
+                            canDrawCCI1 = true;
+                            canDrawBIAS1 = false;
+                            canDrawWR1 = false;
+                            canDrawPSY1 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('BIAS'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD1 = false;
+                              canDrawVR1 = false;
+                              canDrawVOL1 = false;
+                              canDrawKDJ1 = false;
+                              canDrawRSI1 = false;
+                              canDrawCCI1 = false;
+                              canDrawBIAS1 = true;
+                              canDrawWR1 = false;
+                              canDrawPSY1 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('OBV'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('WR'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD1 = false;
+                              canDrawVR1 = false;
+                              canDrawVOL1 = false;
+                              canDrawKDJ1 = false;
+                              canDrawRSI1 = false;
+                              canDrawCCI1 = false;
+                              canDrawBIAS1 = false;
+                              canDrawWR1 = true;
+                              canDrawPSY1 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('DMA'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('PSY'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD1 = false;
+                              canDrawVR1 = false;
+                              canDrawVOL1 = false;
+                              canDrawKDJ1 = false;
+                              canDrawRSI1 = false;
+                              canDrawCCI1 = false;
+                              canDrawBIAS1 = false;
+                              canDrawWR1 = false;
+                              canDrawPSY1 = true;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('MACD能量棒'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                } else if (e.localPosition.dx < (size2?.width ?? 0) &&
+                    e.localPosition.dy > (mainSize?.height ?? 0) * (4 / 3 - subCount / 6) &&
+                    e.localPosition.dy < ((mainSize?.height ?? 0) * (4 / 3 - subCount / 6) + (size2?.height ?? 0))) {
+                  menuController2.showFlyout(
+                    autoModeConfiguration: FlyoutAutoConfiguration(
+                      preferredMode: FlyoutPlacementMode.topLeft,
+                    ),
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('VOL'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = false;
+                            canDrawVR2 = false;
+                            canDrawVOL2 = true;
+                            canDrawKDJ2 = false;
+                            canDrawRSI2 = false;
+                            canDrawCCI2 = false;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('VR'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = false;
+                            canDrawVR2 = true;
+                            canDrawVOL2 = false;
+                            canDrawKDJ2 = false;
+                            canDrawRSI2 = false;
+                            canDrawCCI2 = false;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('MACD'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = true;
+                            canDrawVR2 = false;
+                            canDrawVOL2 = false;
+                            canDrawKDJ2 = false;
+                            canDrawRSI2 = false;
+                            canDrawCCI2 = false;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('KDJ'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = false;
+                            canDrawVR2 = false;
+                            canDrawVOL2 = false;
+                            canDrawKDJ2 = true;
+                            canDrawRSI2 = false;
+                            canDrawCCI2 = false;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('RSI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = false;
+                            canDrawVR2 = false;
+                            canDrawVOL2 = false;
+                            canDrawKDJ2 = false;
+                            canDrawRSI2 = true;
+                            canDrawCCI2 = false;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('CCI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD2 = false;
+                            canDrawVR2 = false;
+                            canDrawVOL2 = false;
+                            canDrawKDJ2 = false;
+                            canDrawRSI2 = false;
+                            canDrawCCI2 = true;
+                            canDrawBIAS2 = false;
+                            canDrawWR2 = false;
+                            canDrawPSY2 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('BIAS'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD2 = false;
+                              canDrawVR2 = false;
+                              canDrawVOL2 = false;
+                              canDrawKDJ2 = false;
+                              canDrawRSI2 = false;
+                              canDrawCCI2 = false;
+                              canDrawBIAS2 = true;
+                              canDrawWR2 = false;
+                              canDrawPSY2 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('OBV'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('WR'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD2 = false;
+                              canDrawVR2 = false;
+                              canDrawVOL2 = false;
+                              canDrawKDJ2 = false;
+                              canDrawRSI2 = false;
+                              canDrawCCI2 = false;
+                              canDrawBIAS2 = false;
+                              canDrawWR2 = true;
+                              canDrawPSY2 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('DMA'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('PSY'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD2 = false;
+                              canDrawVR2 = false;
+                              canDrawVOL2 = false;
+                              canDrawKDJ2 = false;
+                              canDrawRSI2 = false;
+                              canDrawCCI2 = false;
+                              canDrawBIAS2 = false;
+                              canDrawWR2 = false;
+                              canDrawPSY2 = true;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('MACD能量棒'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                } else if (e.localPosition.dx < (size3?.width ?? 0) &&
+                    e.localPosition.dy > (mainSize?.height ?? 0) * (3 / 2 - subCount / 6) &&
+                    e.localPosition.dy < ((mainSize?.height ?? 0) * (3 / 2 - subCount / 6) + (size3?.height ?? 0))) {
+                  menuController3.showFlyout(
+                    autoModeConfiguration: FlyoutAutoConfiguration(
+                      preferredMode: FlyoutPlacementMode.topLeft,
+                    ),
+                    builder: (context) {
+                      return MenuFlyout(items: [
+                        MenuFlyoutItem(
+                          text: const Text('VOL'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = false;
+                            canDrawVR3 = false;
+                            canDrawVOL3 = true;
+                            canDrawKDJ3 = false;
+                            canDrawRSI3 = false;
+                            canDrawCCI3 = false;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('VR'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = false;
+                            canDrawVR3 = true;
+                            canDrawVOL3 = false;
+                            canDrawKDJ3 = false;
+                            canDrawRSI3 = false;
+                            canDrawCCI3 = false;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('MACD'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = true;
+                            canDrawVR3 = false;
+                            canDrawVOL3 = false;
+                            canDrawKDJ3 = false;
+                            canDrawRSI3 = false;
+                            canDrawCCI3 = false;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('KDJ'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = false;
+                            canDrawVR3 = false;
+                            canDrawVOL3 = false;
+                            canDrawKDJ3 = true;
+                            canDrawRSI3 = false;
+                            canDrawCCI3 = false;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('RSI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = false;
+                            canDrawVR3 = false;
+                            canDrawVOL3 = false;
+                            canDrawKDJ3 = false;
+                            canDrawRSI3 = true;
+                            canDrawCCI3 = false;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('CCI'),
+                          onPressed: () {
+                            Flyout.of(context).close;
+                            canDrawMACD3 = false;
+                            canDrawVR3 = false;
+                            canDrawVOL3 = false;
+                            canDrawKDJ3 = false;
+                            canDrawRSI3 = false;
+                            canDrawCCI3 = true;
+                            canDrawBIAS3 = false;
+                            canDrawWR3 = false;
+                            canDrawPSY3 = false;
+                            if (mounted) setState(() {});
+                          },
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('BIAS'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD3 = false;
+                              canDrawVR3 = false;
+                              canDrawVOL3 = false;
+                              canDrawKDJ3 = false;
+                              canDrawRSI3 = false;
+                              canDrawCCI3 = false;
+                              canDrawBIAS3 = true;
+                              canDrawWR3 = false;
+                              canDrawPSY3 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('OBV'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('WR'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD3 = false;
+                              canDrawVR3 = false;
+                              canDrawVOL3 = false;
+                              canDrawKDJ3 = false;
+                              canDrawRSI3 = false;
+                              canDrawCCI3 = false;
+                              canDrawBIAS3 = false;
+                              canDrawWR3 = true;
+                              canDrawPSY3 = false;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('DMA'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                            text: const Text('PSY'),
+                            onPressed: () {
+                              Flyout.of(context).close;
+                              canDrawMACD3 = false;
+                              canDrawVR3 = false;
+                              canDrawVOL3 = false;
+                              canDrawKDJ3 = false;
+                              canDrawRSI3 = false;
+                              canDrawCCI3 = false;
+                              canDrawBIAS3 = false;
+                              canDrawWR3 = false;
+                              canDrawPSY3 = true;
+                              if (mounted) setState(() {});
+                            }),
+                        MenuFlyoutItem(
+                          text: const Text('MACD能量棒'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ]);
+                    },
+                  );
+                }
+              }
+
+              String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
+              if (orderDrawing) {
+                if (orderDrawType == 3 && holdOrder == null) {
+                  InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
+                  orderDrawing = false;
+                  await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+                  return;
+                }
+                double kPrice = calculatePrice(e.localPosition.dy, painter);
+                CustomLine cus = CustomLine(code: name, type: orderDrawType, num: num, price: price, lineY: e.localPosition.dy, kPrice: kPrice);
+                if (orderDrawType == 3) {
+                  cus.side = holdOrder?.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
+                }
+                WebSocketServer.drawOrderLines.add(cus);
+                orderDrawing = false;
+                List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
+                String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}$name": temp});
+                await SpUtils.set(SpKey.drawLines, tmp);
+                await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+              } else if (startDrawTool) {
+                double firstPointY = calculatePrice(e.localPosition.dy, painter);
+                int index = calculateIndex(e.localPosition.dx);
+                String firstPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                String randomId = uuid.v4();
+                DrawToolLine tmpDrawToolLine = DrawToolLine(
+                    id: randomId,
+                    period: kPeriod.name,
+                    pathType: pathType,
+                    colorValue: colorValue,
+                    widthType: widthType,
+                    lineType: lineType,
+                    firstPointX: firstPointX,
+                    firstPointY: firstPointY);
+                startDrawTool = false;
+                drawToolLines.add(tmpDrawToolLine);
+                if (pathType == 3 || pathType == 4 || pathType == 16 || pathType == 17) {
+                  await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+                  List temp = drawToolLines.map((e) => e.toJson()).toList();
+                  String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                  await SpUtils.set(SpKey.drawToolLines, tmp);
+                } else {
+                  drawTooling = true;
+                }
+              } else if (drawTooling) {
+                drawTooling = false;
+                if (pathType == 1 ||
+                    pathType == 2 ||
+                    pathType == 5 ||
+                    pathType == 8 ||
+                    pathType == 10 ||
+                    pathType == 11 ||
+                    pathType == 12 ||
+                    pathType == 13 ||
+                    pathType == 14 ||
+                    pathType == 15 ||
+                    pathType == 18) {
+                  await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+                  List temp = drawToolLines.map((e) => e.toJson()).toList();
+                  String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                  await SpUtils.set(SpKey.drawToolLines, tmp);
+                } else if (pathType == 6 || pathType == 7 || pathType == 9) {
+                  drawToolEnd = true;
+                }
+              } else if (drawToolEnd) {
+                drawToolEnd = false;
+                await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+                List temp = drawToolLines.map((e) => e.toJson()).toList();
+                String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                await SpUtils.set(SpKey.drawToolLines, tmp);
+              }
+              if (mounted) setState(() {});
+            },
             onPointerHover: (e) {
               if (isDrawCrossLine) {
                 currentX = e.localPosition.dx;
                 currentY = e.localPosition.dy;
-                if (mounted) setState(() {});
-              } else if (!isDrawTime && WebSocketServer.drawOrderLines.isNotEmpty) {
-                for (var element in WebSocketServer.drawOrderLines) {
-                  if (element.lineY != null && (element.lineY! - e.localPosition.dy).abs() < 5) {
-                    element.color = Colors.red;
-                    cursor = SystemMouseCursors.click;
-                    selectedLine = WebSocketServer.drawOrderLines.indexOf(element);
-                    break;
+              } else if (!isDrawTime) {
+                if (!orderDrawing && !startDrawTool) {
+                  if (drawTooling && drawToolLines.isNotEmpty) {
+                    double secondPointY = calculatePrice(e.localPosition.dy, painter);
+                    int index = calculateIndex(e.localPosition.dx);
+                    String secondPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                    drawToolLines.last.secondPointX = secondPointX;
+                    drawToolLines.last.secondPointY = secondPointY;
+                  } else if (drawToolEnd && drawToolLines.isNotEmpty) {
+                    double thirdPointY = calculatePrice(e.localPosition.dy, painter);
+                    int index = calculateIndex(e.localPosition.dx);
+                    String thirdPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                    drawToolLines.last.thirdPointX = thirdPointX;
+                    drawToolLines.last.thirdPointY = thirdPointY;
+                  } else {
+                    if (WebSocketServer.drawOrderLines.isNotEmpty) {
+                      for (var element in WebSocketServer.drawOrderLines) {
+                        if (element.path != null && _checkHit(element.path!, e.localPosition)) {
+                          element.color = Colors.red;
+                          cursor = SystemMouseCursors.click;
+                          selectedLine = WebSocketServer.drawOrderLines.indexOf(element);
+                          break;
+                        }
+                        element.color = Colors.white;
+                        cursor = SystemMouseCursors.basic;
+                        selectedLine = -1;
+                      }
+                    }
+                    if (drawToolLines.isNotEmpty && selectedLine == -1) {
+                      for (var i in drawToolLines) {
+                        if (i.firstPointX != null && i.firstPointY != null) {
+                          double x = dateTOX(i.firstPointX!);
+                          double y = priceTOY(i.firstPointY!, painter);
+                          if (_checkHitPoint(x, y, e.localPosition)) {
+                            selectedIndex = drawToolLines.indexOf(i);
+                            selectedPoint = 1;
+                            i.selected = true;
+                            cursor = SystemMouseCursors.click;
+                            break;
+                          }
+                        }
+                        if (i.secondPointX != null && i.secondPointY != null) {
+                          double x = dateTOX(i.secondPointX!);
+                          double y = priceTOY(i.secondPointY!, painter);
+                          if (_checkHitPoint(x, y, e.localPosition)) {
+                            selectedIndex = drawToolLines.indexOf(i);
+                            selectedPoint = 2;
+                            i.selected = true;
+                            cursor = SystemMouseCursors.click;
+                            break;
+                          }
+                        }
+                        if (i.thirdPointX != null && i.thirdPointY != null) {
+                          double x = dateTOX(i.thirdPointX!);
+                          double y = priceTOY(i.thirdPointY!, painter);
+                          if (_checkHitPoint(x, y, e.localPosition)) {
+                            selectedIndex = drawToolLines.indexOf(i);
+                            selectedPoint = 3;
+                            i.selected = true;
+                            cursor = SystemMouseCursors.click;
+                            break;
+                          }
+                        }
+                        selectedPoint = -1;
+                        if (i.path != null && _checkHit(i.path!, e.localPosition)) {
+                          cursor = SystemMouseCursors.click;
+                          selectedIndex = drawToolLines.indexOf(i);
+                          startMovingPoint = e.localPosition;
+                          i.selected = true;
+                          initPointX1 = i.firstPointX;
+                          initPointX2 = i.secondPointX;
+                          initPointX3 = i.thirdPointX;
+                          initPointY1 = i.firstPointY;
+                          initPointY2 = i.secondPointY;
+                          initPointY3 = i.thirdPointY;
+                          break;
+                        }
+                        i.selected = false;
+                        cursor = SystemMouseCursors.basic;
+                        selectedIndex = -1;
+                        startMovingPoint = null;
+                        initPointX1 = null;
+                        initPointX2 = null;
+                        initPointX3 = null;
+                        initPointY1 = null;
+                        initPointY2 = null;
+                        initPointY3 = null;
+                      }
+                    }
                   }
-                  element.color = Colors.white;
-                  cursor = SystemMouseCursors.basic;
-                  selectedLine = -1;
                 }
               }
+              if (mounted) setState(() {});
             },
+            onPointerMove: (e) {
+              if (selectedLine != -1) {
+                WebSocketServer.drawOrderLines[selectedLine].kPrice = null;
+                WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
+              } else if (selectedIndex != -1) {
+                if (selectedPoint == 1) {
+                  int index = calculateIndex(e.localPosition.dx);
+                  drawToolLines[selectedIndex].firstPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                  drawToolLines[selectedIndex].firstPointY = calculatePrice(e.localPosition.dy, painter);
+                } else if (selectedPoint == 2) {
+                  int index = calculateIndex(e.localPosition.dx);
+                  drawToolLines[selectedIndex].secondPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                  drawToolLines[selectedIndex].secondPointY = calculatePrice(e.localPosition.dy, painter);
+                } else if (selectedPoint == 3) {
+                  int index = calculateIndex(e.localPosition.dx);
+                  drawToolLines[selectedIndex].thirdPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                  drawToolLines[selectedIndex].thirdPointY = calculatePrice(e.localPosition.dy, painter);
+                } else if (startMovingPoint != null && initPointX1 != null && initPointY1 != null) {
+                  int index = calculateIndex(dateTOX(initPointX1!)) + calculateIndex(e.localPosition.dx) - calculateIndex(startMovingPoint!.dx);
+                  drawToolLines[selectedIndex].firstPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                  drawToolLines[selectedIndex].firstPointY =
+                      initPointY1! + calculatePrice(e.localPosition.dy, painter) - calculatePrice(startMovingPoint!.dy, painter);
+                  if (drawToolLines[selectedIndex].secondPointX != null &&
+                      drawToolLines[selectedIndex].secondPointY != null &&
+                      initPointX2 != null &&
+                      initPointY2 != null) {
+                    int index = calculateIndex(dateTOX(initPointX2!)) + calculateIndex(e.localPosition.dx) - calculateIndex(startMovingPoint!.dx);
+                    drawToolLines[selectedIndex].secondPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                    drawToolLines[selectedIndex].secondPointY =
+                        initPointY2! + calculatePrice(e.localPosition.dy, painter) - calculatePrice(startMovingPoint!.dy, painter);
+                    if (drawToolLines[selectedIndex].thirdPointX != null &&
+                        drawToolLines[selectedIndex].thirdPointY != null &&
+                        initPointX3 != null &&
+                        initPointY3 != null) {
+                      int index = calculateIndex(dateTOX(initPointX3!)) + calculateIndex(e.localPosition.dx) - calculateIndex(startMovingPoint!.dx);
+                      drawToolLines[selectedIndex].thirdPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
+                      drawToolLines[selectedIndex].thirdPointY =
+                          initPointY3! + calculatePrice(e.localPosition.dy, painter) - calculatePrice(startMovingPoint!.dy, painter);
+                    }
+                  }
+                }
+              }
+              if (mounted) setState(() {});
+            },
+            // onPointerUp: (e) async {
+            //   if (selectedLine != -1) {
+            //     WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
+            //     selectedLine = -1;
+            //     List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
+            //     String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+            //     await SpUtils.set(SpKey.drawLines, tmp);
+            //   }
+            //   if (selectedIndex != -1) {
+            //     selectedPoint = -1;
+            //     startMovingPoint = null;
+            //     initPointX1 = null;
+            //     initPointX2 = null;
+            //     initPointX3 = null;
+            //     initPointY1 = null;
+            //     initPointY2 = null;
+            //     initPointY3 = null;
+            //     List temp = drawToolLines.map((e) => e.toJson()).toList();
+            //     String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+            //     await SpUtils.set(SpKey.drawToolLines, tmp);
+            //   }
+            //   if (mounted) setState(() {});
+            // },
             child: MouseRegion(
               cursor: cursor,
               child: GestureDetector(
                 key: _globalKey1,
                 behavior: HitTestBehavior.opaque,
-                onTapDown: (e) async {
-                  if (isDrawTime) return;
-                  Size? size = _globalKey.currentContext?.findRenderObject()?.paintBounds.size;
-                  Size? mainSize = _globalKey1.currentContext?.findRenderObject()?.paintBounds.size;
-                  Size? subSize = _subGlobalKey.currentContext?.findRenderObject()?.paintBounds.size;
-                  Size? size1 = _subGlobalKey1.currentContext?.findRenderObject()?.paintBounds.size;
-                  Size? size2 = _subGlobalKey2.currentContext?.findRenderObject()?.paintBounds.size;
-                  Size? size3 = _subGlobalKey3.currentContext?.findRenderObject()?.paintBounds.size;
-                  if (e.localPosition.dx > leftMarginSpace) {
-                    if (e.localPosition.dx < (size?.width ?? 0) && e.localPosition.dy < (size?.height ?? 0)) {
-                      mainMenuController.showFlyout(
-                        autoModeConfiguration: FlyoutAutoConfiguration(
-                          preferredMode: FlyoutPlacementMode.topLeft,
-                        ),
-                        builder: (context) {
-                          return MenuFlyout(items: [
-                            MenuFlyoutItem(
-                              text: const Text('MA组合'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                switchIndex("MA");
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('BOLL'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                switchIndex("BOLL");
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('PUBU'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                switchIndex("PBX");
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('DSX全形量化'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('DDHX高低点划线'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                          ]);
-                        },
-                      );
-                    } else if (e.localPosition.dx < (subSize?.width ?? 0) &&
-                        e.localPosition.dy > (mainSize?.height ?? 0) * (1 - subCount / 6) &&
-                        e.localPosition.dy < ((mainSize?.height ?? 0) * (1 - subCount / 6) + (subSize?.height ?? 0))) {
-                      menuController.showFlyout(
-                        autoModeConfiguration: FlyoutAutoConfiguration(
-                          preferredMode: FlyoutPlacementMode.topLeft,
-                        ),
-                        builder: (context) {
-                          return MenuFlyout(items: [
-                            MenuFlyoutItem(
-                              text: const Text('VOL'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = false;
-                                canDrawVR = false;
-                                canDrawVOL = true;
-                                canDrawKDJ = false;
-                                canDrawRSI = false;
-                                canDrawCCI = false;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('VR'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = false;
-                                canDrawVR = true;
-                                canDrawVOL = false;
-                                canDrawKDJ = false;
-                                canDrawRSI = false;
-                                canDrawCCI = false;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('MACD'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = true;
-                                canDrawVR = false;
-                                canDrawVOL = false;
-                                canDrawKDJ = false;
-                                canDrawRSI = false;
-                                canDrawCCI = false;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('KDJ'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = false;
-                                canDrawVR = false;
-                                canDrawVOL = false;
-                                canDrawKDJ = true;
-                                canDrawRSI = false;
-                                canDrawCCI = false;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('RSI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = false;
-                                canDrawVR = false;
-                                canDrawVOL = false;
-                                canDrawKDJ = false;
-                                canDrawRSI = true;
-                                canDrawCCI = false;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('CCI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD = false;
-                                canDrawVR = false;
-                                canDrawVOL = false;
-                                canDrawKDJ = false;
-                                canDrawRSI = false;
-                                canDrawCCI = true;
-                                canDrawBIAS = false;
-                                canDrawWR = false;
-                                canDrawPSY = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('BIAS'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD = false;
-                                  canDrawVR = false;
-                                  canDrawVOL = false;
-                                  canDrawKDJ = false;
-                                  canDrawRSI = false;
-                                  canDrawCCI = false;
-                                  canDrawBIAS = true;
-                                  canDrawWR = false;
-                                  canDrawPSY = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('OBV'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('WR'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD = false;
-                                  canDrawVR = false;
-                                  canDrawVOL = false;
-                                  canDrawKDJ = false;
-                                  canDrawRSI = false;
-                                  canDrawCCI = false;
-                                  canDrawBIAS = false;
-                                  canDrawWR = true;
-                                  canDrawPSY = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('DMA'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('PSY'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD = false;
-                                  canDrawVR = false;
-                                  canDrawVOL = false;
-                                  canDrawKDJ = false;
-                                  canDrawRSI = false;
-                                  canDrawCCI = false;
-                                  canDrawBIAS = false;
-                                  canDrawWR = false;
-                                  canDrawPSY = true;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('MACD能量棒'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                          ]);
-                        },
-                      );
-                    } else if (e.localPosition.dx < (size1?.width ?? 0) &&
-                        e.localPosition.dy > (mainSize?.height ?? 0) * (7 / 6 - subCount / 6) &&
-                        e.localPosition.dy < ((mainSize?.height ?? 0) * (7 / 6 - subCount / 6) + (size1?.height ?? 0))) {
-                      menuController1.showFlyout(
-                        autoModeConfiguration: FlyoutAutoConfiguration(
-                          preferredMode: FlyoutPlacementMode.topLeft,
-                        ),
-                        builder: (context) {
-                          return MenuFlyout(items: [
-                            MenuFlyoutItem(
-                              text: const Text('VOL'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = false;
-                                canDrawVR1 = false;
-                                canDrawVOL1 = true;
-                                canDrawKDJ1 = false;
-                                canDrawRSI1 = false;
-                                canDrawCCI1 = false;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('VR'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = false;
-                                canDrawVR1 = true;
-                                canDrawVOL1 = false;
-                                canDrawKDJ1 = false;
-                                canDrawRSI1 = false;
-                                canDrawCCI1 = false;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('MACD'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = true;
-                                canDrawVR1 = false;
-                                canDrawVOL1 = false;
-                                canDrawKDJ1 = false;
-                                canDrawRSI1 = false;
-                                canDrawCCI1 = false;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('KDJ'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = false;
-                                canDrawVR1 = false;
-                                canDrawVOL1 = false;
-                                canDrawKDJ1 = true;
-                                canDrawRSI1 = false;
-                                canDrawCCI1 = false;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('RSI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = false;
-                                canDrawVR1 = false;
-                                canDrawVOL1 = false;
-                                canDrawKDJ1 = false;
-                                canDrawRSI1 = true;
-                                canDrawCCI1 = false;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('CCI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD1 = false;
-                                canDrawVR1 = false;
-                                canDrawVOL1 = false;
-                                canDrawKDJ1 = false;
-                                canDrawRSI1 = false;
-                                canDrawCCI1 = true;
-                                canDrawBIAS1 = false;
-                                canDrawWR1 = false;
-                                canDrawPSY1 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('BIAS'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD1 = false;
-                                  canDrawVR1 = false;
-                                  canDrawVOL1 = false;
-                                  canDrawKDJ1 = false;
-                                  canDrawRSI1 = false;
-                                  canDrawCCI1 = false;
-                                  canDrawBIAS1 = true;
-                                  canDrawWR1 = false;
-                                  canDrawPSY1 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('OBV'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('WR'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD1 = false;
-                                  canDrawVR1 = false;
-                                  canDrawVOL1 = false;
-                                  canDrawKDJ1 = false;
-                                  canDrawRSI1 = false;
-                                  canDrawCCI1 = false;
-                                  canDrawBIAS1 = false;
-                                  canDrawWR1 = true;
-                                  canDrawPSY1 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('DMA'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('PSY'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD1 = false;
-                                  canDrawVR1 = false;
-                                  canDrawVOL1 = false;
-                                  canDrawKDJ1 = false;
-                                  canDrawRSI1 = false;
-                                  canDrawCCI1 = false;
-                                  canDrawBIAS1 = false;
-                                  canDrawWR1 = false;
-                                  canDrawPSY1 = true;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('MACD能量棒'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                          ]);
-                        },
-                      );
-                    } else if (e.localPosition.dx < (size2?.width ?? 0) &&
-                        e.localPosition.dy > (mainSize?.height ?? 0) * (4 / 3 - subCount / 6) &&
-                        e.localPosition.dy < ((mainSize?.height ?? 0) * (4 / 3 - subCount / 6) + (size2?.height ?? 0))) {
-                      menuController2.showFlyout(
-                        autoModeConfiguration: FlyoutAutoConfiguration(
-                          preferredMode: FlyoutPlacementMode.topLeft,
-                        ),
-                        builder: (context) {
-                          return MenuFlyout(items: [
-                            MenuFlyoutItem(
-                              text: const Text('VOL'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = false;
-                                canDrawVR2 = false;
-                                canDrawVOL2 = true;
-                                canDrawKDJ2 = false;
-                                canDrawRSI2 = false;
-                                canDrawCCI2 = false;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('VR'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = false;
-                                canDrawVR2 = true;
-                                canDrawVOL2 = false;
-                                canDrawKDJ2 = false;
-                                canDrawRSI2 = false;
-                                canDrawCCI2 = false;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('MACD'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = true;
-                                canDrawVR2 = false;
-                                canDrawVOL2 = false;
-                                canDrawKDJ2 = false;
-                                canDrawRSI2 = false;
-                                canDrawCCI2 = false;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('KDJ'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = false;
-                                canDrawVR2 = false;
-                                canDrawVOL2 = false;
-                                canDrawKDJ2 = true;
-                                canDrawRSI2 = false;
-                                canDrawCCI2 = false;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('RSI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = false;
-                                canDrawVR2 = false;
-                                canDrawVOL2 = false;
-                                canDrawKDJ2 = false;
-                                canDrawRSI2 = true;
-                                canDrawCCI2 = false;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('CCI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD2 = false;
-                                canDrawVR2 = false;
-                                canDrawVOL2 = false;
-                                canDrawKDJ2 = false;
-                                canDrawRSI2 = false;
-                                canDrawCCI2 = true;
-                                canDrawBIAS2 = false;
-                                canDrawWR2 = false;
-                                canDrawPSY2 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('BIAS'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD2 = false;
-                                  canDrawVR2 = false;
-                                  canDrawVOL2 = false;
-                                  canDrawKDJ2 = false;
-                                  canDrawRSI2 = false;
-                                  canDrawCCI2 = false;
-                                  canDrawBIAS2 = true;
-                                  canDrawWR2 = false;
-                                  canDrawPSY2 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('OBV'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('WR'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD2 = false;
-                                  canDrawVR2 = false;
-                                  canDrawVOL2 = false;
-                                  canDrawKDJ2 = false;
-                                  canDrawRSI2 = false;
-                                  canDrawCCI2 = false;
-                                  canDrawBIAS2 = false;
-                                  canDrawWR2 = true;
-                                  canDrawPSY2 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('DMA'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('PSY'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD2 = false;
-                                  canDrawVR2 = false;
-                                  canDrawVOL2 = false;
-                                  canDrawKDJ2 = false;
-                                  canDrawRSI2 = false;
-                                  canDrawCCI2 = false;
-                                  canDrawBIAS2 = false;
-                                  canDrawWR2 = false;
-                                  canDrawPSY2 = true;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('MACD能量棒'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                          ]);
-                        },
-                      );
-                    } else if (e.localPosition.dx < (size3?.width ?? 0) &&
-                        e.localPosition.dy > (mainSize?.height ?? 0) * (3 / 2 - subCount / 6) &&
-                        e.localPosition.dy < ((mainSize?.height ?? 0) * (3 / 2 - subCount / 6) + (size3?.height ?? 0))) {
-                      menuController3.showFlyout(
-                        autoModeConfiguration: FlyoutAutoConfiguration(
-                          preferredMode: FlyoutPlacementMode.topLeft,
-                        ),
-                        builder: (context) {
-                          return MenuFlyout(items: [
-                            MenuFlyoutItem(
-                              text: const Text('VOL'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = false;
-                                canDrawVR3 = false;
-                                canDrawVOL3 = true;
-                                canDrawKDJ3 = false;
-                                canDrawRSI3 = false;
-                                canDrawCCI3 = false;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('VR'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = false;
-                                canDrawVR3 = true;
-                                canDrawVOL3 = false;
-                                canDrawKDJ3 = false;
-                                canDrawRSI3 = false;
-                                canDrawCCI3 = false;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('MACD'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = true;
-                                canDrawVR3 = false;
-                                canDrawVOL3 = false;
-                                canDrawKDJ3 = false;
-                                canDrawRSI3 = false;
-                                canDrawCCI3 = false;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('KDJ'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = false;
-                                canDrawVR3 = false;
-                                canDrawVOL3 = false;
-                                canDrawKDJ3 = true;
-                                canDrawRSI3 = false;
-                                canDrawCCI3 = false;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('RSI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = false;
-                                canDrawVR3 = false;
-                                canDrawVOL3 = false;
-                                canDrawKDJ3 = false;
-                                canDrawRSI3 = true;
-                                canDrawCCI3 = false;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                              text: const Text('CCI'),
-                              onPressed: () {
-                                Flyout.of(context).close;
-                                canDrawMACD3 = false;
-                                canDrawVR3 = false;
-                                canDrawVOL3 = false;
-                                canDrawKDJ3 = false;
-                                canDrawRSI3 = false;
-                                canDrawCCI3 = true;
-                                canDrawBIAS3 = false;
-                                canDrawWR3 = false;
-                                canDrawPSY3 = false;
-                                if (mounted) setState(() {});
-                              },
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('BIAS'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD3 = false;
-                                  canDrawVR3 = false;
-                                  canDrawVOL3 = false;
-                                  canDrawKDJ3 = false;
-                                  canDrawRSI3 = false;
-                                  canDrawCCI3 = false;
-                                  canDrawBIAS3 = true;
-                                  canDrawWR3 = false;
-                                  canDrawPSY3 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('OBV'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('WR'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD3 = false;
-                                  canDrawVR3 = false;
-                                  canDrawVOL3 = false;
-                                  canDrawKDJ3 = false;
-                                  canDrawRSI3 = false;
-                                  canDrawCCI3 = false;
-                                  canDrawBIAS3 = false;
-                                  canDrawWR3 = true;
-                                  canDrawPSY3 = false;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('DMA'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                            MenuFlyoutItem(
-                                text: const Text('PSY'),
-                                onPressed: () {
-                                  Flyout.of(context).close;
-                                  canDrawMACD3 = false;
-                                  canDrawVR3 = false;
-                                  canDrawVOL3 = false;
-                                  canDrawKDJ3 = false;
-                                  canDrawRSI3 = false;
-                                  canDrawCCI3 = false;
-                                  canDrawBIAS3 = false;
-                                  canDrawWR3 = false;
-                                  canDrawPSY3 = true;
-                                  if (mounted) setState(() {});
-                                }),
-                            MenuFlyoutItem(
-                              text: const Text('MACD能量棒'),
-                              onPressed: Flyout.of(context).close,
-                            ),
-                          ]);
-                        },
-                      );
-                    }
-                  }
-
-                  if (orderDrawing) {
-                    if (orderDrawType == 3 && holdOrder == null) {
-                      InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
-                      await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
-                      return;
-                    }
-                    double kPrice = calculatePrice(e.localPosition.dy, painter);
-                    String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
-                    CustomLine cus = CustomLine(code: name, type: orderDrawType, num: num, price: price, lineY: e.localPosition.dy, kPrice: kPrice);
-                    if (orderDrawType == 3) {
-                      cus.side = holdOrder?.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
-                    }
-                    WebSocketServer.drawOrderLines.add(cus);
-                    EventBusUtil.getInstance().fire(OrderEvent(cus));
-                    orderDrawing = false;
-                    String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}$name": WebSocketServer.drawOrderLines});
-                    await SpUtils.set(SpKey.drawLines, tmp);
-                    await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
-                  }
-                },
                 onDoubleTapDown: (event) {
                   isDrawCrossLine = !isDrawCrossLine;
                   if (isDrawCrossLine) {
@@ -2485,14 +2867,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   if (mounted) setState(() {});
                 },
                 onHorizontalDragStart: (event) {
-                  if (isDrawTime) {
+                  if (isDrawTime || selectedIndex != -1) {
                     return;
                   }
                   mDownIndext = mDataStartIndext;
                   mStartX = event.localPosition.dx;
                 },
                 onHorizontalDragUpdate: (event) {
-                  if (mOHLCData.isEmpty || isDrawTime) {
+                  if (mOHLCData.isEmpty || isDrawTime || selectedLine != -1 || selectedIndex != -1) {
                     return;
                   }
                   if (!isDrawCrossLine) {
@@ -2514,17 +2896,17 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       }
                     }
 
-                    int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
+                    // int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
 
-                    if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
-                      //到达指定位置控制数据的向前加载
-                      isNeedAddData = false;
-                      mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
-                      requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
-                    }
-                    if (isNeedAddData) {
-                      setCurrentData();
-                    }
+                    // if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
+                    //   //到达指定位置控制数据的向前加载
+                    //   isNeedAddData = false;
+                    //   mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
+                    //   requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
+                    // }
+                    // if (isNeedAddData) {
+                    setCurrentData();
+                    // }
                   } else {
                     currentX = event.localPosition.dx;
                     currentY = event.localPosition.dy;
@@ -2539,62 +2921,114 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     d.localPosition,
                     ancestor: Navigator.of(context).context.findRenderObject(),
                   );
-
-                  if (cursor == SystemMouseCursors.click && selectedLine != -1) {
-                    contextController.showFlyout(
-                      barrierColor: Colors.black.withOpacity(0.1),
-                      position: position,
-                      builder: (context) {
-                        return MenuFlyout(items: [
-                          MenuFlyoutItem(
-                            text: const Text('画线属性'),
-                            onPressed: () {
-                              CustomLine customLine = WebSocketServer.drawOrderLines[selectedLine].copyWith();
-                              showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
-                                      WebSocketServer.drawOrderLines[selectedLine] = customLine;
-                                      String tmp = jsonEncode({
-                                        "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
-                                            WebSocketServer.drawOrderLines
+                  if (cursor == SystemMouseCursors.click) {
+                    if (selectedLine != -1) {
+                      contextController.showFlyout(
+                        barrierColor: Colors.black.withOpacity(0.1),
+                        position: position,
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('画线属性'),
+                              onPressed: () {
+                                CustomLine customLine = WebSocketServer.drawOrderLines[selectedLine].copyWith();
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
+                                        WebSocketServer.drawOrderLines[selectedLine] = customLine;
+                                        List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
+                                        String tmp = jsonEncode(
+                                            {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                        await SpUtils.set(SpKey.drawLines, tmp);
+                                        if (mounted) setState(() {});
                                       });
-                                      await SpUtils.set(SpKey.drawLines, tmp);
-                                      if (mounted) setState(() {});
                                     });
-                                  });
-                            },
-                          ),
-                          MenuFlyoutItem(
-                              text: const Text('删除画线'),
+                              },
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('删除画线'),
+                                onPressed: () async {
+                                  WebSocketServer.drawOrderLines.removeAt(selectedLine);
+                                  selectedLine = -1;
+                                  cursor = SystemMouseCursors.basic;
+                                  List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
+                                  String tmp = jsonEncode(
+                                      {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                  await SpUtils.set(SpKey.drawLines, tmp);
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                                text: const Text('全部删除'),
+                                onPressed: () async {
+                                  WebSocketServer.drawOrderLines.clear();
+                                  selectedLine = -1;
+                                  cursor = SystemMouseCursors.basic;
+                                  List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
+                                  String tmp = jsonEncode(
+                                      {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                  await SpUtils.set(SpKey.drawLines, tmp);
+                                  if (mounted) setState(() {});
+                                }),
+                          ]);
+                        },
+                      );
+                      return;
+                    } else if (selectedIndex != -1) {
+                      contextController.showFlyout(
+                        barrierColor: Colors.black.withOpacity(0.1),
+                        position: position,
+                        builder: (context) {
+                          return MenuFlyout(items: [
+                            MenuFlyoutItem(
+                              text: const Text('画线属性'),
                               onPressed: () async {
-                                WebSocketServer.drawOrderLines.removeAt(selectedLine);
-                                selectedLine = -1;
-                                cursor = SystemMouseCursors.basic;
-                                String tmp = jsonEncode({
-                                  "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
-                                      WebSocketServer.drawOrderLines
-                                });
-                                await SpUtils.set(SpKey.drawLines, tmp);
-                                if (mounted) setState(() {});
-                              }),
-                          MenuFlyoutItem(
-                              text: const Text('全部删除'),
-                              onPressed: () async {
-                                WebSocketServer.drawOrderLines.clear();
-                                selectedLine = -1;
-                                cursor = SystemMouseCursors.basic;
-                                String tmp = jsonEncode({
-                                  "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}":
-                                      WebSocketServer.drawOrderLines
-                                });
-                                await SpUtils.set(SpKey.drawLines, tmp);
-                                if (mounted) setState(() {});
-                              }),
-                        ]);
-                      },
-                    );
-                    return;
+                                DrawToolLine drawToolLine = drawToolLines[selectedIndex].copyWith();
+                                String tmp = jsonEncode(drawToolLine.toJson());
+                                await rustDeskWinManager.newLineSetting("newLineSetting", hold: tmp);
+                                // showDialog(
+                                //     context: context,
+                                //     builder: (BuildContext context) {
+                                //       setLineDialog(drawToolLine, function: () async {
+                                //         drawToolLines[selectedIndex] = drawToolLine;
+                                //         List temp = drawToolLines.map((e) => e.toJson()).toList();
+                                //         String tmp = jsonEncode(
+                                //             {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                //         await SpUtils.set(SpKey.drawToolLines, tmp);
+                                //         if (mounted) setState(() {});
+                                //       });
+                                //     });
+                              },
+                            ),
+                            MenuFlyoutItem(
+                                text: const Text('删除画线'),
+                                onPressed: () async {
+                                  drawToolLines.removeAt(selectedIndex);
+                                  selectedIndex = -1;
+                                  cursor = SystemMouseCursors.basic;
+                                  List temp = drawToolLines.map((e) => e.toJson()).toList();
+                                  String tmp = jsonEncode(
+                                      {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                  await SpUtils.set(SpKey.drawToolLines, tmp);
+                                  if (mounted) setState(() {});
+                                }),
+                            MenuFlyoutItem(
+                                text: const Text('全部删除'),
+                                onPressed: () async {
+                                  drawToolLines.clear();
+                                  selectedIndex = -1;
+                                  cursor = SystemMouseCursors.basic;
+                                  List temp = drawToolLines.map((e) => e.toJson()).toList();
+                                  String tmp = jsonEncode(
+                                      {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+                                  await SpUtils.set(SpKey.drawToolLines, tmp);
+                                  if (mounted) setState(() {});
+                                }),
+                          ]);
+                        },
+                      );
+                      return;
+                    }
                   }
                   contextController.showFlyout(
                     barrierColor: Colors.black.withOpacity(0.1),
@@ -2638,31 +3072,13 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                     text: const Text('K线'),
                                     onPressed: () {
                                       KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                                      if (kPeriod == fs) return;
-                                      appTheme.selectCommandBarIndex = 1;
-                                      subscriptionKlineData(false);
-                                      kPeriod = fs;
-                                      mOHLCData.clear();
-                                      SWITHING_TIME = true;
-                                      isDrawTime = false;
-                                      requestAllData();
-                                      subscriptionKlineData(true);
-                                      Flyout.of(context).close();
+                                      switchPeriod(fs, index: 1);
                                     })
                                 : MenuFlyoutItem(
                                     text: const Text('分时'),
                                     onPressed: () {
                                       KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                      if (kPeriod == fs) return;
-                                      appTheme.selectCommandBarIndex = 0;
-                                      subscriptionKlineData(false);
-                                      kPeriod = fs;
-                                      mOHLCData.clear();
-                                      SWITHING_TIME = true;
-                                      isDrawTime = true;
-                                      requestAllData();
-                                      subscriptionKlineData(true);
-                                      Flyout.of(context).close();
+                                      switchPeriod(fs, index: 0);
                                     }),
                             if (!isDrawTime)
                               MenuFlyoutItem(
@@ -2852,16 +3268,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 1;
                                 KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 1);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2871,16 +3279,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 2;
                                 KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 2);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2890,16 +3290,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 3;
                                 KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 3);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2909,16 +3301,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 4;
                                 KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 4);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2944,16 +3328,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 6;
                                 KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 6);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2963,16 +3339,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 7;
                                 KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 7);
                               },
                             ),
                             MenuFlyoutItem(
@@ -2982,16 +3350,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 8;
                                 KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 8);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3001,16 +3361,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 9;
                                 KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 9);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3020,16 +3372,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 10;
                                 KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 10);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3039,16 +3383,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 11;
                                 KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 11);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3058,16 +3394,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 12;
                                 KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 12);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3077,16 +3405,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                 color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
                               ),
                               onPressed: () {
-                                appTheme.selectCommandBarIndex = 13;
                                 KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                                if (kPeriod == fs) return;
-                                subscriptionKlineData(false);
-                                kPeriod = fs;
-                                mOHLCData.clear();
-                                SWITHING_TIME = true;
-                                isDrawTime = false;
-                                requestAllData();
-                                subscriptionKlineData(true);
+                                switchPeriod(fs, index: 13);
                               },
                             ),
                             MenuFlyoutItem(
@@ -3137,51 +3457,32 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     },
                   );
                 },
-                onLongPressStart: (e) {
-                  if (selectedLine != -1) {
-                    moveLine = true;
-                  }
-                },
-                onLongPressMoveUpdate: (e) {
-                  if (moveLine) {
-                    WebSocketServer.drawOrderLines[selectedLine].kPrice = null;
-                    WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
-                  }
-                },
-                onLongPressEnd: (e) async {
-                  if (moveLine) {
-                    WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
-                    moveLine = false;
-                    selectedLine = -1;
-                    String tmp = jsonEncode({
-                      "${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": WebSocketServer.drawOrderLines
-                    });
-                    await SpUtils.set(SpKey.drawLines, tmp);
-                    if (mounted) setState(() {});
-                  }
-                },
                 child: FlyoutTarget(
                   key: contextAttachKey,
                   controller: contextController,
                   child: Container(
                     decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.red))),
                     child: isDrawTime
-                        ? RepaintBoundary(
-                            child: CustomPaint(
-                            size: Size(1.sw, 1.sh),
-                            painter: painter,
-                          ))
+                        ? RepaintBoundary(child: LayoutBuilder(builder: (context, constraints) {
+                            return CustomPaint(
+                              size: Size(constraints.maxWidth, constraints.maxHeight),
+                              painter: painter,
+                            );
+                          }))
                         : Column(
                             children: [
                               Expanded(
                                 flex: 6 - subCount,
                                 child: Stack(
                                   children: [
-                                    RepaintBoundary(
-                                        child: CustomPaint(
-                                      size: Size(1.sw, 1.sh),
-                                      painter: painter,
-                                    )),
+                                    ClipRect(
+                                      child: RepaintBoundary(child: LayoutBuilder(builder: (context, constraints) {
+                                        return CustomPaint(
+                                          size: Size(constraints.maxWidth, constraints.maxHeight),
+                                          painter: painter,
+                                        );
+                                      })),
+                                    ),
                                     Container(
                                         key: _globalKey,
                                         margin: EdgeInsets.only(top: Port.defult_margin_top, left: leftMarginSpace),
@@ -3374,31 +3675,13 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('K线'),
                             onPressed: () {
                               KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                              if (kPeriod == fs) return;
-                              appTheme.selectCommandBarIndex = 1;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = false;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                              Flyout.of(context).close();
+                              switchPeriod(fs, index: 1);
                             })
                         : MenuFlyoutItem(
                             text: const Text('分时'),
                             onPressed: () {
                               KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              if (kPeriod == fs) return;
-                              appTheme.selectCommandBarIndex = 0;
-                              subscriptionKlineData(false);
-                              kPeriod = fs;
-                              mOHLCData.clear();
-                              SWITHING_TIME = true;
-                              isDrawTime = true;
-                              requestAllData();
-                              subscriptionKlineData(true);
-                              Flyout.of(context).close();
+                              switchPeriod(fs, index: 0);
                             }),
                     if (!isDrawTime)
                       MenuFlyoutItem(
@@ -3436,16 +3719,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 1;
                         KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 1);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3455,16 +3730,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 2;
                         KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 2);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3474,16 +3741,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 3;
                         KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 3);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3493,16 +3752,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 4;
                         KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 4);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3528,16 +3779,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 6;
                         KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 6);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3547,16 +3790,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 7;
                         KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 7);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3566,16 +3801,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 8;
                         KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 8);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3585,16 +3812,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 9;
                         KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 9);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3604,16 +3823,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 10;
                         KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 10);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3623,16 +3834,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 11;
                         KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 11);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3642,16 +3845,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 12;
                         KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 12);
                       },
                     ),
                     MenuFlyoutItem(
@@ -3661,16 +3856,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 13;
                         KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                        if (kPeriod == fs) return;
-                        subscriptionKlineData(false);
-                        kPeriod = fs;
-                        mOHLCData.clear();
-                        SWITHING_TIME = true;
-                        isDrawTime = false;
-                        requestAllData();
-                        subscriptionKlineData(true);
+                        switchPeriod(fs, index: 13);
                       },
                     ),
                     MenuFlyoutItem(

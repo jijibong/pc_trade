@@ -345,7 +345,6 @@ class FallLineEntity {
     double textMarginTop = MARGINTOP - Port.text_check;
 
     //绘制瀑布线
-//		Log.i("", "PBX2集合大小："+PBX2.length);
     for (int i = mDataStartIndext; i < mDataStartIndext + mShowDataNum; i++) {
       int number = (i - mDataStartIndext + 1) >= mShowDataNum ? i - mDataStartIndext : (i - mDataStartIndext + 1);
       double startX = MARGINLEFT + mCandleWidth * (i - mDataStartIndext) + mCandleWidth + leftMarginSpace;
