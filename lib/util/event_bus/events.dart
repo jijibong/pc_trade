@@ -9,7 +9,10 @@ import '../../model/trade/res_float_profit.dart';
 import '../../model/trade/res_hold_order.dart';
 
 ///获取所有合约
-class GetAllContracts {}
+class GetAllContracts {
+  int index;
+  GetAllContracts(this.index);
+}
 
 ///订阅行情
 class SubEvent {
@@ -47,7 +50,8 @@ class ShowTrade {
 ///显示K线
 class GoKChart {
   bool go;
-  GoKChart(this.go);
+  int index;
+  GoKChart(this.go,this.index);
 }
 
 ///K线放大/缩小

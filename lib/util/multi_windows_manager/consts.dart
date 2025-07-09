@@ -46,6 +46,7 @@ const String kAppTypeDesktopLineSetting = "line_setting";
 const String kAppTypeDesktopColorPicker = "color_picker";
 const String kAppTypeDesktopDrawOrder = "draw_order";
 const String kAppTypeDesktopNotification = "notification";
+const String kAppTypeDesktopSubWindow = "subWindow";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
 // This method is not used, maybe it can be removed.
@@ -73,6 +74,7 @@ const String kWindowEventLineSetting = "new_color_picker";
 const String kWindowEventSelectColor = "select_color";
 const String kWindowEventNewNotification = "new_notification";
 const String kWindowEventDrawOrder = "draw_order";
+const String kWindowEventSubWindow = "sub_window";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";

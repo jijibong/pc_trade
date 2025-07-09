@@ -1,10 +1,12 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:multi_split_view/multi_split_view.dart';
 import 'package:provider/provider.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:trade/util/info_bar/info_bar.dart';
@@ -208,7 +210,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     Size size = displayList.first.size;
     Map map = {"width": size.width, "height": size.height};
     await SpUtils.set(SpKey.screenSize, jsonEncode(map));
-
+    // logger.w("${displayList.length};$displayList");
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventHide) {
         LoginServer.isLogin = false;
@@ -242,8 +244,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     if (!LoginServer.isLogin) {
       showLogin();
     } else {
-      if (logic.selectedContract.value.code != null) {
-        String contract = jsonEncode(logic.selectedContract.value);
+      if (logic.selectedContractList[logic.selectedIndex.value].code != null) {
+        String contract = jsonEncode(logic.selectedContractList[logic.selectedIndex.value]);
         await rustDeskWinManager.newRemoteDesktop("trade", contract: contract);
       } else {
         await rustDeskWinManager.newRemoteDesktop("trade");
@@ -369,8 +371,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           EventBusUtil.getInstance().fire(LoginSuccess(true));
           Get.back();
           TradeWebSocketServer().initSocket(broker.quoteUrl);
-          if (logic.selectedContract.value.code != null) {
-            String contract = jsonEncode(logic.selectedContract.value);
+          if (logic.selectedContractList[logic.selectedIndex.value].code != null) {
+            String contract = jsonEncode(logic.selectedContractList[logic.selectedIndex.value]);
             await rustDeskWinManager.newRemoteDesktop("trade", contract: contract);
           } else {
             await rustDeskWinManager.newRemoteDesktop("trade");
@@ -476,6 +478,22 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                     "  ${Common.appName}",
                     style: TextStyle(fontSize: 5.sp),
                   ),
+                  // MenuBar(
+                  //   items: [
+                  //     MenuBarItem(title: '系统', items: [
+                  //       MenuFlyoutItem(text: const Text('快捷键设置'), onPressed: () {}),
+                  //       MenuFlyoutItem(text: const Text('币种显示设置'), onPressed: () {}),
+                  //     ]),
+                  //   ],
+                  // ),
+                  // MenuBar(
+                  //   items: [
+                  //     MenuBarItem(title: '帮助', items: [
+                  //       MenuFlyoutItem(text: const Text('关于'), onPressed: () {}),
+                  //       MenuFlyoutItem(text: const Text('画图'), onPressed: () {}),
+                  //     ]),
+                  //   ],
+                  // ),
                   FlyoutTarget(
                       controller: systemController,
                       child: Button(
@@ -591,9 +609,9 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
                         label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
-                          if (appTheme.viewIndex == 1) {
+                          if (appTheme.viewIndex[logic.selectedIndex.value] == 1) {
                             if (appTheme.selectCommandBarIndex == 0) {
-                              appTheme.viewIndex = 0;
+                              appTheme.viewIndex[logic.selectedIndex.value] = 0;
                             } else {
                               if (!appTheme.showChart) {
                                 appTheme.showChart = true;
@@ -610,14 +628,16 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.home, color: appTheme.exchangeTextColor),
                         label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
-                          appTheme.viewIndex = 0;
+                          appTheme.viewIndex[logic.selectedIndex.value] = 0;
                           appTheme.showChart = true;
                         },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.refresh, color: appTheme.exchangeTextColor),
                         label: Text('刷新', style: TextStyle(color: appTheme.exchangeTextColor)),
-                        onPressed: () async {},
+                        onPressed: () async {
+                          // EventBusUtil.getInstance().fire(GetAllContracts());
+                        },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.scale_volume, color: appTheme.exchangeTextColor),
@@ -644,11 +664,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.tablet_mode, color: appTheme.exchangeTextColor),
                         label: Text('画线下单', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () async {
-                          // if (LoginServer.isLogin) {
-                          await rustDeskWinManager.newDrawOrder("drawOrder");
-                          // } else {
-                          //   InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
-                          // }
+                          if (LoginServer.isLogin) {
+                            await rustDeskWinManager.newDrawOrder("drawOrder");
+                          } else {
+                            InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+                          }
                         },
                       ),
                       CommandBarButton(
@@ -825,12 +845,50 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   SizedBox(width: 2.sp),
                 ],
               )),
-          const Expanded(
-            child: Quote(),
+          Expanded(
+            child: appTheme.multiScreen
+                ? MultiSplitView(
+                    axis: Axis.vertical,
+                    dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                      return _dividerWidget(Axis.horizontal, index, resizable, dragging, highlighted, themeData);
+                    },
+                    initialAreas: [
+                      Area(
+                          builder: (context, area) => MultiSplitView(
+                                  dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                                    return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                                  },
+                                  initialAreas: [
+                                    Area(builder: (context, area) => const Quote(0)),
+                                    Area(builder: (context, area) => const Quote(1)),
+                                  ])),
+                      Area(
+                          builder: (context, area) => MultiSplitView(
+                                  dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                                    return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                                  },
+                                  initialAreas: [
+                                    Area(builder: (context, area) => const Quote(2)),
+                                    Area(builder: (context, area) => const Quote(3)),
+                                  ])),
+                    ],
+                  )
+                : const Quote(0),
           )
         ],
       ),
     );
+  }
+
+  Widget _dividerWidget(Axis axis, int index, bool resizable, bool dragging, bool highlighted, MultiSplitViewThemeData themeData) {
+    return DividerWidget(
+        axis: axis,
+        index: index,
+        themeData:
+            MultiSplitViewThemeData(dividerThickness: 1, dividerHandleBuffer: 1, dividerPainter: DividerPainter(backgroundColor: Colors.white)),
+        highlighted: highlighted,
+        resizable: resizable,
+        dragging: dragging);
   }
 
   Widget boxItem(String tip, TextEditingController controller, {bool? isPwd, bool? readOnly}) {
@@ -878,13 +936,13 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
               FilledButton(
                 child: const Text('确定'),
                 onPressed: () async {
-                  Navigator.pop(_);
-                  mainWindowClose() async => await windowManager.hide();
-                  if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
-                    await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
-                  }
-                  await rustDeskWinManager.closeAllSubWindows();
-                  await mainWindowClose();
+                  // Navigator.pop(_);
+                  // if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
+                  //   await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
+                  // }
+                  // await rustDeskWinManager.closeAllSubWindows();
+                  // await windowManager.close();
+                  exit(0);
                 },
               ),
               Button(
@@ -897,6 +955,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           );
         },
       );
+    } else {
+      exit(0);
     }
   }
 }

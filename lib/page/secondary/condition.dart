@@ -225,14 +225,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
 
   @override
   void onWindowClose() async {
-    notMainWindowClose(WindowController windowController) async {
-      await windowController.hide();
-      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
-    }
-
-    // hide window on close
-    final controller = WindowController.fromWindowId(kWindowId!);
-    await notMainWindowClose(controller);
+    await WindowController.fromWindowId(kWindowId!).hide();
     super.onWindowClose();
   }
 
@@ -287,9 +280,8 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
                 color: Colors.white,
               ),
               onPressed: () {
-                // WindowController.fromWindowId(windowId()).hide();
                 Future.delayed(Duration.zero, () async {
-                  await WindowController.fromWindowId(kWindowId!).close();
+                  await WindowController.fromWindowId(kWindowId!).hide();
                 });
               })),
       content: Column(

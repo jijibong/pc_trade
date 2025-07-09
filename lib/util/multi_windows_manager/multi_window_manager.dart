@@ -10,7 +10,7 @@ import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, SubWindow, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -33,6 +33,8 @@ extension Index on int {
         return WindowType.Notification;
       case 8:
         return WindowType.Order;
+      case 9:
+        return WindowType.SubWindow;
       default:
         return WindowType.Unknown;
     }
@@ -65,6 +67,7 @@ class RustDeskMultiWindowManager {
   final List<int> _notificationWindows = List.empty(growable: true);
   final List<int> _orderWindows = List.empty(growable: true);
   final List<int> _settingWindows = List.empty(growable: true);
+  final List<int> _subWindows = List.empty(growable: true);
 
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
@@ -324,6 +327,18 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newSubWindows(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+    return await newSession(
+      WindowType.SubWindow,
+      kWindowEventSubWindow,
+      remoteId,
+      _subWindows,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> call(WindowType type, String methodName, dynamic args) async {
     final wnds = _findWindowsByType(type);
     if (wnds.isEmpty) {
@@ -359,6 +374,8 @@ class RustDeskMultiWindowManager {
         return _notificationWindows;
       case WindowType.Order:
         return _orderWindows;
+      case WindowType.SubWindow:
+        return _subWindows;
       case WindowType.Unknown:
         break;
     }
@@ -392,6 +409,9 @@ class RustDeskMultiWindowManager {
         break;
       case WindowType.Order:
         _orderWindows.clear();
+        break;
+      case WindowType.SubWindow:
+        _subWindows.clear();
         break;
       case WindowType.Unknown:
         break;

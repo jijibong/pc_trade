@@ -71,7 +71,6 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
     });
 
     var temp = jsonDecode(widget.params["hold"]);
-    logger.i(temp);
     drawToolLine = DrawToolLine.fromJson(temp);
     if (mounted) setState(() {});
   }

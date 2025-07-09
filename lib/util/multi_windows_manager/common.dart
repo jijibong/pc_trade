@@ -540,6 +540,7 @@ enum DesktopType {
   color,
   notification,
   order,
+  subWindow,
 }
 
 class OffsetDevicePixelRatio {

@@ -9,6 +9,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:trade/page/draw/color_picker.dart';
 import 'package:trade/page/draw/draw_order.dart';
@@ -18,7 +19,9 @@ import 'package:trade/page/home/home.dart';
 import 'package:trade/page/secondary/condition.dart';
 import 'package:trade/page/secondary/notification.dart';
 import 'package:trade/page/secondary/pl_page.dart';
+import 'package:trade/page/secondary/sub_window.dart';
 import 'package:trade/page/trade/trade.dart';
+import 'package:trade/util/log/log.dart';
 import 'package:trade/util/multi_windows_manager/common.dart';
 import 'package:trade/util/multi_windows_manager/consts.dart';
 import 'package:trade/util/multi_windows_manager/multi_window_manager.dart';
@@ -114,6 +117,13 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopDrawOrder,
           );
           break;
+        case WindowType.SubWindow:
+          desktopType = DesktopType.subWindow;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopSubWindow,
+          );
+          break;
         default:
           break;
       }
@@ -129,8 +139,7 @@ Future<void> main(List<String> args) async {
       await bind.mainCheckConnectStatus();
       bind.pluginSyncUi(syncTo: kAppTypeMain);
       bind.pluginListReload();
-
-      runApp(const MyApp());
+      // logger.f((await windowManager.getSize()));
       windowManager.waitUntilReadyToShow().then((_) async {
         await windowManager.setTitleBarStyle(
           TitleBarStyle.hidden,
@@ -145,7 +154,7 @@ Future<void> main(List<String> args) async {
           ..setSkipTaskbar(false)
           ..show();
       });
-
+      runApp(const MyApp());
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
       // SpUtils.clear();
     }
@@ -157,13 +166,28 @@ Future<void> initEnv(String appType) async {
   await initGlobalFFI();
 }
 
+bool get isWindows11 {
+  if (!Platform.isWindows) return false;
+  final version = Platform.operatingSystemVersion;
+  return version.contains('10.0.22');
+}
+
 void runMultiWindow(
   Map<String, dynamic> argument,
   String appType,
 ) async {
   await initEnv(appType);
   final title = getWindowName();
-  WindowController.fromWindowId(kWindowId!).setPreventClose(true);
+  String? string = await SpUtils.getString(SpKey.screenSize);
+  Size size = PlatformDispatcher.instance.implicitView!.physicalSize / PlatformDispatcher.instance.implicitView!.devicePixelRatio;
+  if (string != null) {
+    Map map = jsonDecode(string);
+    size = Size(map["width"], map["height"]);
+  }
+  if (isWindows11) {
+    size = Size(size.width * 1.5, size.height * 2);
+  }
+  WindowController.fromWindowId(kWindowId!).setPreventClose(false);
   switch (appType) {
     case kAppTypeDesktopRemote:
       _runTradeApp(
@@ -174,7 +198,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(1240, 512))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.65, size.height * 0.47))
         ..setTitle("交易")
         ..center()
         ..show();
@@ -188,7 +212,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(820, 380))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.43, size.height * 0.35))
         ..setTitle("止盈止损")
         ..center()
         ..show();
@@ -202,7 +226,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(680, 580))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.35, size.height * 0.53))
         ..setTitle("条件单修改")
         ..center()
         ..show();
@@ -216,7 +240,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(180, 430))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.09, size.height * 0.4))
         ..setTitle("画线工具箱")
         ..center()
         ..show();
@@ -230,7 +254,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(500, 430))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.26, size.height * 0.4))
         ..setTitle("画线属性")
         ..center()
         ..show();
@@ -244,7 +268,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(680, 380))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.35, size.height * 0.35))
         ..setTitle("颜色")
         ..center()
         ..show();
@@ -258,7 +282,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(320, 240))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.17, size.height * 0.22))
         ..setTitle("画线下单")
         ..center()
         ..show();
@@ -271,15 +295,23 @@ void runMultiWindow(
       if (kUseCompatibleUiMode) {
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
-      String? string = await SpUtils.getString(SpKey.screenSize);
-      Size size = PlatformDispatcher.instance.implicitView!.physicalSize;
-      if (string != null) {
-        Map map = jsonDecode(string);
-        size = Size(map["width"], map["height"]);
-      }
+
       WindowController.fromWindowId(kWindowId!)
         ..setFrame(Offset(size.width - 315, size.height - 340) & const Size(315, 305))
         ..setTitle("提示")
+        ..show();
+      break;
+    case kAppTypeDesktopSubWindow:
+      _runSubWindow(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & const Size(1450, 850))
+        ..setTitle("行情")
         ..show();
       break;
     default:
@@ -605,6 +637,48 @@ void _runLocalNotification(
             child: LocalNotification(params: argument)),
       ),
     ),
+  ));
+}
+
+void _runSubWindow(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => ScreenUtilInit(
+        designSize: const Size(360, 690),
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return AnimatedFluentTheme(
+            data: FluentThemeData(visualDensity: VisualDensity.standard),
+            child: FluentApp(
+              debugShowCheckedModeBanner: false,
+              darkTheme: FluentThemeData(
+                brightness: Brightness.dark,
+                visualDensity: VisualDensity.standard,
+              ),
+              themeMode: _appTheme.mode,
+              theme: FluentThemeData(
+                visualDensity: VisualDensity.standard,
+              ),
+              localizationsDelegates: const [
+                FluentLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              supportedLocales: const [Locale('zh', 'CN')],
+              builder: (context, child) {
+                child = _keepScaleBuilder(context, child);
+                return child;
+              },
+              home: MultiProvider(
+                  providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+                  child: SubWindow(params: argument)),
+            ),
+          );
+        }),
   ));
 }
 

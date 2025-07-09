@@ -55,7 +55,7 @@ class ChartPainter extends BaseKChartPainter {
   static double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
   int mPreSize = 0;
   int mOrder = 0;
-  static double lastClose = 0;
+  double lastClose = 0;
   String chartExCode = "";
   String chartCode = "";
   List<double> CUSTOM_DASH_EFFECT = [5, 5];
@@ -220,9 +220,9 @@ class ChartPainter extends BaseKChartPainter {
   bool isDrawCandle = true;
   bool isSmartFall = false;
   bool isSwithSmart = false;
-  static List<TradeTime> mTradeTimes = [];
-  static List<String> mFsTimes = [];
-  static int mFsCount = 0;
+  List<TradeTime> mTradeTimes = [];
+  List<String> mFsTimes = [];
+  int mFsCount = 0;
   static double kChartViewHeight = 0;
   static double kChartViewWidth = 0;
   KPeriod mKPeriod = KPeriod();
@@ -242,6 +242,10 @@ class ChartPainter extends BaseKChartPainter {
 
   ChartPainter({
     required this.isDrawTime,
+    required this.lastClose,
+    required this.mTradeTimes,
+    required this.mFsTimes,
+    required this.mFsCount,
     required this.orderDrawing,
     required this.mKPeriod,
     required this.mOHLCData,
@@ -346,8 +350,8 @@ class ChartPainter extends BaseKChartPainter {
       );
     }
 
-    lastClose = lastClose == 0 ? mMinPrice + ((mMaxPrice - mMinPrice) / 2) : lastClose;
-    double maxHeight = (mMaxPrice - lastClose) > (lastClose - mMinPrice) ? (mMaxPrice - lastClose) : (lastClose - mMinPrice);
+    lastClose = lastClose == 0 ? (mMaxPrice + mMinPrice) / 2 : lastClose;
+    double maxHeight = max(mMaxPrice - lastClose, lastClose - mMinPrice);
     double perPrice = maxHeight / 4;
     for (int i = 3; i > 0; i--) {
       String text = Utils.getPointNum(lastClose + perPrice * (4 - i), length: 2);
@@ -433,7 +437,7 @@ class ChartPainter extends BaseKChartPainter {
     double nextAverageY = 0.0;
     double startX = 0.0;
     double nextX = 0.0;
-    lastClose = lastClose == 0 ? mMinPrice + ((mMaxPrice - mMinPrice) / 2) : lastClose;
+    lastClose = lastClose == 0 ? (mMaxPrice + mMinPrice) / 2 : lastClose;
     double max = mMaxPrice;
     double min = mMinPrice;
     double maxHeight = (max - lastClose) > (lastClose - min) ? (max - lastClose) : (lastClose - min); //最大价差
@@ -837,104 +841,6 @@ class ChartPainter extends BaseKChartPainter {
       list.addAll(mOHLCData);
     }
     return list;
-  }
-
-  /// 设置交易时间
-  static void setTradeTimes(String? tradeTimes) {
-    if (tradeTimes != null) {
-      List list = jsonDecode(tradeTimes);
-      mTradeTimes.clear();
-      mTradeTimes.addAll(list.map((e) => TradeTime.fromJson(e)).toList());
-    } else {
-      TradeTime tradeTime = TradeTime(Start: "06:00:00", End: "05:00:00");
-      mTradeTimes.add(tradeTime);
-    }
-  }
-
-  static void calcFsTime(String staDate, String staTime) {
-    List<String> list = [];
-    if (mTradeTimes.isNotEmpty) {
-      String? openTime = "$staDate ${mTradeTimes[0].Start}";
-      String? closeTime = "$staDate ${mTradeTimes[mTradeTimes.length - 1].End}";
-      String nDate = staDate;
-      String nTime = staTime;
-
-      String preTime = openTime;
-      if (Utils.compareDate(openTime, closeTime) == -1) {
-        //收盘早于开盘
-
-        if (Utils.compareDate(openTime, "$staDate $nTime") == -1) {
-          if (Utils.getWeek(nDate) == 1) {
-            //星期一
-            nDate = Utils.getDayBefore(nDate, 3);
-          } else {
-            nDate = Utils.getDayBefore(nDate, 1);
-          }
-        }
-
-        for (int i = 0; i < mTradeTimes.length; i++) {
-          String indexStart = "$staDate ${mTradeTimes[i].Start}";
-          String indexEnd = "$staDate ${mTradeTimes[i].End}";
-          if (Utils.compareDate(indexStart, indexEnd) == -1) {
-            String start = "$nDate ${mTradeTimes[i].Start}";
-            nDate = Utils.getDayAfter(nDate, 1);
-            String end = "$nDate ${mTradeTimes[i].End}";
-            list.add(start);
-            list.add(end);
-
-            if (Utils.getWeek(nDate) == 6) {
-              nDate = Utils.getDayAfter(nDate, 2);
-            }
-          } else {
-            if (Utils.compareDate(indexStart, preTime) == 1) {
-              if (Utils.getWeek(nDate) == 5) {
-                //周五
-                nDate = Utils.getDayAfter(nDate, 3);
-                String start = "$nDate ${mTradeTimes[i].Start}";
-                String end = "$nDate ${mTradeTimes[i].End}";
-                list.add(start);
-                list.add(end);
-              } else {
-                nDate = Utils.getDayAfter(nDate, 1);
-                String start = "$nDate ${mTradeTimes[i].Start}";
-                String end = "$nDate ${mTradeTimes[i].End}";
-                list.add(start);
-                list.add(end);
-              }
-            } else {
-              String start = "$nDate ${mTradeTimes[i].Start}";
-              String end = "$nDate ${mTradeTimes[i].End}";
-              list.add(start);
-              list.add(end);
-            }
-          }
-          preTime = indexEnd;
-        }
-      } else {
-        //开盘早于收盘
-        for (int i = 0; i < mTradeTimes.length; i++) {
-          String start = "$nDate ${mTradeTimes[i].Start}";
-          String end = "$nDate ${mTradeTimes[i].End}";
-          list.add(start);
-          list.add(end);
-        }
-      }
-    }
-
-    // for (int i = 0; i < list.length; i++) {
-    //   Log.e("交易时间hxj", list[i]);
-    // }
-
-    mFsTimes.clear();
-    mFsTimes.addAll(list);
-
-    //计算分时数量
-    mFsCount = 0;
-    for (int i = 0; i < mFsTimes.length; i = i + 2) {
-      int start = int.parse(Utils.getLongTime(mFsTimes[i]));
-      int end = int.parse(Utils.getLongTime(mFsTimes[i + 1]));
-      mFsCount += (end - start) ~/ 60;
-    }
   }
 
   static int getMaxPeriod(bool isDrawCost, bool isDrawBollinger, bool isDrawFall) {

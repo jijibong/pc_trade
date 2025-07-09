@@ -268,7 +268,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     // Broker? broker = await Utils.getBroker();
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);
     String? userInfo = await SpUtils.getString(SpKey.currentUser);
-    exchangeList = await Utils.getMyExchange(true);
+    exchangeList = await Utils.getAllExchange();
     defaultTradeType = await SpUtils.getBool(SpKey.defaultTradeType) ?? true;
     defaultTradeMenu = await SpUtils.getInt(SpKey.defaultTradeMenu) ?? 0;
     String? commodity = await SpUtils.getString(SpKey.commodity);
@@ -1406,7 +1406,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
   }
 
   loadTradeData() async {
-    List<Exchange> list = await Utils.getMyExchange(true);
+    List<Exchange> list = await Utils.getAllExchange();
     if (list.isNotEmpty) {
       exchangeList.clear();
       exchangeList.addAll(list);
@@ -4780,27 +4780,29 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     ),
                   )
                 : Expanded(
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 15),
-                        settingItem("是否提示下单确认", true),
-                        settingItem("启动默认进入自选", false),
-                        settingItem("是否显示精简模式", false),
-                        settingItem("是否弹出交易弹窗", true),
-                        settingItem("默认下单类型", defaultTradeType, yes: "限价", no: "市价", onChange: (v) async {
-                          defaultTradeType = true;
-                          price = "对手价";
-                          await SpUtils.set(SpKey.defaultTradeType, defaultTradeType);
-                          if (mounted) setState(() {});
-                        }, onChanged: (v) async {
-                          defaultTradeType = false;
-                          price = "市价";
-                          await SpUtils.set(SpKey.defaultTradeType, defaultTradeType);
-                          if (mounted) setState(() {});
-                        }),
-                        settingTypeItem("默认下单面板", defaultTradeMenu, yes: "快手下单", no: "三键下单", or: "传统下单"),
-                        settingNotItem("成交提示音", "系统提示音"),
-                      ],
+                    child: IntrinsicWidth(
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 15),
+                          settingItem("是否提示下单确认", true),
+                          settingItem("启动默认进入自选", false),
+                          settingItem("是否显示精简模式", false),
+                          settingItem("是否弹出交易弹窗", true),
+                          settingItem("默认下单类型", defaultTradeType, yes: "限价", no: "市价", onChange: (v) async {
+                            defaultTradeType = true;
+                            price = "对手价";
+                            await SpUtils.set(SpKey.defaultTradeType, defaultTradeType);
+                            if (mounted) setState(() {});
+                          }, onChanged: (v) async {
+                            defaultTradeType = false;
+                            price = "市价";
+                            await SpUtils.set(SpKey.defaultTradeType, defaultTradeType);
+                            if (mounted) setState(() {});
+                          }),
+                          settingTypeItem("默认下单面板", defaultTradeMenu, yes: "快手下单", no: "三键下单", or: "传统下单"),
+                          settingNotItem("成交提示音", "系统提示音"),
+                        ],
+                      ),
                     ),
                   ),
             Expanded(child: Container()),
@@ -4823,10 +4825,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Expanded(child: Text(title, maxLines: 1)),
-          Expanded(child: RadioButton(checked: checked, content: Text(yes ?? "是"), onChanged: onChange)),
-          Expanded(child: RadioButton(checked: !checked, content: Text(no ?? "否"), onChanged: onChanged)),
-          Expanded(child: Container()),
+          Expanded(flex: 3, child: Text(title, maxLines: 1)),
+          Expanded(flex: 2, child: RadioButton(checked: checked, content: Text(yes ?? "是"), onChanged: onChange)),
+          Expanded(flex: 2, child: RadioButton(checked: !checked, content: Text(no ?? "否"), onChanged: onChanged)),
+          Expanded(flex: 2, child: Container()),
         ],
       ),
     );
@@ -4838,8 +4840,9 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Expanded(child: Text(title)),
+          Expanded(flex: 3, child: Text(title)),
           Expanded(
+              flex: 2,
               child: RadioButton(
                   checked: index == 0,
                   content: Text(yes ?? "是"),
@@ -4850,6 +4853,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     if (mounted) setState(() {});
                   })),
           Expanded(
+              flex: 2,
               child: RadioButton(
                   checked: index == 1,
                   content: Text(no ?? "否"),
@@ -4860,6 +4864,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     if (mounted) setState(() {});
                   })),
           Expanded(
+              flex: 2,
               child: RadioButton(
                   checked: index == 2,
                   content: Text(or ?? "或"),
@@ -4880,8 +4885,9 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          Expanded(child: Text(title)),
-          Expanded(child: RadioButton(checked: true, content: Text(content), onChanged: (v) {})),
+          Expanded(flex: 3, child: Text(title)),
+          Expanded(flex: 2, child: RadioButton(checked: true, content: Text(content), onChanged: (v) {})),
+          Expanded(flex: 2, child: Container()),
           Expanded(flex: 2, child: Container()),
         ],
       ),

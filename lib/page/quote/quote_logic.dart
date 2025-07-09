@@ -20,21 +20,22 @@ import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/consts.dart';
-import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
 class QuoteLogic extends GetxController {
   var mExchangeList = <Exchange>[].obs;
-  var selectedExchange = Exchange().obs;
-  var mContractList = <Contract>[].obs;
-  var selectedContract = Contract().obs;
+  var selectedExchangeList = List.filled(4, Exchange()).obs;
+  // var mContractList = <Contract>[].obs;
+  var selectedMContractList = List.filled(4, <Contract>[]).obs;
+  var selectedContractList = List.filled(4, Contract()).obs;
+  var selectedIndex = 0.obs;
   var mOptionalList = <Contract>[].obs;
   var mVarietyList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
 
-  // var selectIndex = 1.obs;
+  // var selectIndex = -1.obs;
   // var viewIndex = 0.obs;
 
   late StreamSubscription quoteEventSubscription;
@@ -49,9 +50,11 @@ class QuoteLogic extends GetxController {
 
     ///获取合约
     EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
-      loadData();
+      loadData(event.index);
     });
+  }
 
+  setAllListener(){
     ///切换合约
     EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
       String msg = jsonEncode(event.contract);
@@ -61,56 +64,55 @@ class QuoteLogic extends GetxController {
     });
   }
 
-  loadData() async {
-    if (mExchangeList.isNotEmpty && mContractList.isNotEmpty) return;
-    List<Exchange> list = await Utils.getMyExchange(true);
+  loadData(int index) async {
+    if (mExchangeList.isNotEmpty && selectedMContractList.first.isNotEmpty) return;
+    List<Exchange> list = await Utils.getAllExchange();
+    List<Contract> tmp = [];
     if (list.isNotEmpty) {
       mExchangeList.clear();
       mExchangeList.addAll(list);
       mExchangeList.refresh();
 
-      selectedExchange.value = mExchangeList[0];
-      if (MarketUtils.getDataVarietys(selectedExchange.value.exchangeNo!).isNotEmpty) {
-        mContractList.clear();
-        mContractList.addAll(MarketUtils.getDataVarietys(selectedExchange.value.exchangeNo!));
-        refreshData();
+      selectedExchangeList.value = List.filled(4, mExchangeList[0]);
+      selectedExchangeList.refresh();
+      if (MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!).isNotEmpty) {
+        tmp = MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!);
       } else {
-        getContract();
+        tmp = await Utils.getContractWithMain(mExchangeList[0].exchangeNo!);
       }
+      selectedMContractList.value = List.filled(4, tmp);
+      refreshData(index);
     }
   }
 
   ///切换交易所
-  void switchExchange(int index) async {
-    unSubscriptionQuote();
-    selectedExchange.value = mExchangeList[index];
-    mExchangeList.refresh();
-    selectedExchange.refresh();
-    if (MarketUtils.getDataVarietys(selectedExchange.value.exchangeNo).isNotEmpty) {
-      mContractList.clear();
-      mContractList.addAll(MarketUtils.getDataVarietys(selectedExchange.value.exchangeNo));
-      mContractList.refresh();
-      refreshData();
+  void switchExchange(int index, int viewIndex) async {
+    unSubscriptionQuote(viewIndex);
+    selectedExchangeList[viewIndex] = mExchangeList[index];
+    selectedExchangeList.refresh();
+    if (MarketUtils.getDataVarietys(selectedExchangeList[viewIndex].exchangeNo).isNotEmpty) {
+      selectedMContractList[viewIndex] = MarketUtils.getDataVarietys(selectedExchangeList[viewIndex].exchangeNo);
     } else {
-      getContract();
+      selectedMContractList[viewIndex] = await Utils.getContractWithMain(selectedExchangeList[viewIndex].exchangeNo!);
     }
+    refreshData(viewIndex);
   }
 
   /// 取消订阅
-  void unSubscriptionQuote() {
-    if (mContractList.isNotEmpty) {
+  void unSubscriptionQuote(int viewIndex) {
+    if (selectedMContractList[viewIndex].isNotEmpty) {
       List<String> json = [];
-      json = Utils.getSubJson(0, mContractList.length, mContractList);
+      json = Utils.getSubJson(0, selectedMContractList[viewIndex].length, selectedMContractList[viewIndex]);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.UnSendSub));
     }
   }
 
   /// 订阅行情
-  void subscriptionQuote() {
-    if (mContractList.isNotEmpty) {
+  void subscriptionQuote(int viewIndex) {
+    if (selectedMContractList[viewIndex].isNotEmpty) {
       List<String> json = [];
 
-      json = Utils.getSubJson(0, mContractList.length, mContractList);
+      json = Utils.getSubJson(0, selectedMContractList[viewIndex].length, selectedMContractList[viewIndex]);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.SendSub));
     }
   }
@@ -133,13 +135,6 @@ class QuoteLogic extends GetxController {
     }
   }
 
-  ///获取合约数据
-  getContract() async {
-    mContractList.clear();
-    mContractList.addAll(await Utils.getContractWithMain(selectedExchange.value.exchangeNo!));
-    refreshData();
-  }
-
   /// 请求持仓单
   Future requestHold() async {
     if (!LoginServer.isLogin) {
@@ -152,23 +147,24 @@ class QuoteLogic extends GetxController {
         mHoldList.clear();
         for (var res in value) {
           HoldOrder hold = HoldOrder(
-              name: res.ContractName,
-              code: "${res.CommodityNo}${res.ContractNo}",
-              exCode: res.ExchangeNo,
-              comType: res.CommodityType,
-              subComCode: res.CommodityNo,
-              subConCode: res.ContractNo,
-              orderSide: res.MatchSide,
-              quantity: res.PositionQty,
-              open: res.PositionPrice,
-              margin: (res.MarginValue ?? 0) * (res.PositionQty ?? 0),
-              floatProfit: res.PositionProfit,
-              FutureContractSize: res.ContractSize,
-              FutureTickSize: res.CommodityTickSize,
-              CurrencyType: res.TradeCurrency,
-              PositionNo: res.PositionNo,
-              CalculatePrice: res.CalculatePrice,
-              AvailableQty: res.AvailableQty);
+            name: res.ContractName,
+            code: "${res.CommodityNo}${res.ContractNo}",
+            exCode: res.ExchangeNo,
+            comType: res.CommodityType,
+            subComCode: res.CommodityNo,
+            subConCode: res.ContractNo,
+            orderSide: res.MatchSide,
+            quantity: res.PositionQty,
+            open: res.PositionPrice,
+            margin: (res.MarginValue ?? 0) * (res.PositionQty ?? 0),
+            floatProfit: res.PositionProfit,
+            FutureContractSize: res.ContractSize,
+            FutureTickSize: res.CommodityTickSize,
+            CurrencyType: res.TradeCurrency,
+            PositionNo: res.PositionNo,
+            CalculatePrice: res.CalculatePrice,
+            AvailableQty: res.AvailableQty,
+          );
           if (res.PositionType == PositionType.POSITION_TODAY) {
             hold.TPosition = res.PositionQty;
           } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
@@ -185,30 +181,32 @@ class QuoteLogic extends GetxController {
   void quoteEvent() {
     quoteEventSubscription = EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
-      for (var element in mContractList) {
-        if (element.exCode == con.exCode && element.code == con.code && element.comType == con.comType) {
-          element.lastPrice = con.lastPrice;
-          element.change = con.change;
-          element.changePer = con.changePer;
-          element.buyPrice = con.buyPrice;
-          element.salePrice = con.salePrice;
-          element.volume = con.volume;
-          element.highPrice = con.highPrice;
-          element.lowPrice = con.lowPrice;
-          element.position = con.position;
-          element.timeStr = con.timeStr;
-          element.delegateSale = con.delegateSale;
-          element.delegateBuy = con.delegateBuy;
-          element.changeString = con.changeString;
-          element.preSettlePrice = con.preSettlePrice;
-          element.openPrice = con.openPrice;
-          element.high = con.high;
-          element.low = con.low;
-          element.changePerString = con.changePerString;
-          dataHandle(element);
+      for (var item in selectedMContractList) {
+        for (var element in item) {
+          if (element.exCode == con.exCode && element.code == con.code && element.comType == con.comType) {
+            element.lastPrice = con.lastPrice;
+            element.change = con.change;
+            element.changePer = con.changePer;
+            element.buyPrice = con.buyPrice;
+            element.salePrice = con.salePrice;
+            element.volume = con.volume;
+            element.highPrice = con.highPrice;
+            element.lowPrice = con.lowPrice;
+            element.position = con.position;
+            element.timeStr = con.timeStr;
+            element.delegateSale = con.delegateSale;
+            element.delegateBuy = con.delegateBuy;
+            element.changeString = con.changeString;
+            element.preSettlePrice = con.preSettlePrice;
+            element.openPrice = con.openPrice;
+            element.high = con.high;
+            element.low = con.low;
+            element.changePerString = con.changePerString;
+            dataHandle(element);
+          }
         }
+        selectedMContractList.refresh();
       }
-      mContractList.refresh();
     });
   }
 
@@ -313,13 +311,13 @@ class QuoteLogic extends GetxController {
     return con;
   }
 
-  /// 刷新表格是数据
-  void refreshData() async {
+  /// 刷新表格数据
+  void refreshData(int index) async {
     if (LoginServer.isLogin) {
       if (MarketUtils.optionList.isEmpty) {
         await MarketServer.queryOption().then((value) {
           if (value != null) {
-            for (var element in mContractList) {
+            for (var element in selectedMContractList[index]) {
               element.optional = false;
               for (var item in MarketUtils.optionList) {
                 if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
@@ -330,7 +328,7 @@ class QuoteLogic extends GetxController {
           }
         });
       } else {
-        for (var element in mContractList) {
+        for (var element in selectedMContractList[index]) {
           element.optional = false;
           for (var item in MarketUtils.optionList) {
             if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
@@ -342,7 +340,7 @@ class QuoteLogic extends GetxController {
     } else {
       List<Contract> list = await MarketUtils.getLocalOptions();
       if (list.isNotEmpty) {
-        for (var element in mContractList) {
+        for (var element in selectedMContractList[index]) {
           element.optional = false;
           for (var e in list) {
             if (e.exCode == element.exCode && e.code == element.code && e.comType == element.comType && e.isMain == element.isMain) {
@@ -352,8 +350,8 @@ class QuoteLogic extends GetxController {
         }
       }
     }
-    mContractList.refresh();
-    subscriptionQuote();
+    selectedMContractList.refresh();
+    subscriptionQuote(index);
   }
 
   ///自选操作
@@ -443,10 +441,12 @@ class QuoteLogic extends GetxController {
 
   /// 自选变化通知
   void optionChange(Contract con, bool change) {
-    for (Contract contract in mContractList) {
-      if (contract.exCode == con.exCode && contract.code == con.code && contract.comType == con.comType && contract.isMain == con.isMain) {
-        contract.optional = change;
-        break;
+    for (var e in selectedMContractList) {
+      for (Contract contract in e) {
+        if (contract.exCode == con.exCode && contract.code == con.code && contract.comType == con.comType && contract.isMain == con.isMain) {
+          contract.optional = change;
+          break;
+        }
       }
     }
     if (change) {
@@ -454,29 +454,7 @@ class QuoteLogic extends GetxController {
     } else {
       mOptionalList.removeWhere((e) => e.exCode == con.exCode && e.code == con.code && e.comType == con.comType);
     }
-    mContractList.refresh();
+    selectedMContractList.refresh();
     mOptionalList.refresh();
-  }
-
-  ///市场详情页
-  goDetails(Contract? contract, {bool? fromOption}) {
-    // if (fromOption == true) {
-    //   unSubscriptionOption();
-    // } else {
-    //   unSubscriptionQuote();
-    // }
-    // if (contract == null) return;
-    // Get.to(() => MarketDetail(contract))?.then((value) {
-    //   if (value != null) {
-    //     contract.optional = value.optional;
-    //     if (fromOption == true) {
-    //       queryOption();
-    //     } else {
-    //       mContractList.refresh();
-    //       mOptionalList.refresh();
-    //       subscriptionQuote();
-    //     }
-    //   }
-    // });
   }
 }

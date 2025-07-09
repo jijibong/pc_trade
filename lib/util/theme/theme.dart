@@ -62,25 +62,39 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  int _selectIndex = 1;
-  int get selectIndex => _selectIndex;
-  set selectIndex(int selectIndex) {
-    _selectIndex = selectIndex;
+  ///分屏
+  bool _multiScreen = false;
+  bool get multiScreen => _multiScreen;
+  set multiScreen(bool multiScreen) {
+    _multiScreen = multiScreen;
     notifyListeners();
   }
 
-  bool _showChart=true;
+  ///自选
+  final List<int> _selectIndex = List.filled(4, 1);
+  List<int> get selectIndex => _selectIndex;
+  void setSelectIndex(int index, int value) {
+    if (index >= 0 && index < _selectIndex.length) {
+      _selectIndex[index] = value;
+      notifyListeners();
+    }
+  }
+
+  bool _showChart = true;
   bool get showChart => _showChart;
   set showChart(bool showChart) {
     _showChart = showChart;
     notifyListeners();
   }
 
-  int _viewIndex = 0;
-  int get viewIndex => _viewIndex;
-  set viewIndex(int viewIndex) {
-    _viewIndex = viewIndex;
-    notifyListeners();
+  ///首页\详情页
+  final List<int> _viewIndex = List.filled(4, 0);
+  List<int> get viewIndex => _viewIndex;
+  void setViewIndex(int index, int value) {
+    if (index >= 0 && index < _viewIndex.length) {
+      _viewIndex[index] = value;
+      notifyListeners();
+    }
   }
 
   int _tradeIndex = 0;

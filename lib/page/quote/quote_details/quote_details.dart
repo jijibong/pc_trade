@@ -37,12 +37,12 @@ import '../../../model/k/k_flag.dart';
 import '../../../model/k/k_preiod.dart';
 import '../../../model/k/k_time.dart';
 import '../../../model/k/port.dart';
+import '../../../model/k/trade_time.dart';
 import '../../../model/pb/quote/fill.pb.dart';
 import '../../../model/quote/contract.dart';
 import '../../../model/quote/side_type.dart';
 import '../../../model/socket_packet/operation.dart';
 import '../../../model/trade/hold_order.dart';
-import '../../../server/condition/condition.dart';
 import '../../../server/login/login.dart';
 import '../../../server/quote/market.dart';
 import '../../../server/socket/webSocket.dart';
@@ -62,13 +62,12 @@ import '../../../util/utils/k_util.dart';
 import '../../../util/utils/market_util.dart';
 import '../../../util/utils/utils.dart';
 import '../../../util/widget/dash_line.dart';
-import '../../draw/draw_icons.dart';
 import '../quote_logic.dart';
 
 class QuoteDetails extends StatefulWidget {
   final Contract contract;
-
-  const QuoteDetails(this.contract, {super.key});
+  final int index;
+  const QuoteDetails(this.contract, this.index, {super.key});
 
   @override
   State<QuoteDetails> createState() => _QuoteDetailsState();
@@ -197,6 +196,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   int widthType = 0;
   int lineType = 0;
   List<DrawToolLine> drawToolLines = [];
+  double lastClose = 0;
 
   ///一档报价
   int level = 1;
@@ -284,6 +284,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   double mMaxPrice = -1;
   double mMinPrice = -1;
   String mStartDate = "";
+  List<TradeTime> mTradeTimes = [];
+  List<String> mFsTimes = [];
+  int mFsCount = 0;
 
   String pankouLastPrice = "--";
   String pankouChange = "--";
@@ -904,10 +907,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       await MarketServer.queryFs(contract!).then((value) {
         if (value != null) {
           SWITHING_TIME = true;
-          ChartPainter.lastClose = contract!.preSettlePrice!.toDouble();
-          ChartPainter.calcFsTime(value[value.length - 1].date ?? '', value[value.length - 1].time ?? '');
-          List<OHLCEntity> allList =
-              KUtils.dealFsData(value, ChartPainter.mFsTimes, contract?.preSettlePrice?.toDouble() ?? 0, contract?.exCode ?? '');
+          lastClose = contract!.preSettlePrice!.toDouble();
+          calcFsTime(value[value.length - 1].date ?? '', value[value.length - 1].time ?? '');
+          List<OHLCEntity> allList = KUtils.dealFsData(value, mFsTimes, contract?.preSettlePrice?.toDouble() ?? 0, contract?.exCode ?? '');
           setTimeData(allList);
           isAllowAdd = true;
         }
@@ -915,6 +917,104 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       });
     }
     if (mounted) setState(() {});
+  }
+
+  void calcFsTime(String staDate, String staTime) {
+    List<String> list = [];
+    if (mTradeTimes.isNotEmpty) {
+      String? openTime = "$staDate ${mTradeTimes[0].Start}";
+      String? closeTime = "$staDate ${mTradeTimes[mTradeTimes.length - 1].End}";
+      String nDate = staDate;
+      String nTime = staTime;
+
+      String preTime = openTime;
+      if (Utils.compareDate(openTime, closeTime) == -1) {
+        //收盘早于开盘
+
+        if (Utils.compareDate(openTime, "$staDate $nTime") == -1) {
+          if (Utils.getWeek(nDate) == 1) {
+            //星期一
+            nDate = Utils.getDayBefore(nDate, 3);
+          } else {
+            nDate = Utils.getDayBefore(nDate, 1);
+          }
+        }
+
+        for (int i = 0; i < mTradeTimes.length; i++) {
+          String indexStart = "$staDate ${mTradeTimes[i].Start}";
+          String indexEnd = "$staDate ${mTradeTimes[i].End}";
+          if (Utils.compareDate(indexStart, indexEnd) == -1) {
+            String start = "$nDate ${mTradeTimes[i].Start}";
+            nDate = Utils.getDayAfter(nDate, 1);
+            String end = "$nDate ${mTradeTimes[i].End}";
+            list.add(start);
+            list.add(end);
+
+            if (Utils.getWeek(nDate) == 6) {
+              nDate = Utils.getDayAfter(nDate, 2);
+            }
+          } else {
+            if (Utils.compareDate(indexStart, preTime) == 1) {
+              if (Utils.getWeek(nDate) == 5) {
+                //周五
+                nDate = Utils.getDayAfter(nDate, 3);
+                String start = "$nDate ${mTradeTimes[i].Start}";
+                String end = "$nDate ${mTradeTimes[i].End}";
+                list.add(start);
+                list.add(end);
+              } else {
+                nDate = Utils.getDayAfter(nDate, 1);
+                String start = "$nDate ${mTradeTimes[i].Start}";
+                String end = "$nDate ${mTradeTimes[i].End}";
+                list.add(start);
+                list.add(end);
+              }
+            } else {
+              String start = "$nDate ${mTradeTimes[i].Start}";
+              String end = "$nDate ${mTradeTimes[i].End}";
+              list.add(start);
+              list.add(end);
+            }
+          }
+          preTime = indexEnd;
+        }
+      } else {
+        //开盘早于收盘
+        for (int i = 0; i < mTradeTimes.length; i++) {
+          String start = "$nDate ${mTradeTimes[i].Start}";
+          String end = "$nDate ${mTradeTimes[i].End}";
+          list.add(start);
+          list.add(end);
+        }
+      }
+    }
+
+    // for (int i = 0; i < list.length; i++) {
+    //   Log.e("交易时间hxj", list[i]);
+    // }
+
+    mFsTimes.clear();
+    mFsTimes.addAll(list);
+
+    //计算分时数量
+    mFsCount = 0;
+    for (int i = 0; i < mFsTimes.length; i = i + 2) {
+      int start = int.parse(Utils.getLongTime(mFsTimes[i]));
+      int end = int.parse(Utils.getLongTime(mFsTimes[i + 1]));
+      mFsCount += (end - start) ~/ 60;
+    }
+  }
+
+  /// 设置交易时间
+  void setTradeTimes(String? tradeTimes) {
+    if (tradeTimes != null) {
+      List list = jsonDecode(tradeTimes);
+      mTradeTimes.clear();
+      mTradeTimes.addAll(list.map((e) => TradeTime.fromJson(e)).toList());
+    } else {
+      TradeTime tradeTime = TradeTime(Start: "06:00:00", End: "05:00:00");
+      mTradeTimes.add(tradeTime);
+    }
   }
 
   void requestMoreKline(int UnixTime) async {
@@ -1124,7 +1224,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       pankouHighColor = HexColor("#3aff20");
     }
 
-    if (contract!.lowPrice! < contract!.openPrice!) {
+    if (contract?.lowPrice != null && contract?.openPrice != null && (contract!.lowPrice! < contract!.openPrice!)) {
       pankouLowColor = HexColor("#3aff20");
     }
   }
@@ -1143,15 +1243,15 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     String? oldTime = mOHLCList[mOHLCList.length - 1].time;
 
     newPrice = data.close?.toDouble() ?? 0;
-    if (ChartPainter.mTradeTimes.isNotEmpty && period.cusType == 1 && period.kpFlag == KPFlag.Day) {
-      newestTime = "${data.date} ${ChartPainter.mTradeTimes[ChartPainter.mTradeTimes.length - 1].End}";
+    if (mTradeTimes.isNotEmpty && period.cusType == 1 && period.kpFlag == KPFlag.Day) {
+      newestTime = "${data.date} ${mTradeTimes[mTradeTimes.length - 1].End}";
     } else if (period.cusType == 2) {
       newestTime = "${data.date} ${data.time}";
     } else {
       newestTime = "${data.date} ${data.time}";
     }
 
-    ChartPainter.lastClose = preSettlePrice;
+    lastClose = preSettlePrice;
     if (newPrice == 0 || newestTime == "") {
       return;
     }
@@ -1190,7 +1290,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         String newstDate = newestTime; //处理最新时间;
         newstDate = Utils.getUnifiedTime(newstDate, period, standardTime);
         if (period.cusType == 2) {
-          newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, ChartPainter.mTradeTimes);
+          newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, mTradeTimes);
         }
         String newDate1 = newstDate.substring(0, 10);
         String newTime1 = newstDate.substring(11, 19);
@@ -1259,7 +1359,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             String newstDate = newestTime; //处理最新时间;
             newstDate = Utils.getUnifiedTime(newstDate, period, standardTime);
             if (period.cusType == 2) {
-              newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, ChartPainter.mTradeTimes);
+              newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, mTradeTimes);
             }
             String newDate1 = newstDate.substring(0, 10);
             String newTime1 = newstDate.substring(11, 19);
@@ -1285,7 +1385,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           String newstDate = newestTime; //处理最新时间;
           newstDate = Utils.getUnifiedTime(newstDate, period, standardTime);
           if (period.cusType == 2) {
-            newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, ChartPainter.mTradeTimes);
+            newstDate = Utils.calcCustomNextDate(preTime, newestTime, period, mTradeTimes);
           }
           String newDate1 = newstDate.substring(0, 10);
           String newTime1 = newstDate.substring(11, 19);
@@ -1335,31 +1435,31 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
   }
 
-  ///添加条件单
-  void addLineCondition(
-      String? ExchangeNo,
-      String? CommodityNo,
-      int? CommodityType,
-      String? ContractNo,
-      int? OrderType,
-      int? TimeInForce,
-      String? ExpireTime,
-      int? OrderSide,
-      double? OrderPrice,
-      int? OrderQty,
-      int? PositionEffect,
-      int? PriceType,
-      int? ConditionType,
-      double? ConditionPrice) async {
-    await ConditionServer.addCondition(ExchangeNo, CommodityNo, CommodityType, ContractNo, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
-            OrderQty, PositionEffect, PriceType, ConditionType, ConditionPrice)
-        .then((value) {
-      // if (value) {
-      // InfoBarUtils.showSuccessBar("添加条件单成功");
-      // qryCondition(0);
-      // }
-    });
-  }
+  // ///添加条件单
+  // void addLineCondition(
+  //     String? ExchangeNo,
+  //     String? CommodityNo,
+  //     int? CommodityType,
+  //     String? ContractNo,
+  //     int? OrderType,
+  //     int? TimeInForce,
+  //     String? ExpireTime,
+  //     int? OrderSide,
+  //     double? OrderPrice,
+  //     int? OrderQty,
+  //     int? PositionEffect,
+  //     int? PriceType,
+  //     int? ConditionType,
+  //     double? ConditionPrice) async {
+  //   await ConditionServer.addCondition(ExchangeNo, CommodityNo, CommodityType, ContractNo, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+  //           OrderQty, PositionEffect, PriceType, ConditionType, ConditionPrice)
+  //       .then((value) {
+  //     // if (value) {
+  //     // InfoBarUtils.showSuccessBar("添加条件单成功");
+  //     // qryCondition(0);
+  //     // }
+  //   });
+  // }
 
   bool _checkHit(Path path, Offset point) {
     // 1. 快速边界框检查
@@ -1483,11 +1583,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         contract = con;
         refreshData();
 
-        if (ChartPainter.mFsTimes.isNotEmpty) {
-          String tradeStart = ChartPainter.mFsTimes[0].split(" ")[1].substring(0, 5);
+        if (mFsTimes.isNotEmpty) {
+          String tradeStart = mFsTimes[0].split(" ")[1].substring(0, 5);
           String qutoTime = Utils.timeMillisToTime((contract?.timeStamps ?? 0).toInt()).substring(0, 5);
           if (tradeStart == qutoTime && isDrawTime) {
-            ChartPainter.setTradeTimes(contract?.trTime);
+            setTradeTimes(contract?.trTime);
             requestAllData();
           }
         }
@@ -1549,7 +1649,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     ///周期变化
     EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
-      switchPeriod(event.kPeriod);
+      if (logic.selectedIndex.value == widget.index) {
+        switchPeriod(event.kPeriod);
+      }
     });
 
     ///画线工具
@@ -1669,7 +1771,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   @override
   void initState() {
     initContract();
-    ChartPainter.setTradeTimes(contract?.trTime);
+    setTradeTimes(contract?.trTime);
     listener();
     getPosition();
     subscriptionQuote(true);
@@ -1697,6 +1799,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Widget kChart() {
     final painter = ChartPainter(
       isDrawTime: isDrawTime,
+      lastClose: lastClose,
+      mTradeTimes: mTradeTimes,
+      mFsTimes: mFsTimes,
+      mFsCount: mFsCount,
       isDrawCrossLine: isDrawCrossLine,
       orderDrawing: orderDrawing,
       mKPeriod: kPeriod,
@@ -2790,18 +2896,22 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               } else if (selectedIndex != -1) {
                 if (selectedPoint == 1) {
                   int index = calculateIndex(e.localPosition.dx);
+                  if (index < 0) return;
                   drawToolLines[selectedIndex].firstPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
                   drawToolLines[selectedIndex].firstPointY = calculatePrice(e.localPosition.dy, painter);
                 } else if (selectedPoint == 2) {
                   int index = calculateIndex(e.localPosition.dx);
+                  if (index < 0) return;
                   drawToolLines[selectedIndex].secondPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
                   drawToolLines[selectedIndex].secondPointY = calculatePrice(e.localPosition.dy, painter);
                 } else if (selectedPoint == 3) {
                   int index = calculateIndex(e.localPosition.dx);
+                  if (index < 0) return;
                   drawToolLines[selectedIndex].thirdPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
                   drawToolLines[selectedIndex].thirdPointY = calculatePrice(e.localPosition.dy, painter);
                 } else if (startMovingPoint != null && initPointX1 != null && initPointY1 != null) {
                   int index = calculateIndex(dateTOX(initPointX1!)) + calculateIndex(e.localPosition.dx) - calculateIndex(startMovingPoint!.dx);
+                  if (index < 0) return;
                   drawToolLines[selectedIndex].firstPointX = "${mOHLCData[index].date} ${mOHLCData[index].time}";
                   drawToolLines[selectedIndex].firstPointY =
                       initPointY1! + calculatePrice(e.localPosition.dy, painter) - calculatePrice(startMovingPoint!.dy, painter);
@@ -3045,13 +3155,13 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         MenuFlyoutItem(
                             text: const Text('加入自选'),
                             onPressed: () {
-                              logic.optionOperate(logic.selectedContract.value, add: true);
+                              logic.optionOperate(logic.selectedContractList[widget.index], add: true);
                               Flyout.of(context).close();
                             }),
                         MenuFlyoutItem(
                             text: const Text('移除自选'),
                             onPressed: () {
-                              logic.optionOperate(logic.selectedContract.value, add: false);
+                              logic.optionOperate(logic.selectedContractList[widget.index], add: false);
                               Flyout.of(context).close();
                             }),
                         MenuFlyoutSubItem(
@@ -3064,7 +3174,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             MenuFlyoutItem(
                                 text: const Text('报价页面'),
                                 onPressed: () {
-                                  appTheme.viewIndex = 0;
+                                  appTheme.viewIndex[widget.index] = 0;
                                   Flyout.of(context).close();
                                 }),
                             isDrawTime
@@ -3442,13 +3552,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           onPressed: Flyout.of(context).close,
                         ),
                         MenuFlyoutItem(
-                          text: const Text('横向分页'),
-                          onPressed: Flyout.of(context).close,
+                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                          onPressed: () async {
+                            appTheme.multiScreen = !appTheme.multiScreen;
+                          },
                         ),
-                        MenuFlyoutItem(
-                          text: const Text('纵向分页'),
-                          onPressed: Flyout.of(context).close,
-                        ),
+                        // MenuFlyoutItem(
+                        //   text: const Text('横向分页'),
+                        //   onPressed: Flyout.of(context).close,
+                        // ),
+                        // MenuFlyoutItem(
+                        //   text: const Text('纵向分页'),
+                        //   onPressed: Flyout.of(context).close,
+                        // ),
                         MenuFlyoutItem(
                           text: const Text('关闭窗口'),
                           onPressed: Flyout.of(context).close,
@@ -3648,13 +3764,13 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 MenuFlyoutItem(
                     text: const Text('加入自选'),
                     onPressed: () {
-                      logic.optionOperate(logic.selectedContract.value, add: true);
+                      logic.optionOperate(logic.selectedContractList[widget.index], add: true);
                       Flyout.of(context).close();
                     }),
                 MenuFlyoutItem(
                     text: const Text('移除自选'),
                     onPressed: () {
-                      logic.optionOperate(logic.selectedContract.value, add: false);
+                      logic.optionOperate(logic.selectedContractList[widget.index], add: false);
                       Flyout.of(context).close();
                     }),
                 MenuFlyoutSubItem(
@@ -3667,7 +3783,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     MenuFlyoutItem(
                         text: const Text('报价页面'),
                         onPressed: () {
-                          appTheme.viewIndex = 0;
+                          appTheme.viewIndex[widget.index] = 0;
                           Flyout.of(context).close();
                         }),
                     isDrawTime
@@ -3883,13 +3999,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   onPressed: Flyout.of(context).close,
                 ),
                 MenuFlyoutItem(
-                  text: const Text('横向分页'),
-                  onPressed: Flyout.of(context).close,
+                  text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                  onPressed: () async {
+                    appTheme.multiScreen = !appTheme.multiScreen;
+                  },
                 ),
-                MenuFlyoutItem(
-                  text: const Text('纵向分页'),
-                  onPressed: Flyout.of(context).close,
-                ),
+                // MenuFlyoutItem(
+                //   text: const Text('横向分页'),
+                //   onPressed: Flyout.of(context).close,
+                // ),
+                // MenuFlyoutItem(
+                //   text: const Text('纵向分页'),
+                //   onPressed: Flyout.of(context).close,
+                // ),
                 MenuFlyoutItem(
                   text: const Text('关闭窗口'),
                   onPressed: Flyout.of(context).close,

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:auto_size_text/auto_size_text.dart';
@@ -11,17 +10,18 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../util/event_bus/eventBus_utils.dart';
-import '../../util/log/log.dart';
+import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/theme/theme.dart';
 
-class QuoteDatas extends StatefulWidget {
-  const QuoteDatas({super.key});
+class QuoteData extends StatefulWidget {
+  final int index;
+  const QuoteData(this.index, {super.key});
 
   @override
-  State<QuoteDatas> createState() => _QuoteDatasState();
+  State<QuoteData> createState() => _QuoteDataState();
 }
 
-class _QuoteDatasState extends State<QuoteDatas> {
+class _QuoteDataState extends State<QuoteData> {
   final QuoteLogic logic = Get.put(QuoteLogic());
   late AppTheme appTheme;
   final ScrollController scrollController = ScrollController();
@@ -30,9 +30,12 @@ class _QuoteDatasState extends State<QuoteDatas> {
   @override
   void initState() {
     super.initState();
-    logic.loadData();
+    if (widget.index == 0) {
+      logic.loadData(0);
+      logic.setListener();
+    }
+    logic.setAllListener();
     logic.queryOption();
-    logic.setListener();
     logic.quoteEvent();
     logic.optionEvent();
   }
@@ -111,168 +114,195 @@ class _QuoteDatasState extends State<QuoteDatas> {
                   controller: verScrollController,
                   style: const ScrollbarThemeData(thickness: 10, padding: EdgeInsets.zero, hoveringPadding: EdgeInsets.zero),
                   child: ListView.builder(
-                      itemCount: appTheme.selectIndex == 1 ? logic.mContractList.length : logic.mOptionalList.length,
+                      itemCount:
+                          appTheme.selectIndex[widget.index] == 1 ? logic.selectedMContractList[widget.index].length : logic.mOptionalList.length,
                       shrinkWrap: true,
                       controller: verScrollController,
                       itemBuilder: (context, index) {
-                        if (appTheme.selectIndex == 0) {
+                        if (appTheme.selectIndex[widget.index] == 0) {
                           final contextController = FlyoutController();
-                          return GestureDetector(
-                            child: FlyoutTarget(
-                              controller: contextController,
-                              child: Container(
-                                height: 35,
-                                color: logic.selectedContract.value == logic.mOptionalList[index] ? appTheme.commandBarColor : Colors.transparent,
-                                child: Row(
-                                  children: [
-                                    contentItem((index + 1).toString()),
-                                    contentItem(logic.mOptionalList[index].name, flex: 1.4),
-                                    contentItem(logic.mOptionalList[index].lastPriceString, color: logic.mOptionalList[index].lastPriceColor),
-                                    contentItem(logic.mOptionalList[index].buyPriceString, color: logic.mOptionalList[index].buyPriceColor),
-                                    contentItem(logic.mOptionalList[index].salePriceString, color: logic.mOptionalList[index].salePriceColor),
-                                    contentItem("${(logic.mOptionalList[index].delegateBuy ?? 0).toInt()}",
-                                        color: logic.mOptionalList[index].delegateBuyColor),
-                                    contentItem("${(logic.mOptionalList[index].delegateSale ?? 0).toInt()}",
-                                        color: logic.mOptionalList[index].delegateSaleColor),
-                                    contentItem("${(logic.mOptionalList[index].volume ?? 0).toInt()}",
-                                        flex: 1.2, color: logic.mOptionalList[index].volumeColor),
-                                    contentItem("${(logic.mOptionalList[index].position ?? 0).toInt()}",
-                                        flex: 1.2, color: logic.mOptionalList[index].positionColor),
-                                    contentItem(logic.mOptionalList[index].changeString, color: logic.mOptionalList[index].changeColor),
-                                    contentItem("${logic.mOptionalList[index].preSettlePrice ?? 0}", flex: 1.2),
-                                    contentItem("${logic.mOptionalList[index].openPrice ?? 0}", color: logic.mOptionalList[index].openColor),
-                                    contentItem(logic.mOptionalList[index].high, color: logic.mOptionalList[index].highColor),
-                                    contentItem(logic.mOptionalList[index].low, color: logic.mOptionalList[index].lowColor),
-                                    contentItem(logic.mOptionalList[index].changePerString, flex: 1.2, color: logic.mOptionalList[index].changeColor),
-                                    contentItem(
-                                        logic.mOptionalList[index].timeStr != null && logic.mOptionalList[index].timeStr!.length > 19
-                                            ? logic.mOptionalList[index].timeStr!.substring(10, 19)
-                                            : "--",
-                                        flex: 1.5),
-                                    contentItem(logic.mOptionalList[index].code, flex: 1.4),
-                                  ],
+                          return Listener(
+                            child: GestureDetector(
+                              child: FlyoutTarget(
+                                controller: contextController,
+                                child: Container(
+                                  height: 35,
+                                  color: logic.selectedContractList[widget.index] == logic.mOptionalList[index]
+                                      ? appTheme.commandBarColor
+                                      : Colors.transparent,
+                                  child: Row(
+                                    children: [
+                                      contentItem((index + 1).toString()),
+                                      contentItem(logic.mOptionalList[index].name, flex: 1.4),
+                                      contentItem(logic.mOptionalList[index].lastPriceString, color: logic.mOptionalList[index].lastPriceColor),
+                                      contentItem(logic.mOptionalList[index].buyPriceString, color: logic.mOptionalList[index].buyPriceColor),
+                                      contentItem(logic.mOptionalList[index].salePriceString, color: logic.mOptionalList[index].salePriceColor),
+                                      contentItem("${(logic.mOptionalList[index].delegateBuy ?? 0).toInt()}",
+                                          color: logic.mOptionalList[index].delegateBuyColor),
+                                      contentItem("${(logic.mOptionalList[index].delegateSale ?? 0).toInt()}",
+                                          color: logic.mOptionalList[index].delegateSaleColor),
+                                      contentItem("${(logic.mOptionalList[index].volume ?? 0).toInt()}",
+                                          flex: 1.2, color: logic.mOptionalList[index].volumeColor),
+                                      contentItem("${(logic.mOptionalList[index].position ?? 0).toInt()}",
+                                          flex: 1.2, color: logic.mOptionalList[index].positionColor),
+                                      contentItem(logic.mOptionalList[index].changeString, color: logic.mOptionalList[index].changeColor),
+                                      contentItem("${logic.mOptionalList[index].preSettlePrice ?? 0}", flex: 1.2),
+                                      contentItem("${logic.mOptionalList[index].openPrice ?? 0}", color: logic.mOptionalList[index].openColor),
+                                      contentItem(logic.mOptionalList[index].high, color: logic.mOptionalList[index].highColor),
+                                      contentItem(logic.mOptionalList[index].low, color: logic.mOptionalList[index].lowColor),
+                                      contentItem(logic.mOptionalList[index].changePerString,
+                                          flex: 1.2, color: logic.mOptionalList[index].changeColor),
+                                      contentItem(
+                                          logic.mOptionalList[index].timeStr != null && logic.mOptionalList[index].timeStr!.length > 19
+                                              ? logic.mOptionalList[index].timeStr!.substring(10, 19)
+                                              : "--",
+                                          flex: 1.5),
+                                      contentItem(logic.mOptionalList[index].code, flex: 1.4),
+                                    ],
+                                  ),
                                 ),
                               ),
+                              onSecondaryTapUp: (d) {
+                                contextController.showFlyout(
+                                    barrierColor: Colors.black.withOpacity(0.1),
+                                    position: d.globalPosition,
+                                    builder: (context) {
+                                      return MenuFlyout(items: [
+                                        MenuFlyoutItem(
+                                          text: const Text('下单'),
+                                          onPressed: () {
+                                            EventBusUtil.getInstance().fire(LoginEvent());
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('移除自选'),
+                                          onPressed: () {
+                                            logic.delOption(logic.mOptionalList[index]);
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                                          onPressed: () async {
+                                            // await rustDeskWinManager.newSubWindows("subWindow");
+                                            appTheme.multiScreen = !appTheme.multiScreen;
+                                          },
+                                        ),
+                                      ]);
+                                    });
+                              },
+                              onDoubleTap: () {
+                                EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
+                              },
                             ),
-                            onTap: () {
-                              logic.selectedContract.value = logic.mOptionalList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                            },
-                            onSecondaryTapUp: (d) {
-                              logic.selectedContract.value = logic.mOptionalList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                              contextController.showFlyout(
-                                  barrierColor: Colors.black.withOpacity(0.1),
-                                  position: d.globalPosition,
-                                  builder: (context) {
-                                    return MenuFlyout(items: [
-                                      MenuFlyoutItem(
-                                        text: const Text('下单'),
-                                        onPressed: () {
-                                          EventBusUtil.getInstance().fire(LoginEvent());
-                                          Flyout.of(context).close();
-                                        },
-                                      ),
-                                      MenuFlyoutItem(
-                                        text: const Text('移除自选'),
-                                        onPressed: () {
-                                          logic.delOption(logic.mOptionalList[index]);
-                                          Flyout.of(context).close();
-                                        },
-                                      ),
-                                    ]);
-                                  });
-                            },
-                            onDoubleTap: () {
-                              logic.selectedContract.value = logic.mOptionalList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                              EventBusUtil.getInstance().fire(GoKChart(true));
+                            onPointerDown: (e) {
+                              logic.selectedContractList[widget.index] = logic.mOptionalList[index];
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContractList[widget.index]));
+                              if (mounted) setState(() {}); //提升选中速度
                             },
                           );
                         } else {
                           final contextController = FlyoutController();
-                          return GestureDetector(
-                            child: FlyoutTarget(
-                                controller: contextController,
-                                child: Container(
-                                    height: 35,
-                                    color: logic.selectedContract.value == logic.mContractList[index] ? appTheme.commandBarColor : Colors.transparent,
-                                    child: Row(
-                                      children: [
-                                        contentItem((index + 1).toString()),
-                                        contentItem(logic.mContractList[index].name, flex: 1.4),
-                                        contentItem(logic.mContractList[index].lastPriceString, color: logic.mContractList[index].lastPriceColor),
-                                        contentItem(logic.mContractList[index].buyPriceString, color: logic.mContractList[index].buyPriceColor),
-                                        contentItem(logic.mContractList[index].salePriceString, color: logic.mContractList[index].salePriceColor),
-                                        contentItem(
-                                            "${(logic.mContractList[index].delegateBuy != null ? logic.mContractList[index].delegateBuy!.toInt() : "--")}",
-                                            color: logic.mContractList[index].delegateBuyColor),
-                                        contentItem(
-                                            "${(logic.mContractList[index].delegateSale != null ? logic.mContractList[index].delegateSale!.toInt() : "--")}",
-                                            color: logic.mContractList[index].delegateSaleColor),
-                                        contentItem(
-                                            "${(logic.mContractList[index].volume != null ? logic.mContractList[index].volume!.toInt() : "--")}",
-                                            flex: 1.2,
-                                            color: logic.mContractList[index].volumeColor),
-                                        contentItem(
-                                            "${(logic.mContractList[index].position != null ? logic.mContractList[index].position!.toInt() : "--")}",
-                                            flex: 1.2,
-                                            color: logic.mContractList[index].positionColor),
-                                        contentItem(logic.mContractList[index].changeString, color: logic.mContractList[index].changeColor),
-                                        contentItem("${logic.mContractList[index].preSettlePrice ?? "--"}", flex: 1.2, color: appTheme.color),
-                                        contentItem("${logic.mContractList[index].openPrice ?? "--"}", color: logic.mContractList[index].openColor),
-                                        contentItem(logic.mContractList[index].high, color: logic.mContractList[index].highColor),
-                                        contentItem(logic.mContractList[index].low, color: logic.mContractList[index].lowColor),
-                                        contentItem(logic.mContractList[index].changePerString,
-                                            flex: 1.2, color: logic.mContractList[index].changeColor),
-                                        contentItem(
-                                            logic.mContractList[index].timeStr != null && logic.mContractList[index].timeStr!.length > 19
-                                                ? logic.mContractList[index].timeStr!.substring(10, 19)
-                                                : "--",
-                                            flex: 1.5),
-                                        contentItem(logic.mContractList[index].code, flex: 1.4),
-                                      ],
-                                    ))),
-                            onTap: () async {
-                              logic.selectedContract.value = logic.mContractList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                            },
-                            onSecondaryTapUp: (d) {
-                              logic.selectedContract.value = logic.mContractList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                              contextController.showFlyout(
-                                  barrierColor: Colors.black.withOpacity(0.1),
-                                  position: d.globalPosition,
-                                  builder: (context) {
-                                    return MenuFlyout(items: [
-                                      MenuFlyoutItem(
-                                        text: const Text('下单'),
-                                        onPressed: () {
-                                          EventBusUtil.getInstance().fire(LoginEvent());
-                                          Flyout.of(context).close();
-                                        },
-                                      ),
-                                      MenuFlyoutItem(
-                                        text: const Text('加入自选'),
-                                        onPressed: () {
-                                          logic.optionOperate(logic.selectedContract.value, add: true);
-                                          Flyout.of(context).close();
-                                        },
-                                      ),
-                                      MenuFlyoutItem(
-                                        text: const Text('移除自选'),
-                                        onPressed: () {
-                                          logic.optionOperate(logic.selectedContract.value, add: false);
-                                          Flyout.of(context).close();
-                                        },
-                                      ),
-                                    ]);
-                                  });
-                            },
-                            onDoubleTap: () {
-                              logic.selectedContract.value = logic.mContractList[index];
-                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContract.value));
-                              EventBusUtil.getInstance().fire(GoKChart(true));
+                          return Listener(
+                            child: GestureDetector(
+                              onSecondaryTapUp: (d) {
+                                contextController.showFlyout(
+                                    barrierColor: Colors.black.withOpacity(0.1),
+                                    position: d.globalPosition,
+                                    builder: (context) {
+                                      return MenuFlyout(items: [
+                                        MenuFlyoutItem(
+                                          text: const Text('下单'),
+                                          onPressed: () {
+                                            EventBusUtil.getInstance().fire(LoginEvent());
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('加入自选'),
+                                          onPressed: () {
+                                            logic.optionOperate(logic.selectedContractList[widget.index], add: true);
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('移除自选'),
+                                          onPressed: () {
+                                            logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = !appTheme.multiScreen;
+                                            // await rustDeskWinManager.newSubWindows("subWindow");
+                                          },
+                                        ),
+                                      ]);
+                                    });
+                              },
+                              onDoubleTap: () {
+                                EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
+                              },
+                              child: FlyoutTarget(
+                                  controller: contextController,
+                                  child: Container(
+                                      height: 35,
+                                      color: logic.selectedContractList[widget.index] == logic.selectedMContractList[widget.index][index]
+                                          ? appTheme.commandBarColor
+                                          : Colors.transparent,
+                                      child: Row(
+                                        children: [
+                                          contentItem((index + 1).toString()),
+                                          contentItem(logic.selectedMContractList[widget.index][index].name, flex: 1.4),
+                                          contentItem(logic.selectedMContractList[widget.index][index].lastPriceString,
+                                              color: logic.selectedMContractList[widget.index][index].lastPriceColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].buyPriceString,
+                                              color: logic.selectedMContractList[widget.index][index].buyPriceColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].salePriceString,
+                                              color: logic.selectedMContractList[widget.index][index].salePriceColor),
+                                          contentItem(
+                                              "${(logic.selectedMContractList[widget.index][index].delegateBuy != null ? logic.selectedMContractList[widget.index][index].delegateBuy!.toInt() : "--")}",
+                                              color: logic.selectedMContractList[widget.index][index].delegateBuyColor),
+                                          contentItem(
+                                              "${(logic.selectedMContractList[widget.index][index].delegateSale != null ? logic.selectedMContractList[widget.index][index].delegateSale!.toInt() : "--")}",
+                                              color: logic.selectedMContractList[widget.index][index].delegateSaleColor),
+                                          contentItem(
+                                              "${(logic.selectedMContractList[widget.index][index].volume != null ? logic.selectedMContractList[widget.index][index].volume!.toInt() : "--")}",
+                                              flex: 1.2,
+                                              color: logic.selectedMContractList[widget.index][index].volumeColor),
+                                          contentItem(
+                                              "${(logic.selectedMContractList[widget.index][index].position != null ? logic.selectedMContractList[widget.index][index].position!.toInt() : "--")}",
+                                              flex: 1.2,
+                                              color: logic.selectedMContractList[widget.index][index].positionColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].changeString,
+                                              color: logic.selectedMContractList[widget.index][index].changeColor),
+                                          contentItem("${logic.selectedMContractList[widget.index][index].preSettlePrice ?? "--"}",
+                                              flex: 1.2, color: appTheme.color),
+                                          contentItem("${logic.selectedMContractList[widget.index][index].openPrice ?? "--"}",
+                                              color: logic.selectedMContractList[widget.index][index].openColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].high,
+                                              color: logic.selectedMContractList[widget.index][index].highColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].low,
+                                              color: logic.selectedMContractList[widget.index][index].lowColor),
+                                          contentItem(logic.selectedMContractList[widget.index][index].changePerString,
+                                              flex: 1.2, color: logic.selectedMContractList[widget.index][index].changeColor),
+                                          contentItem(
+                                              logic.selectedMContractList[widget.index][index].timeStr != null &&
+                                                      logic.selectedMContractList[widget.index][index].timeStr!.length > 19
+                                                  ? logic.selectedMContractList[widget.index][index].timeStr!.substring(10, 19)
+                                                  : "--",
+                                              flex: 1.5),
+                                          contentItem(logic.selectedMContractList[widget.index][index].code, flex: 1.4),
+                                        ],
+                                      ))),
+                            ),
+                            onPointerDown: (e) {
+                              logic.selectedContractList[widget.index] = logic.selectedMContractList[widget.index][index];
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedContractList[widget.index]));
+                              if (mounted) setState(() {}); //提升选中速度
                             },
                           );
                         }
