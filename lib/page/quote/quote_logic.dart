@@ -6,6 +6,7 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../main.dart';
+import '../../model/k/k_preiod.dart';
 import '../../model/position/position.dart';
 import '../../model/quote/commodity.dart';
 import '../../model/quote/contract.dart';
@@ -25,11 +26,14 @@ import '../../util/utils/utils.dart';
 
 class QuoteLogic extends GetxController {
   var mExchangeList = <Exchange>[].obs;
-  var selectedExchangeList = List.filled(4, Exchange()).obs;
+  var selectedExchangeList = List.filled(Common.screenCount, Exchange()).obs;
   // var mContractList = <Contract>[].obs;
-  var selectedMContractList = List.filled(4, <Contract>[]).obs;
-  var selectedContractList = List.filled(4, Contract()).obs;
+  var selectedMContractList = List.filled(Common.screenCount, <Contract>[]).obs;
+  var selectedContractList = List.filled(Common.screenCount, Contract()).obs;
   var selectedIndex = 0.obs;
+  var viewIndexList = List.filled(Common.screenCount, 0).obs; //首页\详情页
+  var showChartList = List.filled(Common.screenCount, 0).obs; //图表\列表
+  var kPeriodList = List.filled(Common.screenCount, KPeriod()).obs; //周期
   var mOptionalList = <Contract>[].obs;
   var mVarietyList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
@@ -54,7 +58,7 @@ class QuoteLogic extends GetxController {
     });
   }
 
-  setAllListener(){
+  setAllListener() {
     ///切换合约
     EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
       String msg = jsonEncode(event.contract);
@@ -73,14 +77,14 @@ class QuoteLogic extends GetxController {
       mExchangeList.addAll(list);
       mExchangeList.refresh();
 
-      selectedExchangeList.value = List.filled(4, mExchangeList[0]);
+      selectedExchangeList.value = List.filled(Common.screenCount, mExchangeList[0]);
       selectedExchangeList.refresh();
       if (MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!).isNotEmpty) {
         tmp = MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!);
       } else {
         tmp = await Utils.getContractWithMain(mExchangeList[0].exchangeNo!);
       }
-      selectedMContractList.value = List.filled(4, tmp);
+      selectedMContractList.value = List.filled(Common.screenCount, tmp);
       refreshData(index);
     }
   }

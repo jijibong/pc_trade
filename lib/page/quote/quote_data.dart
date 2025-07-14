@@ -10,7 +10,7 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../util/event_bus/eventBus_utils.dart';
-import '../../util/multi_windows_manager/multi_window_manager.dart';
+import '../../util/log/log.dart';
 import '../../util/theme/theme.dart';
 
 class QuoteData extends StatefulWidget {
@@ -183,10 +183,23 @@ class _QuoteDataState extends State<QuoteData> {
                                           },
                                         ),
                                         MenuFlyoutItem(
-                                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                                          text: const Text('取消分屏'),
                                           onPressed: () async {
-                                            // await rustDeskWinManager.newSubWindows("subWindow");
-                                            appTheme.multiScreen = !appTheme.multiScreen;
+                                            appTheme.multiScreen = 0;
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('四分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 1;
+                                            EventBusUtil.getInstance().fire(SplitScreen(1));
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('九分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 2;
+                                            EventBusUtil.getInstance().fire(SplitScreen(2));
                                           },
                                         ),
                                       ]);
@@ -234,10 +247,23 @@ class _QuoteDataState extends State<QuoteData> {
                                           },
                                         ),
                                         MenuFlyoutItem(
-                                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                                          text: const Text('取消分屏'),
                                           onPressed: () async {
-                                            appTheme.multiScreen = !appTheme.multiScreen;
-                                            // await rustDeskWinManager.newSubWindows("subWindow");
+                                            appTheme.multiScreen = 0;
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('四分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 1;
+                                            EventBusUtil.getInstance().fire(SplitScreen(1));
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('九分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 2;
+                                            EventBusUtil.getInstance().fire(SplitScreen(2));
                                           },
                                         ),
                                       ]);

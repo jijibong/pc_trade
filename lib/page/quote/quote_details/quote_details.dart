@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:math' hide log;
 import 'dart:ui';
@@ -318,9 +319,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   double leftMarginSpace = 80;
   final double _hitPadding = 5.0;
   final contextController = FlyoutController();
+  StreamSubscription? streamSubscription;
 
   getKPeriod() async {
-    kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+    if (logic.kPeriodList[widget.index].name != null) {
+      kPeriod = logic.kPeriodList[widget.index];
+    } else {
+      kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+    }
     subscriptionKlineData(true);
     requestAllData();
   }
@@ -342,9 +348,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (OHLCData.isEmpty) {
       return;
     } else {
-      mOHLCData.clear();
+      if (OHLCData != mOHLCData) {
+        mOHLCData.clear();
+        mOHLCData.addAll(OHLCData);
+      }
     }
-    mOHLCData.addAll(OHLCData);
     if (mShowDataNum > mOHLCData.length) {
       mShowDataNum = mOHLCData.length;
     }
@@ -737,6 +745,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (mVRData != null && isDrawVR) {
       mVRData?.calclatePrice(mDataStartIndext, mShowDataNum, ChartPainter.VRPeriod);
     }
+
+    if (mounted) setState(() {});
   }
 
   void setTimeData(List<OHLCEntity> data) {
@@ -1648,7 +1658,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///周期变化
-    EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
+    streamSubscription = EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
       if (logic.selectedIndex.value == widget.index) {
         switchPeriod(event.kPeriod);
       }
@@ -1666,66 +1676,70 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///画线设置
-    rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
-      if (call.method == setLine) {
-        var json = jsonDecode(call.arguments["line"]);
-        DrawToolLine tmp = DrawToolLine.fromJson(json);
-        int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.firstPointX);
-        for (var e in drawToolLines) {
-          if (e.id == tmp.id) {
+    EventBusUtil.getInstance().on<SetLine>().listen((event) async {
+      DrawToolLine tmp = DrawToolLine.fromJson(event.json);
+      int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.firstPointX);
+      for (var e in drawToolLines) {
+        if (e.id == tmp.id) {
+          if (x == -1) {
+            tmp.firstPointX = e.firstPointX;
+          }
+          if (tmp.secondPointX != null) {
+            int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.secondPointX);
             if (x == -1) {
-              tmp.firstPointX = e.firstPointX;
+              tmp.secondPointX = e.secondPointX;
             }
-            if (tmp.secondPointX != null) {
-              int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.secondPointX);
-              if (x == -1) {
-                tmp.secondPointX = e.secondPointX;
-              }
+          }
+          if (tmp.thirdPointX != null) {
+            int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.thirdPointX);
+            if (x == -1) {
+              tmp.thirdPointX = e.thirdPointX;
             }
-            if (tmp.thirdPointX != null) {
-              int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.thirdPointX);
-              if (x == -1) {
-                tmp.thirdPointX = e.thirdPointX;
-              }
-            }
-            drawToolLines[drawToolLines.indexOf(e)] = tmp;
           }
+          drawToolLines[drawToolLines.indexOf(e)] = tmp;
         }
-        if (mounted) setState(() {});
-      } else if (call.method == kDrawEvent) {
-        var map = jsonDecode(call.arguments);
-        pathType = map['pathType'];
-        colorValue = map['colorValue'];
-        widthType = map['widthType'];
-        lineType = map['lineType'];
-        if (pathType != 0) {
-          startDrawTool = true;
-          if (orderDrawing) {
-            orderDrawing = false;
-            await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
-          }
-        }
-        if (mounted) setState(() {});
-      } else if (call.method == kOrderEvent) {
-        if (!LoginServer.isLogin) {
-          InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
-          return;
-        }
-        var map = jsonDecode(call.arguments);
-        orderDrawType = map['type'];
-        if (orderDrawType == 0) {
-          orderDrawing = false;
-        } else {
-          orderDrawing = true;
-          if (startDrawTool) {
-            startDrawTool = false;
-            await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
-          }
-          num = map['num'];
-          price = map['priceType'];
-        }
-        if (mounted) setState(() {});
       }
+      if (mounted) setState(() {});
+    });
+
+    ///画线工具箱
+    EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
+      var map = event.json;
+      pathType = map['pathType'];
+      colorValue = map['colorValue'];
+      widthType = map['widthType'];
+      lineType = map['lineType'];
+      if (pathType != 0) {
+        startDrawTool = true;
+        if (orderDrawing) {
+          orderDrawing = false;
+          await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+        }
+      }
+      if (mounted) setState(() {});
+    });
+
+    ///画线下单
+    EventBusUtil.getInstance().on<SetLine>().listen((event) async {
+      var map = event.json;
+      orderDrawType = map['type'];
+      if (orderDrawType == 0) {
+        orderDrawing = false;
+      } else {
+        orderDrawing = true;
+        if (startDrawTool) {
+          startDrawTool = false;
+          await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+        }
+        num = map['num'];
+        price = map['priceType'];
+      }
+      if (mounted) setState(() {});
+    });
+
+    ///刷新
+    EventBusUtil.getInstance().on<RefreshEvent>().listen((event) async {
+      switchPeriod(kPeriod);
     });
   }
 
@@ -1744,11 +1758,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (index != null) appTheme.selectCommandBarIndex = index;
     subscriptionKlineData(false);
     kPeriod = period;
+    logic.kPeriodList[widget.index] = period;
     mOHLCData.clear();
     SWITHING_TIME = true;
     if (period.period == KTime.FS) {
       isDrawTime = true;
-      appTheme.showChart = true;
+      logic.showChartList[widget.index] = 0;
     } else {
       isDrawTime = false;
     }
@@ -1781,6 +1796,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   @override
   void dispose() {
+    mainMenuController.dispose();
+    priceController.dispose();
+    streamSubscription?.cancel();
     subscriptionKlineData(false);
     subscriptionQuote(false);
     super.dispose();
@@ -1792,7 +1810,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [Expanded(child: appTheme.showChart ? kChart() : statement()), if (showPanKou) dataWidget()],
+      children: [
+        Expanded(flex: 4, child: logic.showChartList[widget.index] == 0 ? kChart() : statement()),
+        if (showPanKou) Expanded(flex: 1, child: dataWidget())
+      ],
     );
   }
 
@@ -1961,9 +1982,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       children: [
         Row(
           children: [
-            Text(
-              "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
-              style: TextStyle(fontSize: 16, color: appTheme.color),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
+                style: TextStyle(fontSize: 16, color: appTheme.color),
+              ),
             ),
           ],
         ),
@@ -2890,6 +2914,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               if (mounted) setState(() {});
             },
             onPointerMove: (e) {
+              if (isDrawTime || orderDrawing || startDrawTool || drawToolEnd || drawTooling) {
+                return;
+              }
               if (selectedLine != -1) {
                 WebSocketServer.drawOrderLines[selectedLine].kPrice = null;
                 WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
@@ -3174,7 +3201,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             MenuFlyoutItem(
                                 text: const Text('报价页面'),
                                 onPressed: () {
-                                  appTheme.viewIndex[widget.index] = 0;
+                                  logic.viewIndexList[widget.index] = 0;
                                   Flyout.of(context).close();
                                 }),
                             isDrawTime
@@ -3182,6 +3209,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                     text: const Text('K线'),
                                     onPressed: () {
                                       KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                      logic.showChartList[widget.index] = 0;
                                       switchPeriod(fs, index: 1);
                                     })
                                 : MenuFlyoutItem(
@@ -3194,8 +3222,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                               MenuFlyoutItem(
                                 text: const Text('成交报表'),
                                 onPressed: () {
-                                  appTheme.showChart = false;
-                                  if (mounted) setState(() {});
+                                  logic.showChartList[widget.index] = 1;
                                 },
                               ),
                           ],
@@ -3317,7 +3344,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           onPressed: () {
                             showPanKou = !showPanKou;
                             if (mounted) setState(() {});
-                            Flyout.of(context).close;
+                            if (!isDrawTime) {
+                              Future.delayed(const Duration(milliseconds: 500), () {
+                                setOHLCData(mOHLCData);
+                              });
+                            }
                           },
                         ),
                         MenuFlyoutItem(
@@ -3552,11 +3583,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           onPressed: Flyout.of(context).close,
                         ),
                         MenuFlyoutItem(
-                          text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                          text: const Text('取消分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = !appTheme.multiScreen;
+                            appTheme.multiScreen = 0;
                           },
                         ),
+                        MenuFlyoutItem(
+                          text: const Text('四分屏'),
+                          onPressed: () async {
+                            appTheme.multiScreen = 1;
+                            EventBusUtil.getInstance().fire(SplitScreen(1));
+                          },
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('九分屏'),
+                          onPressed: () async {
+                            appTheme.multiScreen = 2;
+                            EventBusUtil.getInstance().fire(SplitScreen(2));
+                          },
+                        ),
+
                         // MenuFlyoutItem(
                         //   text: const Text('横向分页'),
                         //   onPressed: Flyout.of(context).close,
@@ -3783,7 +3829,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     MenuFlyoutItem(
                         text: const Text('报价页面'),
                         onPressed: () {
-                          appTheme.viewIndex[widget.index] = 0;
+                          logic.viewIndexList[widget.index] = 0;
                           Flyout.of(context).close();
                         }),
                     isDrawTime
@@ -3791,6 +3837,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('K线'),
                             onPressed: () {
                               KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              logic.showChartList[widget.index] = 0;
                               switchPeriod(fs, index: 1);
                             })
                         : MenuFlyoutItem(
@@ -3803,8 +3850,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       MenuFlyoutItem(
                         text: const Text('成交报表'),
                         onPressed: () {
-                          appTheme.showChart = false;
-                          if (mounted) setState(() {});
+                          logic.showChartList[widget.index] = 1;
                         },
                       ),
                   ],
@@ -3818,7 +3864,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   onPressed: () {
                     showPanKou = !showPanKou;
                     if (mounted) setState(() {});
-                    Flyout.of(context).close;
+                    if (!isDrawTime) {
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        setOHLCData(mOHLCData);
+                      });
+                    }
                   },
                 ),
                 MenuFlyoutSubItem(
@@ -3999,9 +4049,23 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   onPressed: Flyout.of(context).close,
                 ),
                 MenuFlyoutItem(
-                  text: Text(appTheme.multiScreen ? '取消分屏' : '添加分屏'),
+                  text: const Text('取消分屏'),
                   onPressed: () async {
-                    appTheme.multiScreen = !appTheme.multiScreen;
+                    appTheme.multiScreen = 0;
+                  },
+                ),
+                MenuFlyoutItem(
+                  text: const Text('四分屏'),
+                  onPressed: () async {
+                    appTheme.multiScreen = 1;
+                    EventBusUtil.getInstance().fire(SplitScreen(1));
+                  },
+                ),
+                MenuFlyoutItem(
+                  text: const Text('九分屏'),
+                  onPressed: () async {
+                    appTheme.multiScreen = 2;
+                    EventBusUtil.getInstance().fire(SplitScreen(2));
                   },
                 ),
                 // MenuFlyoutItem(
@@ -4027,32 +4091,32 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               children: [
                 Row(
                   children: [
-                    Text(
-                      "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
-                      style: TextStyle(fontSize: 16, color: appTheme.color),
+                    FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
+                        style: TextStyle(fontSize: 16, color: appTheme.color),
+                      ),
                     ),
                   ],
                 ),
-                Container(
-                  margin: EdgeInsets.only(right: 68.sp),
-                  child: Row(
-                    children: [
-                      statementItem("时间", flex: 3),
-                      statementItem("开"),
-                      statementItem("高"),
-                      statementItem("低"),
-                      statementItem("收"),
-                      statementItem("成交量", flex: 2),
-                      statementItem("持仓量", flex: 2),
-                    ],
-                  ),
+                Row(
+                  children: [
+                    statementItem("时间", flex: 3),
+                    statementItem("开"),
+                    statementItem("高"),
+                    statementItem("低"),
+                    statementItem("收"),
+                    statementItem("成交量", flex: 2),
+                    statementItem("持仓量", flex: 2),
+                    const Spacer(flex: 1)
+                  ],
                 ),
                 Expanded(
                     child: ListView.builder(
                   itemCount: mOHLCData.length,
                   itemBuilder: (BuildContext context, int index) {
                     return Container(
-                      margin: EdgeInsets.only(right: 68.sp),
                       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white))),
                       child: Row(
                         children: [
@@ -4063,6 +4127,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           statementColorItem(mOHLCData[index].close, mOHLCData[max(0, index - 1)].close),
                           statementChildItem("${mOHLCData[index].volume ?? 0}", flex: 2),
                           statementChildItem("${mOHLCData[index].amount ?? 0}", flex: 2),
+                          const Spacer(flex: 1)
                         ],
                       ),
                     );
@@ -4075,20 +4140,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Widget statementItem(String title, {int? flex}) {
     return Expanded(
         flex: flex ?? 1,
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Common.quoteTitleColor, fontSize: 18),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            title,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Common.quoteTitleColor, fontSize: 18),
+          ),
         ));
   }
 
   Widget statementChildItem(String? content, {int? flex, Color? color}) {
     return Expanded(
         flex: flex ?? 1,
-        child: Text(
-          content ?? "--",
-          textAlign: TextAlign.center,
-          style: TextStyle(color: color ?? Colors.white, fontSize: 17),
+        child: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            content ?? "--",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: color ?? Colors.white, fontSize: 17),
+          ),
         ));
   }
 
@@ -4110,7 +4181,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   Widget dataWidget() {
     return SizedBox(
-      width: 288,
+      // width: 288,
       height: 1.sh,
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
@@ -4124,11 +4195,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   children: [
                     Expanded(
                       child: Align(
-                          alignment: Alignment.center,
-                          child: Text(
-                            "${contract?.name ?? ""}(${contract?.code ?? ""})",
-                            style: TextStyle(fontSize: 24, color: Colors.yellow),
-                          )),
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              "${contract?.name ?? ""}(${contract?.code ?? ""})",
+                              style: TextStyle(fontSize: 24, color: Colors.yellow),
+                            )),
+                      ),
                     ),
                     FlyoutTarget(
                       controller: priceController,
@@ -4227,7 +4301,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         dataItem("最新", thin: true),
                         dataItem("涨跌", thin: true),
@@ -4238,11 +4311,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       ],
                     ),
                   ),
-                  Padding(
-                    padding: const EdgeInsets.only(right: 10),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
                         dataItem(pankouLastPrice, color: pankouColor),
                         dataItem(pankouChange, color: pankouColor),
@@ -4258,6 +4329,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     dashColor: Colors.red,
                     children: [
                       Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 10),
                         width: 1,
                         height: 180,
                         alignment: Alignment.center,
@@ -4265,33 +4337,30 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     ],
                   ),
                   Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.only(left: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          dataItem("均价", thin: true),
-                          dataItem("昨结", thin: true),
-                          dataItem("开盘", thin: true),
-                          dataItem("最高", thin: true),
-                          dataItem("最低", thin: true),
-                          dataItem("仓差", thin: true),
-                        ],
-                      ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        dataItem("均价", thin: true),
+                        dataItem("昨结", thin: true),
+                        dataItem("开盘", thin: true),
+                        dataItem("最高", thin: true),
+                        dataItem("最低", thin: true),
+                        dataItem("仓差", thin: true),
+                      ],
                     ),
                   ),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      dataItem(pankouAvr, color: Colors.yellow),
-                      dataItem(pankouPresettle, color: pankouColor),
-                      dataItem(pankouOpenprice, color: Colors.white),
-                      dataItem(pankouHighprice, color: pankouHighColor),
-                      dataItem(pankouLowprice, color: pankouLowColor),
-                      dataItem(pankouPoor, color: Colors.yellow),
-                    ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        dataItem(pankouAvr, color: Colors.yellow),
+                        dataItem(pankouPresettle, color: pankouColor),
+                        dataItem(pankouOpenprice, color: Colors.white),
+                        dataItem(pankouHighprice, color: pankouHighColor),
+                        dataItem(pankouLowprice, color: pankouLowColor),
+                        dataItem(pankouPoor, color: Colors.yellow),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -4301,12 +4370,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 decoration: BoxDecoration(border: Border.all(color: Colors.red)),
                 child: Column(
                   children: [
-                    Row(
-                      children: [
-                        Expanded(flex: 2, child: detailItem("时间", fontSize: 16)),
-                        Expanded(flex: 2, child: detailItem("价位", fontSize: 16)),
-                        Expanded(flex: 1, child: detailItem("现手", fontSize: 16)),
-                      ],
+                    Flexible(
+                      child: Row(
+                        children: [
+                          Expanded(flex: 2, child: detailItem("时间", fontSize: 18)),
+                          Expanded(flex: 2, child: detailItem("价位", fontSize: 18)),
+                          Expanded(flex: 1, child: detailItem("现手", fontSize: 18)),
+                        ],
+                      ),
                     ),
                     const SizedBox(height: 3),
                     Expanded(
@@ -4334,10 +4405,13 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   Widget dataItem(String? title, {Color? color, bool? thin}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Text(title ?? "-",
-          style: TextStyle(fontWeight: thin == true ? FontWeight.w100 : FontWeight.bold, fontSize: 16, color: color ?? appTheme.color)),
+    return Container(
+      margin: const EdgeInsets.symmetric(vertical: 5),
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(title ?? "-",
+            style: TextStyle(fontWeight: thin == true ? FontWeight.w100 : FontWeight.bold, fontSize: 16, color: color ?? appTheme.color)),
+      ),
     );
   }
 
@@ -4345,10 +4419,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(children: [
-        Expanded(child: Text(title, style: TextStyle(fontSize: fontSize ?? 14, color: appTheme.color))),
-        Expanded(child: Text(price, textAlign: TextAlign.right, style: TextStyle(fontSize: fontSize ?? 16, color: pankouColor))),
+        Expanded(child: FittedBox(fit: BoxFit.scaleDown, child: Text(title, style: TextStyle(fontSize: fontSize ?? 14, color: appTheme.color)))),
+        Expanded(
+            child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(price, textAlign: TextAlign.right, style: TextStyle(fontSize: fontSize ?? 16, color: pankouColor)))),
         const SizedBox(width: 10),
-        Expanded(flex: 2, child: Text(count, style: TextStyle(fontSize: fontSize ?? 16, color: Colors.yellow))),
+        Expanded(
+            flex: 2, child: FittedBox(fit: BoxFit.scaleDown, child: Text(count, style: TextStyle(fontSize: fontSize ?? 16, color: Colors.yellow)))),
       ]),
     );
   }
@@ -4356,17 +4434,20 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Widget detailItem(String? text, {int? up, double? fontSize}) {
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 1),
-      child: Text(
-        text ?? "--",
-        textAlign: TextAlign.center,
-        style: TextStyle(
-          fontSize: fontSize ?? 15,
-          color: Colors.red,
-          // color: up == 1
-          //     ? Colors.red
-          //     : up == 2
-          //         ? Colors.green
-          //         : appTheme.color,
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Text(
+          text ?? "--",
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: fontSize ?? 16,
+            color: Colors.red,
+            // color: up == 1
+            //     ? Colors.red
+            //     : up == 2
+            //         ? Colors.green
+            //         : appTheme.color,
+          ),
         ),
       ),
     );

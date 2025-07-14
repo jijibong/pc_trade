@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -56,6 +57,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   TextEditingController accountController = TextEditingController();
   TextEditingController pwdController = TextEditingController();
   TextEditingController vCodeController = TextEditingController();
+  MultiSplitViewController multiSplitViewController = MultiSplitViewController();
   final systemController = FlyoutController();
   final helpController = FlyoutController();
   final systemKey = GlobalKey();
@@ -210,13 +212,14 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     Size size = displayList.first.size;
     Map map = {"width": size.width, "height": size.height};
     await SpUtils.set(SpKey.screenSize, jsonEncode(map));
-    // logger.w("${displayList.length};$displayList");
+
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventHide) {
         LoginServer.isLogin = false;
         UserUtils.currentUser = null;
         EventBusUtil.getInstance().fire(LoginSuccess(false));
         TradeWebSocketServer().dispose();
+        tradeWindowId = null;
         await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
         await rustDeskWinManager.closeAllSubWindows();
       } else if (call.method == kWindowEventRequestQuote) {
@@ -236,6 +239,19 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         drawToolWindowId = call.arguments['id'];
       } else if (call.method == drawOrderWindowId) {
         dOrderWindowId = call.arguments['id'];
+      } else if (call.method == setLine) {
+        var json = jsonDecode(call.arguments["line"]);
+        EventBusUtil.getInstance().fire(SetLine(json: json));
+      } else if (call.method == kDrawEvent) {
+        var map = jsonDecode(call.arguments);
+        EventBusUtil.getInstance().fire(DrawEvent(json: map));
+      } else if (call.method == kOrderEvent) {
+        if (!LoginServer.isLogin) {
+          InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+          return;
+        }
+        var map = jsonDecode(call.arguments);
+        EventBusUtil.getInstance().fire(OrderEvent(json: map));
       }
     });
   }
@@ -431,6 +447,79 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
       String string = jsonEncode(fillUpdateEvent.res);
       await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kFillUpdateEvent, string);
     });
+
+    ///切换分屏
+    EventBusUtil.getInstance().on<SplitScreen>().listen((event) async {
+      if (event.index == 1) {
+        while (multiSplitViewController.areasCount > 0) {
+          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+        }
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(0)),
+                        Area(builder: (context, area) => const Quote(1)),
+                      ])),
+        );
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(2)),
+                        Area(builder: (context, area) => const Quote(3)),
+                      ])),
+        );
+        if (mounted) setState(() {});
+      } else if (event.index == 2) {
+        while (multiSplitViewController.areasCount > 0) {
+          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+        }
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(0)),
+                        Area(builder: (context, area) => const Quote(1)),
+                        Area(builder: (context, area) => const Quote(2)),
+                      ])),
+        );
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(3)),
+                        Area(builder: (context, area) => const Quote(4)),
+                        Area(builder: (context, area) => const Quote(5)),
+                      ])),
+        );
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(6)),
+                        Area(builder: (context, area) => const Quote(7)),
+                        Area(builder: (context, area) => const Quote(8)),
+                      ])),
+        );
+        if (mounted) setState(() {});
+      }
+    });
   }
 
   @override
@@ -609,12 +698,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
                         label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
-                          if (appTheme.viewIndex[logic.selectedIndex.value] == 1) {
+                          if (logic.viewIndexList[logic.selectedIndex.value] == 1) {
                             if (appTheme.selectCommandBarIndex == 0) {
-                              appTheme.viewIndex[logic.selectedIndex.value] = 0;
+                              logic.viewIndexList[logic.selectedIndex.value] = 0;
                             } else {
-                              if (!appTheme.showChart) {
-                                appTheme.showChart = true;
+                              if (logic.showChartList[logic.selectedIndex.value] != 0) {
+                                logic.showChartList[logic.selectedIndex.value] = 0;
                                 return;
                               }
                               appTheme.selectCommandBarIndex = 0;
@@ -628,15 +717,16 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.home, color: appTheme.exchangeTextColor),
                         label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
-                          appTheme.viewIndex[logic.selectedIndex.value] = 0;
-                          appTheme.showChart = true;
+                          logic.viewIndexList[logic.selectedIndex.value] = 0;
+                          logic.showChartList[logic.selectedIndex.value] = 0;
+                          if (mounted) setState(() {});
                         },
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.refresh, color: appTheme.exchangeTextColor),
                         label: Text('刷新', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () async {
-                          // EventBusUtil.getInstance().fire(GetAllContracts());
+                          EventBusUtil.getInstance().fire(RefreshEvent());
                         },
                       ),
                       CommandBarButton(
@@ -846,35 +936,35 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                 ],
               )),
           Expanded(
-            child: appTheme.multiScreen
-                ? MultiSplitView(
-                    axis: Axis.vertical,
-                    dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
-                      return _dividerWidget(Axis.horizontal, index, resizable, dragging, highlighted, themeData);
-                    },
-                    initialAreas: [
-                      Area(
-                          builder: (context, area) => MultiSplitView(
-                                  dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
-                                    return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
-                                  },
-                                  initialAreas: [
-                                    Area(builder: (context, area) => const Quote(0)),
-                                    Area(builder: (context, area) => const Quote(1)),
-                                  ])),
-                      Area(
-                          builder: (context, area) => MultiSplitView(
-                                  dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
-                                    return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
-                                  },
-                                  initialAreas: [
-                                    Area(builder: (context, area) => const Quote(2)),
-                                    Area(builder: (context, area) => const Quote(3)),
-                                  ])),
-                    ],
-                  )
-                : const Quote(0),
-          )
+              child: appTheme.multiScreen == 0
+                  ? const Quote(0)
+                  : MultiSplitView(
+                      axis: Axis.vertical,
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.horizontal, index, resizable, dragging, highlighted, themeData);
+                      },
+                      controller: multiSplitViewController,
+                      // initialAreas: [
+                      //   Area(
+                      //       builder: (context, area) => MultiSplitView(
+                      //               dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                      //                 return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      //               },
+                      //               initialAreas: [
+                      //                 Area(builder: (context, area) => const Quote(0)),
+                      //                 Area(builder: (context, area) => const Quote(1)),
+                      //               ])),
+                      //   Area(
+                      //       builder: (context, area) => MultiSplitView(
+                      //               dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                      //                 return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      //               },
+                      //               initialAreas: [
+                      //                 Area(builder: (context, area) => const Quote(2)),
+                      //                 Area(builder: (context, area) => const Quote(3)),
+                      //               ])),
+                      // ],
+                    ))
         ],
       ),
     );

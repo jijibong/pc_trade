@@ -398,7 +398,7 @@ class _DesktopTabState extends State<DesktopTab> with MultiWindowListener, Windo
         controller.clear();
       }
       await windowController.hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
+      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     }
 
     macOSWindowClose(

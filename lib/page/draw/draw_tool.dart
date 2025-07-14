@@ -8,6 +8,7 @@ import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../../main.dart';
+import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -66,16 +67,18 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
         if (mounted) setState(() {});
       }
     });
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId}).then((v){
+      logger.f(v);
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       selectedColor = appTheme.drawColor;
     });
-    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId});
   }
 
   notifyOrder() async {
     var tmp = {"pathType": type, "colorValue": selectedColor.colorValue, "widthType": fineness, "lineType": lineType};
     String temp = jsonEncode(tmp);
-    await rustDeskWinManager.call(WindowType.Main, kDrawEvent, temp);
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, temp);
   }
 
   @override
@@ -143,8 +146,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                 Future.delayed(Duration.zero, () async {
                   await WindowController.fromWindowId(kWindowId!).hide();
                   await rustDeskWinManager.closeWindowByType(WindowType.Color);
-                  await rustDeskWinManager.call(
-                      WindowType.Main, kDrawEvent, jsonEncode({"pathType": 0, "colorValue": 0, "widthType": 0, "lineType": 0}));
+                  await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, jsonEncode({"pathType": 0, "colorValue": 0, "widthType": 0, "lineType": 0}));
                 });
               })),
       content: Column(

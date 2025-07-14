@@ -103,10 +103,10 @@ class _QuoteState extends State<Quote> {
       // logger.i(event.go);
       if (event.index == widget.index) {
         if (event.go) {
-          appTheme.viewIndex[widget.index] = 1;
+          logic.viewIndexList[widget.index] = 1;
           appTheme.selectCommandBarIndex = 0;
         } else {
-          appTheme.viewIndex[widget.index] = 0;
+          logic.viewIndexList[widget.index] = 0;
         }
       }
     });
@@ -115,9 +115,6 @@ class _QuoteState extends State<Quote> {
   @override
   void initState() {
     super.initState();
-    // _controller.areas = [
-    //   Area(data: item()),
-    // ];
     queryExchange();
     listener();
   }
@@ -196,7 +193,7 @@ class _QuoteState extends State<Quote> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
-                child: appTheme.viewIndex[widget.index] == 0
+                child: logic.viewIndexList[widget.index] == 0
                     ? QuoteData(widget.index)
                     : QuoteDetails(logic.selectedContractList[widget.index], widget.index)),
             SizedBox(
@@ -223,7 +220,7 @@ class _QuoteState extends State<Quote> {
                           itemBuilder: (BuildContext context, int index) {
                             return GestureDetector(
                               onTap: () {
-                                appTheme.setViewIndex(widget.index, 0);
+                                logic.viewIndexList[widget.index] = 0;
                                 appTheme.setSelectIndex(widget.index, 1);
                                 logic.switchExchange(index, widget.index);
                               },
@@ -244,7 +241,7 @@ class _QuoteState extends State<Quote> {
                     ),
                     GestureDetector(
                       onTap: () {
-                        appTheme.setViewIndex(widget.index, 0);
+                        logic.viewIndexList[widget.index] = 0;
                         appTheme.setSelectIndex(widget.index, 0);
                       },
                       child: Container(

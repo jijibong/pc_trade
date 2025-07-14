@@ -201,8 +201,22 @@ String getWindowName({WindowType? overrideType}) {
       return name;
     case WindowType.PL:
       return "止盈止损设置";
+    case WindowType.Color:
+      return "颜色";
+    case WindowType.Setting:
+      return "画线设置";
+    case WindowType.Order:
+      return "画线下单";
+    case WindowType.Notification:
+      return "通知";
+    case WindowType.Draw:
+      return "画线工具";
+    case WindowType.Condition:
+      return "条件单";
     case WindowType.Trade:
       return "交易";
+    case WindowType.SubWindow:
+      return "副图";
     default:
       break;
   }
@@ -677,7 +691,8 @@ class MyTheme {
     return (isDesktop || isWebDesktop) ? EdgeInsets.fromLTRB(p, 0, p, (p - 4)) : EdgeInsets.fromLTRB(p, 0, (p - mobileTextButtonPaddingLR), (p / 2));
   }
 
-  static EdgeInsets dialogButtonPadding = (isDesktop || isWebDesktop) ? EdgeInsets.only(left: dialogPadding) : EdgeInsets.only(left: dialogPadding / 3);
+  static EdgeInsets dialogButtonPadding =
+      (isDesktop || isWebDesktop) ? EdgeInsets.only(left: dialogPadding) : EdgeInsets.only(left: dialogPadding / 3);
 
   static ScrollbarThemeData scrollbarTheme = ScrollbarThemeData(
     thickness: MaterialStateProperty.all(6),

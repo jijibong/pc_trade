@@ -18,6 +18,7 @@ class Common {
 
   ///Todo
   static int Platform = 259;
+  static int screenCount = 9;
 
   ///Config
   static const String appName = 'FCS.HK行情交易系统（模拟）';

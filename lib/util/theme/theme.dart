@@ -63,39 +63,45 @@ class AppTheme extends ChangeNotifier {
   }
 
   ///分屏
-  bool _multiScreen = false;
-  bool get multiScreen => _multiScreen;
-  set multiScreen(bool multiScreen) {
+  int _multiScreen = 0;
+  int get multiScreen => _multiScreen;
+  set multiScreen(int multiScreen) {
     _multiScreen = multiScreen;
     notifyListeners();
   }
 
   ///自选
-  final List<int> _selectIndex = List.filled(4, 1);
+  List<int> _selectIndex = List.filled(Common.screenCount, 1);
   List<int> get selectIndex => _selectIndex;
   void setSelectIndex(int index, int value) {
     if (index >= 0 && index < _selectIndex.length) {
       _selectIndex[index] = value;
-      notifyListeners();
+      _selectIndex = [..._selectIndex.take(index), value, ..._selectIndex.skip(index + 1)];
     }
-  }
-
-  bool _showChart = true;
-  bool get showChart => _showChart;
-  set showChart(bool showChart) {
-    _showChart = showChart;
     notifyListeners();
   }
 
-  ///首页\详情页
-  final List<int> _viewIndex = List.filled(4, 0);
-  List<int> get viewIndex => _viewIndex;
-  void setViewIndex(int index, int value) {
-    if (index >= 0 && index < _viewIndex.length) {
-      _viewIndex[index] = value;
-      notifyListeners();
-    }
-  }
+  // ///成交报表\K线图
+  // List<bool> _showChart = List.filled(Common.screenCount, true);
+  // List<bool> get showChart => _showChart;
+  // void setShowChart(int index, bool value) {
+  //   if (index >= 0 && index < _showChart.length) {
+  //     _showChart[index] = value;
+  //     _showChart = [..._showChart.take(index), value, ..._showChart.skip(index + 1)];
+  //   }
+  //   notifyListeners();
+  // }
+
+  // ///首页\详情页
+  // List<int> _viewIndex = List.filled(Common.screenCount, 0);
+  // List<int> get viewIndex => _viewIndex;
+  // void setViewIndex(int index, int value) {
+  //   if (index >= 0 && index < _viewIndex.length) {
+  //     _viewIndex[index] = value;
+  //     _viewIndex = [..._viewIndex.take(index), value, ..._viewIndex.skip(index + 1)];
+  //   }
+  //   notifyListeners();
+  // }
 
   int _tradeIndex = 0;
   int get tradeIndex => _tradeIndex;

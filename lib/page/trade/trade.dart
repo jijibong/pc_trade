@@ -51,6 +51,7 @@ import '../../server/user/user.dart';
 import '../../util/dialog/trade_dialog.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
+import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -1416,22 +1417,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     }
   }
 
-  loginOut() {
+  void loginOut() {
     Future.delayed(Duration.zero, () async {
+      await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, {"id": kWindowId});
       await WindowController.fromWindowId(kWindowId!).hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
     });
   }
 
   @override
   void onWindowClose() async {
-    notMainWindowClose(WindowController windowController) async {
-      await windowController.hide();
-      await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
-    }
-
-    final controller = WindowController.fromWindowId(kWindowId!);
-    await notMainWindowClose(controller);
+    await WindowController.fromWindowId(kWindowId!).hide();
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, {"id": kWindowId});
     super.onWindowClose();
   }
 
@@ -1521,7 +1517,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     ),
                     Button(
                         style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
-                        onPressed: loginOut,
+                        onPressed: () => loginOut(),
                         child: const Text("退出")),
                   ],
                 )
@@ -1617,9 +1613,10 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                         WindowController.fromWindowId(widget.params["windowId"]).minimize();
                       }),
                   IconButton(
-                      icon: const Icon(FluentIcons.sign_out, size: 22),
-                      style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
-                      onPressed: loginOut),
+                    icon: const Icon(FluentIcons.sign_out, size: 22),
+                    style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.only(right: 10))),
+                    onPressed: () => loginOut(),
+                  ),
                 ]),
               ),
               content: Row(

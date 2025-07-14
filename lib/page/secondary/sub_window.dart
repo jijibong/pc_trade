@@ -277,12 +277,12 @@ class _SubWindowState extends State<SubWindow> with MultiWindowListener {
                             icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
                             label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                             onPressed: () {
-                              if (appTheme.viewIndex[logic.selectedIndex.value] == 1) {
+                              if (logic.viewIndexList[logic.selectedIndex.value] == 1) {
                                 if (appTheme.selectCommandBarIndex == 0) {
-                                  appTheme.viewIndex[logic.selectedIndex.value] = 0;
+                                  logic.viewIndexList[logic.selectedIndex.value] = 0;
                                 } else {
-                                  if (!appTheme.showChart) {
-                                    appTheme.showChart = true;
+                                  if (logic.showChartList[logic.selectedIndex.value]!=0) {
+                                    logic.showChartList[logic.selectedIndex.value] = 0;
                                     return;
                                   }
                                   appTheme.selectCommandBarIndex = 0;
@@ -296,8 +296,8 @@ class _SubWindowState extends State<SubWindow> with MultiWindowListener {
                             icon: Icon(FluentIcons.home, color: appTheme.exchangeTextColor),
                             label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
                             onPressed: () {
-                              appTheme.viewIndex[logic.selectedIndex.value] = 0;
-                              appTheme.showChart = true;
+                              logic.viewIndexList[logic.selectedIndex.value] = 0;
+                              logic.showChartList[logic.selectedIndex.value] = 0;
                             },
                           ),
                           CommandBarButton(

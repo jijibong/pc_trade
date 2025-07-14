@@ -7,6 +7,10 @@ import '../../model/quote/contract.dart';
 import '../../model/trade/fund.dart';
 import '../../model/trade/res_float_profit.dart';
 import '../../model/trade/res_hold_order.dart';
+///刷新
+class RefreshEvent {
+  RefreshEvent();
+}
 
 ///获取所有合约
 class GetAllContracts {
@@ -36,9 +40,10 @@ class LoginSuccess {
   LoginSuccess(this.success);
 }
 
-class SwitchExchange {
+///切换分屏
+class SplitScreen {
   int index;
-  SwitchExchange(this.index);
+  SplitScreen(this.index);
 }
 
 ///显示交易窗口
@@ -145,3 +150,22 @@ class PositionFloatEvent {
   ResFloatProfit res;
   PositionFloatEvent({required this.res});
 }
+
+///画线设置
+class SetLine {
+  dynamic json;
+  SetLine({required this.json});
+}
+
+///画线工具箱
+class DrawEvent {
+  dynamic json;
+  DrawEvent({required this.json});
+}
+
+///画线下单
+class OrderEvent {
+  dynamic json;
+  OrderEvent({required this.json});
+}
+

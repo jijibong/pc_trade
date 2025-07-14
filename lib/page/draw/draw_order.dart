@@ -75,7 +75,7 @@ class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
   notifyOrder() async {
     var tmp = {"type": type, "num": num, "priceType": selectedPrice};
     String temp = jsonEncode(tmp);
-    await rustDeskWinManager.call(WindowType.Main, kOrderEvent, temp);
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, kOrderEvent, temp);
   }
 
   @override
