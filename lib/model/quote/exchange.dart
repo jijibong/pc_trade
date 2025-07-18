@@ -1,5 +1,3 @@
-import 'contract.dart';
-
 class Exchange {
   // bool? isSelect;
   num? editStatus;
@@ -12,7 +10,6 @@ class Exchange {
   num? orderNum;
   num? orderUser;
   num? marketPriceTrade;
-  List<Contract>? contracts = [];
 
   Exchange({
     this.editStatus,

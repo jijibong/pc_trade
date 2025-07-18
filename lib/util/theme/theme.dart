@@ -55,6 +55,7 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
+  ///k线周期
   int _selectCommandBarIndex = 0;
   int get selectCommandBarIndex => _selectCommandBarIndex;
   set selectCommandBarIndex(int selectCommandBarIndex) {
@@ -62,24 +63,16 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  ///分屏
-  int _multiScreen = 0;
-  int get multiScreen => _multiScreen;
-  set multiScreen(int multiScreen) {
-    _multiScreen = multiScreen;
-    notifyListeners();
-  }
-
-  ///自选
-  List<int> _selectIndex = List.filled(Common.screenCount, 1);
-  List<int> get selectIndex => _selectIndex;
-  void setSelectIndex(int index, int value) {
-    if (index >= 0 && index < _selectIndex.length) {
-      _selectIndex[index] = value;
-      _selectIndex = [..._selectIndex.take(index), value, ..._selectIndex.skip(index + 1)];
-    }
-    notifyListeners();
-  }
+  // ///自选
+  // List<int> _selectIndex = List.filled(Common.screenCount, 1);
+  // List<int> get selectIndex => _selectIndex;
+  // void setSelectIndex(int index, int value) {
+  //   if (index >= 0 && index < _selectIndex.length) {
+  //     _selectIndex[index] = value;
+  //     _selectIndex = [..._selectIndex.take(index), value, ..._selectIndex.skip(index + 1)];
+  //   }
+  //   notifyListeners();
+  // }
 
   // ///成交报表\K线图
   // List<bool> _showChart = List.filled(Common.screenCount, true);

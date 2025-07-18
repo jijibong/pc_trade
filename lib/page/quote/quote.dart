@@ -34,8 +34,11 @@ class _QuoteState extends State<Quote> {
   // final MultiSplitViewController _controller = MultiSplitViewController();
   late AppTheme appTheme;
   final ScrollController _scrollController = ScrollController();
+  final ScrollController _commScrollController = ScrollController();
   double _dragStartOffset = 0.0;
+  double _commDragStartOffset = 0.0;
   double _currentOffset = 0.0;
+  double _commCurrentOffset = 0.0;
 
   Future queryExchange() async {
     // List<Exchange> tmp = await Utils.getAllExchange();
@@ -46,14 +49,14 @@ class _QuoteState extends State<Quote> {
       await MarketServer.queryExchangeUrl().then((value) async {
         if (value != null) {
           Utils.saveExchange(value);
-          await requestAllContract(value);
+          await requestAllContract();
         }
       });
     }
     // }
   }
 
-  Future requestAllContract(List<Exchange> exchanges) async {
+  Future requestAllContract() async {
     await MarketServer.queryAllContractUrl().then((value) async {
       if (value != null) {
         List<Contract> conList = [];
@@ -196,65 +199,119 @@ class _QuoteState extends State<Quote> {
                 child: logic.viewIndexList[widget.index] == 0
                     ? QuoteData(widget.index)
                     : QuoteDetails(logic.selectedContractList[widget.index], widget.index)),
-            SizedBox(
-                height: 38,
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: GestureDetector(
-                        onHorizontalDragStart: (details) {
-                          _dragStartOffset = details.globalPosition.dx;
+            if (widget.index == 0)
+              SizedBox(
+                height: 28,
+                child: GestureDetector(
+                  onHorizontalDragStart: (details) {
+                    _commDragStartOffset = details.globalPosition.dx;
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    _commScrollController.jumpTo(_commCurrentOffset + _commDragStartOffset - details.globalPosition.dx);
+                  },
+                  onHorizontalDragEnd: (details) {
+                    _commCurrentOffset = max(0, _commCurrentOffset + _commDragStartOffset - details.globalPosition.dx);
+                    _commCurrentOffset =
+                        min(_commScrollController.position.maxScrollExtent, _commCurrentOffset + _commDragStartOffset - details.globalPosition.dx);
+                  },
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: logic.commodityList.length,
+                    controller: _commScrollController,
+                    itemBuilder: (BuildContext context, int index) {
+                      return GestureDetector(
+                        onTap: () async {
+                          logic.selectedCommodity.value = logic.commodityList[index];
+                          int thisIndex = 0;
+                          if (logic.selectedExchangeList[widget.index].exchangeNo != null) {
+                            logic.selectedMContractList[widget.index].clear();
+                            logic.selectedMContractList[widget.index]
+                                .addAll(await logic.getContracts(logic.selectedExchangeList[widget.index].exchangeNo!));
+                            for (var e in logic.selectedMContractList[widget.index]) {
+                              if (e.comType == logic.selectedCommodity.value.commodityType && e.comId == logic.selectedCommodity.value.commodityId) {
+                                // logic.selectedMContractList[widget.index].add(e);
+                                thisIndex = logic.selectedMContractList[widget.index].indexOf(e);
+                                break;
+                              }
+                            }
+                          }
+                          logic.commodityList.refresh();
+                          logic.selectedMContractList.refresh();
+                          EventBusUtil.getInstance().fire(RefreshCommodity(thisIndex));
                         },
-                        onHorizontalDragUpdate: (details) {
-                          _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
-                        },
-                        onHorizontalDragEnd: (details) {
-                          _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                          _currentOffset =
-                              min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                        },
-                        child: ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: logic.mExchangeList.length,
-                          controller: _scrollController,
-                          itemBuilder: (BuildContext context, int index) {
-                            return GestureDetector(
-                              onTap: () {
-                                logic.viewIndexList[widget.index] = 0;
-                                appTheme.setSelectIndex(widget.index, 1);
-                                logic.switchExchange(index, widget.index);
-                              },
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
-                                    ? appTheme.exchangeBgColor
-                                    : Colors.transparent,
-                                child: Text(
-                                  logic.mExchangeList[index].exchangeName ?? "",
-                                  style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
-                                ),
-                              ),
-                            );
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          color: logic.commodityList[index] == logic.selectedCommodity.value ? appTheme.exchangeBgColor : Colors.transparent,
+                          child: Text(
+                            logic.commodityList[index].commodityName ?? "",
+                            style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            if (widget.index == 0)
+              SizedBox(
+                  height: 38,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: GestureDetector(
+                          onHorizontalDragStart: (details) {
+                            _dragStartOffset = details.globalPosition.dx;
                           },
+                          onHorizontalDragUpdate: (details) {
+                            _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
+                          },
+                          onHorizontalDragEnd: (details) {
+                            _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                            _currentOffset =
+                                min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                          },
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: logic.mExchangeList.length,
+                            controller: _scrollController,
+                            itemBuilder: (BuildContext context, int index) {
+                              return GestureDetector(
+                                onTap: () {
+                                  logic.viewIndexList[widget.index] = 0;
+                                  logic.optionalIndexList[widget.index] = 1;
+                                  logic.switchExchange(index, widget.index);
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
+                                      ? appTheme.exchangeBgColor
+                                      : Colors.transparent,
+                                  child: Text(
+                                    logic.mExchangeList[index].exchangeName ?? "",
+                                    style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                       ),
-                    ),
-                    GestureDetector(
-                      onTap: () {
-                        logic.viewIndexList[widget.index] = 0;
-                        appTheme.setSelectIndex(widget.index, 0);
-                      },
-                      child: Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        color: appTheme.selectIndex[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
-                        child: Text(
-                          '自选界面',
-                          style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                      GestureDetector(
+                        onTap: () {
+                          logic.viewIndexList[widget.index] = 0;
+                          logic.optionalIndexList[widget.index] = 0;
+                        },
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
+                          child: Text(
+                            '自选界面',
+                            style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                          ),
                         ),
-                      ),
-                    )
-                  ],
-                )),
+                      )
+                    ],
+                  )),
           ],
         ),
         onPointerDown: (e) {

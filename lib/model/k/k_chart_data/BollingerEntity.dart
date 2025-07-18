@@ -199,7 +199,6 @@ class BollingerEntity {
     Paint upPaint = MethodUntil().getDrawPaint(Port.BollingerUpColor);
     Paint downPaint = MethodUntil().getDrawPaint(Port.BollingerDownColor);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
-    double textMarginTop = MARGINTOP - Port.text_check;
     midPaint.strokeWidth = Port.BollingerWidth[1];
     upPaint.strokeWidth = Port.BollingerWidth[0];
     downPaint.strokeWidth = Port.BollingerWidth[2];
@@ -258,7 +257,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "TOP:$up";
@@ -266,7 +265,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "MID:$mid";
@@ -274,7 +273,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
         text = "BOTTOM:$down";
@@ -282,7 +281,7 @@ class BollingerEntity {
           ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, textMarginTop));
+          ..paint(canvas, Offset(textXStart, 0));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }

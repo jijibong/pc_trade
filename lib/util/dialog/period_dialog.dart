@@ -5,6 +5,7 @@ import 'package:trade/util/info_bar/info_bar.dart';
 import '../../config/common.dart';
 import '../../model/k/k_flag.dart';
 import '../../model/k/k_preiod.dart';
+import '../../page/quote/quote_logic.dart';
 import '../event_bus/eventBus_utils.dart';
 import '../event_bus/events.dart';
 import '../log/log.dart';
@@ -13,6 +14,7 @@ import '../theme/theme.dart';
 class PeriodDialog {
   Widget showPeriodDialog(KPFlag mKPFlag, String name) {
     final appTheme = AppTheme();
+    final QuoteLogic logic = Get.put(QuoteLogic());
     TextEditingController controller = TextEditingController(text: "1");
     return ContentDialog(
       style: ContentDialogThemeData(
@@ -78,7 +80,15 @@ class PeriodDialog {
                       InfoBarUtils.showErrorDialog(str);
                     } else {
                       KPeriod fs = KPeriod(name: "$result${mKPFlag.name!}", period: result, cusType: 2, kpFlag: mKPFlag.flag, isDel: false);
-                      EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                      if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                        if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                          return;
+                        }
+                        logic.kPeriodList[logic.selectedIndex.value] = fs;
+                        logic.viewIndexList[logic.selectedIndex.value] = 1;
+                      } else {
+                        EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                      }
                     }
                   },
                 ),

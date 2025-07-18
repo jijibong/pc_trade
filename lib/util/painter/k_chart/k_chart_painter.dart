@@ -211,8 +211,8 @@ class ChartPainter extends BaseKChartPainter {
   bool isDrawCost = true;
   bool isDrawCost1 = true;
   bool isDrawCost2 = true;
-  bool isDrawCost3 = false;
-  bool isDrawCost4 = false;
+  bool isDrawCost3 = true;
+  bool isDrawCost4 = true;
   bool isDrawCost5 = true;
   bool isDrawFall = false;
 

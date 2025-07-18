@@ -32,7 +32,7 @@ class WebSocketServer {
   bool isAuth = false;
   static List<QuoteAddr> quoteAddress = [];
   WebSocket socket = WebSocket(Uri.parse(''));
-  late StreamSubscription quoteDataSubscription;
+  StreamSubscription? quoteDataSubscription;
   static List<CustomLine> drawOrderLines = [];
 
   void initSocket() async {
@@ -48,6 +48,9 @@ class WebSocketServer {
         AuthReq authReq = AuthReq(auth: Config.Token);
         cmd c = cmd(option: Option.OPT_Auth, reqId: Int64(1), dateTime: Int64(DateTime.now().microsecondsSinceEpoch), data: authReq.writeToBuffer());
         socket.send(c.writeToBuffer());
+        EventBusUtil.getInstance().fire(SocketState(true));
+      } else if (state == const Disconnected()) {
+        EventBusUtil.getInstance().fire(SocketState(false));
       }
     });
     listenSubEvent();
@@ -76,19 +79,19 @@ class WebSocketServer {
           logger.i("UnSubFillResp Response: $unSubFillResp");
           break;
         case Option.OPT_SubQuote:
-          SubQuoteResp subQuoteResp = SubQuoteResp.fromBuffer(c.data);
+          // SubQuoteResp subQuoteResp = SubQuoteResp.fromBuffer(c.data);
           // logger.i("SubQuote Response: $subQuoteResp");
           break;
         case Option.OPT_UnSubQuote:
-          UnSubQuoteResp unSubQuoteResp = UnSubQuoteResp.fromBuffer(c.data);
+          // UnSubQuoteResp unSubQuoteResp = UnSubQuoteResp.fromBuffer(c.data);
           // logger.i("UnSubQuote Response: $unSubQuoteResp");
           break;
         case Option.OPT_SubKline:
-          SubKlineResp subKlineResp = SubKlineResp.fromBuffer(c.data);
+          // SubKlineResp subKlineResp = SubKlineResp.fromBuffer(c.data);
           // logger.i("SubKline Response: $subKlineResp");
           break;
         case Option.OPT_UnSubKline:
-          UnSubKlineResp unSubKlineResp = UnSubKlineResp.fromBuffer(c.data);
+          // UnSubKlineResp unSubKlineResp = UnSubKlineResp.fromBuffer(c.data);
           // logger.i("UnSubKline Response: $unSubKlineResp");
           break;
         case Option.OPT_RtnQuote:
@@ -456,7 +459,7 @@ class WebSocketServer {
 
   void dispose() {
     isAuth = false;
-    quoteDataSubscription.cancel();
+    quoteDataSubscription?.cancel();
     socket.close();
   }
 }

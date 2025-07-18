@@ -157,7 +157,7 @@ class _SubWindowState extends State<SubWindow> with MultiWindowListener {
           call.arguments['comType'],
         );
         if (con != null) {
-          EventBusUtil.getInstance().fire(SwitchContract(con));
+          EventBusUtil.getInstance().fire(SwitchContract(0, con));
         }
       } else if (call.method == kTradeWindowId) {
         tradeWindowId = call.arguments['id'];
@@ -281,7 +281,7 @@ class _SubWindowState extends State<SubWindow> with MultiWindowListener {
                                 if (appTheme.selectCommandBarIndex == 0) {
                                   logic.viewIndexList[logic.selectedIndex.value] = 0;
                                 } else {
-                                  if (logic.showChartList[logic.selectedIndex.value]!=0) {
+                                  if (logic.showChartList[logic.selectedIndex.value] != 0) {
                                     logic.showChartList[logic.selectedIndex.value] = 0;
                                     return;
                                   }

@@ -1,3 +1,5 @@
+import 'package:fluent_ui/fluent_ui.dart';
+
 class MultiRowData {
   List<List<Widget>> rows;  // 所有行的组件
   List<int> order;          // 排序顺序索引

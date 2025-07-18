@@ -109,8 +109,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   bool isDrawCost = true;
   bool isDrawCost1 = true;
   bool isDrawCost2 = true;
-  bool isDrawCost3 = false;
-  bool isDrawCost4 = false;
+  bool isDrawCost3 = true;
+  bool isDrawCost4 = true;
   bool isDrawCost5 = true;
   bool isDrawFall = false;
   bool isDrawVOL = true;
@@ -197,6 +197,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   int widthType = 0;
   int lineType = 0;
   List<DrawToolLine> drawToolLines = [];
+  List<KPeriod> periodList = [];
   double lastClose = 0;
 
   ///一档报价
@@ -319,14 +320,37 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   double leftMarginSpace = 80;
   final double _hitPadding = 5.0;
   final contextController = FlyoutController();
-  StreamSubscription? streamSubscription;
+  StreamSubscription? streamSubscriptionA;
+  StreamSubscription? streamSubscriptionB;
+  StreamSubscription? streamSubscriptionC;
+  StreamSubscription? streamSubscriptionD;
+  StreamSubscription? streamSubscriptionE;
+  StreamSubscription? streamSubscriptionF;
+  StreamSubscription? streamSubscriptionG;
+  StreamSubscription? streamSubscriptionH;
+  StreamSubscription? streamSubscriptionI;
+  StreamSubscription? streamSubscriptionJ;
+  StreamSubscription? streamSubscriptionK;
+  StreamSubscription? streamSubscriptionL;
+  StreamSubscription? streamSubscriptionM;
+  StreamSubscription? streamSubscriptionN;
+  StreamSubscription? streamSubscriptionO;
 
   getKPeriod() async {
     if (logic.kPeriodList[widget.index].name != null) {
       kPeriod = logic.kPeriodList[widget.index];
+      mOHLCData.clear();
+      SWITHING_TIME = true;
+      if (kPeriod.period == KTime.FS) {
+        isDrawTime = true;
+        logic.showChartList[widget.index] = 0;
+      } else {
+        isDrawTime = false;
+      }
     } else {
       kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
     }
+    periodList.add(kPeriod);
     subscriptionKlineData(true);
     requestAllData();
   }
@@ -1429,12 +1453,25 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   ///订阅\取消成交明细
   void subscriptionFill(bool sub) {
+    if (!sub) {
+      List<FillData> tmp = [];
+      tmp.addAll(quoteFilledData);
+      logic.quoteFilledList.add({"${contract?.exCode}.${contract?.subComCode}.${contract?.subConCode}": tmp});
+      quoteFilledData.clear();
+    } else {
+      for (var e in logic.quoteFilledList) {
+        if (e.containsKey("${contract?.exCode}.${contract?.subComCode}.${contract?.subConCode}")) {
+          quoteFilledData = e["${contract?.exCode}.${contract?.subComCode}.${contract?.subConCode}"] ?? [];
+        }
+      }
+    }
     String? excd = contract?.exCode;
     String? type = String.fromCharCode(contract?.comType ?? 0);
     String? comCode = contract?.subComCode;
     String? conCode = contract?.subConCode;
     String key = "$excd.$type.$comCode.$conCode";
     EventBusUtil.getInstance().fire(SubEvent([key], sub ? Operation.SendSubFillData : Operation.SendUnSubFillData));
+    // if (mounted) setState(() {});
   }
 
   ///订阅\取消K线
@@ -1547,14 +1584,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   void listener() {
     ///登录信息
-    EventBusUtil.getInstance().on<LoginSuccess>().listen((event) {
+    streamSubscriptionA = EventBusUtil.getInstance().on<LoginSuccess>().listen((event) {
       if (event.success) {
         logic.requestHold();
       }
     });
 
     ///K线缩放
-    EventBusUtil.getInstance().on<ScaleKLine>().listen((event) {
+    streamSubscriptionB = EventBusUtil.getInstance().on<ScaleKLine>().listen((event) {
       if (isDrawTime) {
         return;
       }
@@ -1587,7 +1624,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///行情变化
-    EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
+    streamSubscriptionC = EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
       if (con.exCode == contract?.exCode && con.code == contract?.code && con.comType == contract?.comType) {
         contract = con;
@@ -1605,7 +1642,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///盘口数据
-    EventBusUtil.getInstance().on<QuoteFilledData>().listen((event) {
+    streamSubscriptionD = EventBusUtil.getInstance().on<QuoteFilledData>().listen((event) {
       FillData fill = event.quoteFilledData;
       if (contract?.exCode == fill.exchangeNo &&
           contract?.subConCode == fill.contractNo &&
@@ -1628,7 +1665,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///k线数据
-    EventBusUtil.getInstance().on<CorrKlineEvent>().listen((event) {
+    streamSubscriptionE = EventBusUtil.getInstance().on<CorrKlineEvent>().listen((event) {
       List<String>? keyArr = event.key?.split(",");
       String? excd = keyArr?[0];
       String? type = keyArr?[1];
@@ -1658,25 +1695,25 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///周期变化
-    streamSubscription = EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
+    streamSubscriptionF = EventBusUtil.getInstance().on<SwitchPeriod>().listen((event) {
       if (logic.selectedIndex.value == widget.index) {
         switchPeriod(event.kPeriod);
       }
     });
 
     ///画线工具
-    EventBusUtil.getInstance().on<ToolDrawing>().listen((event) async {});
+    streamSubscriptionG = EventBusUtil.getInstance().on<ToolDrawing>().listen((event) async {});
 
     ///画线下单
-    EventBusUtil.getInstance().on<OrderDrawing>().listen((event) async {});
+    streamSubscriptionH = EventBusUtil.getInstance().on<OrderDrawing>().listen((event) async {});
 
     ///持仓变化
-    EventBusUtil.getInstance().on<RefreshHold>().listen((event) async {
+    streamSubscriptionI = EventBusUtil.getInstance().on<RefreshHold>().listen((event) async {
       getPosition();
     });
 
     ///画线设置
-    EventBusUtil.getInstance().on<SetLine>().listen((event) async {
+    streamSubscriptionJ = EventBusUtil.getInstance().on<SetLine>().listen((event) async {
       DrawToolLine tmp = DrawToolLine.fromJson(event.json);
       int x = mOHLCData.indexWhere((e) => "${e.date} ${e.time}" == tmp.firstPointX);
       for (var e in drawToolLines) {
@@ -1703,7 +1740,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///画线工具箱
-    EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
+    streamSubscriptionK = EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
       var map = event.json;
       pathType = map['pathType'];
       colorValue = map['colorValue'];
@@ -1720,7 +1757,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///画线下单
-    EventBusUtil.getInstance().on<SetLine>().listen((event) async {
+    streamSubscriptionL = EventBusUtil.getInstance().on<SetLine>().listen((event) async {
       var map = event.json;
       orderDrawType = map['type'];
       if (orderDrawType == 0) {
@@ -1738,8 +1775,43 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///刷新
-    EventBusUtil.getInstance().on<RefreshEvent>().listen((event) async {
-      switchPeriod(kPeriod);
+    streamSubscriptionM = EventBusUtil.getInstance().on<RefreshEvent>().listen((event) async {
+      switchPeriod(kPeriod, force: true);
+    });
+
+    ///切换合约
+    streamSubscriptionN = EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
+      if (widget.index == event.index) {
+        subscriptionKlineData(false);
+        subscriptionQuote(false);
+        subscriptionFill(false);
+        var con = event.contract;
+        Contract? mContract = MarketUtils.getVariety(con.exCode, con.code, con.comType);
+        contract = mContract;
+        if (con.isMain == true) {
+          contract?.isMain = true;
+        }
+        setTradeTimes(contract?.trTime);
+        subscriptionKlineData(true);
+        subscriptionQuote(true);
+        subscriptionFill(true);
+        requestAllData();
+        getDrawLines();
+        refreshData();
+        getPosition();
+      }
+    });
+
+    ///返回
+    streamSubscriptionO = EventBusUtil.getInstance().on<BackEvent>().listen((event) async {
+      if (event.index == widget.index) {
+        if (periodList.length > 1) {
+          periodList.removeLast();
+          switchPeriod(periodList.last, force: true);
+        } else {
+          logic.viewIndexList[widget.index] = 0;
+        }
+      }
     });
   }
 
@@ -1753,9 +1825,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
   }
 
-  switchPeriod(KPeriod period, {int? index}) async {
-    if (kPeriod == period) return;
+  switchPeriod(KPeriod period, {int? index, bool? force}) async {
+    if (kPeriod == period && force != true) return;
     if (index != null) appTheme.selectCommandBarIndex = index;
+    if (force != true) {
+      periodList.add(period);
+    }
     subscriptionKlineData(false);
     kPeriod = period;
     logic.kPeriodList[widget.index] = period;
@@ -1798,9 +1873,24 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   void dispose() {
     mainMenuController.dispose();
     priceController.dispose();
-    streamSubscription?.cancel();
+    streamSubscriptionA?.cancel();
+    streamSubscriptionB?.cancel();
+    streamSubscriptionC?.cancel();
+    streamSubscriptionD?.cancel();
+    streamSubscriptionE?.cancel();
+    streamSubscriptionF?.cancel();
+    streamSubscriptionG?.cancel();
+    streamSubscriptionH?.cancel();
+    streamSubscriptionI?.cancel();
+    streamSubscriptionJ?.cancel();
+    streamSubscriptionK?.cancel();
+    streamSubscriptionL?.cancel();
+    streamSubscriptionM?.cancel();
+    streamSubscriptionN?.cancel();
+    streamSubscriptionO?.cancel();
     subscriptionKlineData(false);
     subscriptionQuote(false);
+    subscriptionFill(false);
     super.dispose();
   }
 
@@ -3585,24 +3675,41 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         MenuFlyoutItem(
                           text: const Text('取消分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 0;
+                            logic.multiScreen.value = 0;
                           },
                         ),
-                        MenuFlyoutItem(
-                          text: const Text('四分屏'),
-                          onPressed: () async {
-                            appTheme.multiScreen = 1;
-                            EventBusUtil.getInstance().fire(SplitScreen(1));
-                          },
-                        ),
-                        MenuFlyoutItem(
-                          text: const Text('九分屏'),
-                          onPressed: () async {
-                            appTheme.multiScreen = 2;
-                            EventBusUtil.getInstance().fire(SplitScreen(2));
-                          },
-                        ),
-
+                        if (logic.optionalIndexList[widget.index] == 0)
+                          MenuFlyoutItem(
+                            text: const Text('二分屏'),
+                            onPressed: () async {
+                              logic.multiScreen.value = 2;
+                              EventBusUtil.getInstance().fire(SplitScreen(2));
+                            },
+                          ),
+                        if (logic.optionalIndexList[widget.index] == 0)
+                          MenuFlyoutItem(
+                            text: const Text('四分屏'),
+                            onPressed: () async {
+                              logic.multiScreen.value = 4;
+                              EventBusUtil.getInstance().fire(SplitScreen(4));
+                            },
+                          ),
+                        if (logic.optionalIndexList[widget.index] == 0)
+                          MenuFlyoutItem(
+                            text: const Text('六分屏'),
+                            onPressed: () async {
+                              logic.multiScreen.value = 6;
+                              EventBusUtil.getInstance().fire(SplitScreen(6));
+                            },
+                          ),
+                        if (logic.optionalIndexList[widget.index] == 0)
+                          MenuFlyoutItem(
+                            text: const Text('九分屏'),
+                            onPressed: () async {
+                              logic.multiScreen.value = 9;
+                              EventBusUtil.getInstance().fire(SplitScreen(9));
+                            },
+                          ),
                         // MenuFlyoutItem(
                         //   text: const Text('横向分页'),
                         //   onPressed: Flyout.of(context).close,
@@ -4051,23 +4158,23 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 MenuFlyoutItem(
                   text: const Text('取消分屏'),
                   onPressed: () async {
-                    appTheme.multiScreen = 0;
+                    logic.multiScreen.value = 0;
                   },
                 ),
-                MenuFlyoutItem(
-                  text: const Text('四分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 1;
-                    EventBusUtil.getInstance().fire(SplitScreen(1));
-                  },
-                ),
-                MenuFlyoutItem(
-                  text: const Text('九分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 2;
-                    EventBusUtil.getInstance().fire(SplitScreen(2));
-                  },
-                ),
+                // MenuFlyoutItem(
+                //   text: const Text('四分屏'),
+                //   onPressed: () async {
+                //     appTheme.multiScreen = 1;
+                //     EventBusUtil.getInstance().fire(SplitScreen(1));
+                //   },
+                // ),
+                // MenuFlyoutItem(
+                //   text: const Text('九分屏'),
+                //   onPressed: () async {
+                //     appTheme.multiScreen = 2;
+                //     EventBusUtil.getInstance().fire(SplitScreen(2));
+                //   },
+                // ),
                 // MenuFlyoutItem(
                 //   text: const Text('横向分页'),
                 //   onPressed: Flyout.of(context).close,
@@ -4115,6 +4222,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 Expanded(
                     child: ListView.builder(
                   itemCount: mOHLCData.length,
+                  shrinkWrap: true,
                   itemBuilder: (BuildContext context, int index) {
                     return Container(
                       decoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Colors.white))),
@@ -4366,20 +4474,17 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
               ),
             ),
             Container(
-                height: 0.6.sh,
+                height: 1.sh,
                 decoration: BoxDecoration(border: Border.all(color: Colors.red)),
                 child: Column(
                   children: [
-                    Flexible(
-                      child: Row(
-                        children: [
-                          Expanded(flex: 2, child: detailItem("时间", fontSize: 18)),
-                          Expanded(flex: 2, child: detailItem("价位", fontSize: 18)),
-                          Expanded(flex: 1, child: detailItem("现手", fontSize: 18)),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Expanded(flex: 2, child: detailItem("时间", fontSize: 18)),
+                        Expanded(flex: 2, child: detailItem("价位", fontSize: 18)),
+                        Expanded(flex: 1, child: detailItem("现手", fontSize: 18)),
+                      ],
+                    ).marginOnly(bottom: 3),
                     Expanded(
                         child: ListView.builder(
                             shrinkWrap: true,

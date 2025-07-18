@@ -110,7 +110,7 @@ class KUtils {
           for (int i = 0; i < tradeTimes.length; i++) {
             if (dataTime == tradeTimes[i]) {
               isTradeTime = true;
-              loc = i;
+              loc = i == tradeTimes.length - 1 ? i - 1 : i;
               break;
             }
           }

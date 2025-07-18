@@ -31,7 +31,6 @@ import '../../util/dialog/period_dialog.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/http/http.dart';
-import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -67,6 +66,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   List brokerList = [];
   bool savePwd = false;
   String? errorMsg;
+  bool connected = false;
 
   requestNetIp() async {
     await LoginServer.requestNetIp().then((value) {
@@ -229,7 +229,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           call.arguments['comType'],
         );
         if (con != null) {
-          EventBusUtil.getInstance().fire(SwitchContract(con));
+          EventBusUtil.getInstance().fire(SwitchContract(0, con));
           // } else {
           //   InfoBarUtils.showErrorDialog("查询合约失败，请稍后再试");
         }
@@ -406,6 +406,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
       tradeAccount();
     });
 
+    ///行情连接状态
+    EventBusUtil.getInstance().on<SocketState>().listen((event) {
+      connected = event.connected;
+      if (mounted) setState(() {});
+    });
+
     ///账户资金数据
     EventBusUtil.getInstance().on<FundUpdateEvent>().listen((fundUpdateEvent) async {
       if (!LoginServer.isLogin) return;
@@ -450,7 +456,23 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
     ///切换分屏
     EventBusUtil.getInstance().on<SplitScreen>().listen((event) async {
-      if (event.index == 1) {
+      if (event.index == logic.multiScreen) return;
+      if (event.index == 2) {
+        while (multiSplitViewController.areasCount > 0) {
+          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+        }
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(0)),
+                        Area(builder: (context, area) => const Quote(1)),
+                      ])),
+        );
+      } else if (event.index == 4) {
         while (multiSplitViewController.areasCount > 0) {
           multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
         }
@@ -476,8 +498,35 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         Area(builder: (context, area) => const Quote(3)),
                       ])),
         );
-        if (mounted) setState(() {});
-      } else if (event.index == 2) {
+      } else if (event.index == 6) {
+        while (multiSplitViewController.areasCount > 0) {
+          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+        }
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(0)),
+                        Area(builder: (context, area) => const Quote(1)),
+                        Area(builder: (context, area) => const Quote(2)),
+                      ])),
+        );
+        multiSplitViewController.addArea(
+          Area(
+              builder: (context, area) => MultiSplitView(
+                      dividerBuilder: (axis, index, resizable, dragging, highlighted, themeData) {
+                        return _dividerWidget(Axis.vertical, index, resizable, dragging, highlighted, themeData);
+                      },
+                      initialAreas: [
+                        Area(builder: (context, area) => const Quote(3)),
+                        Area(builder: (context, area) => const Quote(4)),
+                        Area(builder: (context, area) => const Quote(5)),
+                      ])),
+        );
+      } else if (event.index == 9) {
         while (multiSplitViewController.areasCount > 0) {
           multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
         }
@@ -517,8 +566,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         Area(builder: (context, area) => const Quote(8)),
                       ])),
         );
-        if (mounted) setState(() {});
       }
+      if (mounted) setState(() {});
     });
   }
 
@@ -699,17 +748,18 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
                           if (logic.viewIndexList[logic.selectedIndex.value] == 1) {
-                            if (appTheme.selectCommandBarIndex == 0) {
-                              logic.viewIndexList[logic.selectedIndex.value] = 0;
-                            } else {
-                              if (logic.showChartList[logic.selectedIndex.value] != 0) {
-                                logic.showChartList[logic.selectedIndex.value] = 0;
-                                return;
-                              }
-                              appTheme.selectCommandBarIndex = 0;
-                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
-                            }
+                            EventBusUtil.getInstance().fire(BackEvent(logic.selectedIndex.value));
+                            // if (appTheme.selectCommandBarIndex == 0) {
+                            //   logic.viewIndexList[logic.selectedIndex.value] = 0;
+                            // } else {
+                            //   if (logic.showChartList[logic.selectedIndex.value] != 0) {
+                            //     logic.showChartList[logic.selectedIndex.value] = 0;
+                            //     return;
+                            //   }
+                            //   appTheme.selectCommandBarIndex = 0;
+                            //   KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            //   EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            // }
                           }
                         },
                       ),
@@ -768,7 +818,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 0;
                             KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -778,7 +836,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 1;
                             KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -788,7 +854,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 2;
                             KPeriod fs = KPeriod(name: "周", period: 1, cusType: 2, kpFlag: KPFlag.Week, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -798,7 +872,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 3;
                             KPeriod fs = KPeriod(name: "月", period: 1, cusType: 2, kpFlag: KPFlag.Month, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -809,7 +891,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 4;
                             KPeriod fs = KPeriod(name: "年", period: 1, cusType: 2, kpFlag: KPFlag.Year, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -833,7 +923,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 6;
                             KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -843,7 +941,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 7;
                             KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -853,7 +959,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 8;
                             KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -863,7 +977,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 9;
                             KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -874,7 +996,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 10;
                             KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -885,7 +1015,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 11;
                             KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -896,7 +1034,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 12;
                             KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -908,7 +1054,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 13;
                             KPeriod fs = KPeriod(name: "2小时", period: 2, cusType: 2, kpFlag: KPFlag.Hour, isDel: false);
-                            EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
+                              if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
+                                return;
+                              }
+                              logic.kPeriodList[logic.selectedIndex.value] = fs;
+                              logic.viewIndexList[logic.selectedIndex.value] = 1;
+                            } else {
+                              EventBusUtil.getInstance().fire(SwitchPeriod(fs));
+                            }
                           }
                         },
                       ),
@@ -922,21 +1076,71 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                               builder: (BuildContext context) {
                                 return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
                               });
-                          // KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                          // EventBusUtil.getInstance().fire(SwitchPeriod(fs));
                         },
                       ),
-                      // const CommandBarSeparator(),
+                      CommandBarButton(
+                        icon: const Icon(FluentIcons.double_chevron_up, size: 10),
+                        onPressed: () {
+                          Contract contract = logic.selectedContractList[logic.selectedIndex.value];
+                          if (contract.code != null) {
+                            if (logic.optionalIndexList[logic.selectedIndex.value] == 1) {
+                              int index = logic.selectedMContractList[logic.selectedIndex.value].indexOf(contract);
+                              if (index + 1 == logic.selectedMContractList[logic.selectedIndex.value].length) {
+                                index = -1;
+                              }
+                              Contract newContract = logic.selectedMContractList[logic.selectedIndex.value][index + 1];
+                              logic.selectedContractList[logic.selectedIndex.value] = newContract;
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
+                            } else {
+                              int index = logic.mOptionalList.indexOf(contract);
+                              if (index + 1 == logic.mOptionalList.length) {
+                                index = -1;
+                              }
+                              Contract newContract = logic.mOptionalList[index + 1];
+                              logic.selectedContractList[logic.selectedIndex.value] = newContract;
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
+                            }
+                          }
+                        },
+                      ),
+                      CommandBarButton(
+                        icon: const Icon(FluentIcons.double_chevron_down, size: 10),
+                        onPressed: () {
+                          Contract contract = logic.selectedContractList[logic.selectedIndex.value];
+                          if (contract.code != null) {
+                            if (logic.optionalIndexList[logic.selectedIndex.value] == 1) {
+                              int index = logic.selectedMContractList[logic.selectedIndex.value].indexOf(contract);
+                              if (index == 0) {
+                                index = logic.selectedMContractList[logic.selectedIndex.value].length;
+                              }
+                              Contract newContract = logic.selectedMContractList[logic.selectedIndex.value][index - 1];
+                              logic.selectedContractList[logic.selectedIndex.value] = newContract;
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
+                            } else {
+                              int index = logic.mOptionalList.indexOf(contract);
+                              if (index == 0) {
+                                index = logic.mOptionalList.length;
+                              }
+                              Contract newContract = logic.mOptionalList[index - 1];
+                              logic.selectedContractList[logic.selectedIndex.value] = newContract;
+                              EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
+                            }
+                          }
+                        },
+                      ),
                     ],
                   )),
-                  const Icon(FluentIcons.join_online_meeting),
+                  Icon(
+                    FluentIcons.join_online_meeting,
+                    color: connected ? Colors.green.lighter : Colors.grey,
+                  ),
                   SizedBox(width: 2.sp),
                   const Icon(FluentIcons.plug_connected), //FluentIcons.plug_disconnected
                   SizedBox(width: 2.sp),
                 ],
               )),
           Expanded(
-              child: appTheme.multiScreen == 0
+              child: logic.multiScreen.value == 0
                   ? const Quote(0)
                   : MultiSplitView(
                       axis: Axis.vertical,

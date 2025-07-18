@@ -7,15 +7,32 @@ import '../../model/quote/contract.dart';
 import '../../model/trade/fund.dart';
 import '../../model/trade/res_float_profit.dart';
 import '../../model/trade/res_hold_order.dart';
+
 ///刷新
-class RefreshEvent {
-  RefreshEvent();
+class RefreshEvent {}
+
+///返回
+class BackEvent {
+  int index;
+  BackEvent(this.index);
+}
+
+///连接状态
+class SocketState {
+  bool connected;
+  SocketState(this.connected);
 }
 
 ///获取所有合约
 class GetAllContracts {
   int index;
   GetAllContracts(this.index);
+}
+
+///刷新
+class RefreshCommodity {
+  int index;
+  RefreshCommodity(this.index);
 }
 
 ///订阅行情
@@ -56,7 +73,7 @@ class ShowTrade {
 class GoKChart {
   bool go;
   int index;
-  GoKChart(this.go,this.index);
+  GoKChart(this.go, this.index);
 }
 
 ///K线放大/缩小
@@ -79,8 +96,9 @@ class SwitchPeriod {
 
 ///切换合约
 class SwitchContract {
+  int index;
   Contract contract;
-  SwitchContract(this.contract);
+  SwitchContract(this.index, this.contract);
 }
 
 ///画线
@@ -168,4 +186,3 @@ class OrderEvent {
   dynamic json;
   OrderEvent({required this.json});
 }
-

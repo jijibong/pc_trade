@@ -7,6 +7,8 @@ import 'package:trade/util/event_bus/events.dart';
 import '../../config/common.dart';
 import '../../main.dart';
 import '../../model/k/k_preiod.dart';
+import '../../model/option/option.dart';
+import '../../model/pb/quote/fill.pb.dart';
 import '../../model/position/position.dart';
 import '../../model/quote/commodity.dart';
 import '../../model/quote/contract.dart';
@@ -21,6 +23,8 @@ import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/consts.dart';
+import '../../util/shared_preferences/shared_preferences_key.dart';
+import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
@@ -34,16 +38,20 @@ class QuoteLogic extends GetxController {
   var viewIndexList = List.filled(Common.screenCount, 0).obs; //首页\详情页
   var showChartList = List.filled(Common.screenCount, 0).obs; //图表\列表
   var kPeriodList = List.filled(Common.screenCount, KPeriod()).obs; //周期
+  var optionalIndexList = [1, ...List.filled(Common.screenCount - 1, 0)].obs; //自选
   var mOptionalList = <Contract>[].obs;
-  var mVarietyList = <Contract>[].obs;
+  // var showContractList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
+  var multiScreen = 0.obs;
+  var selectedCommodity = Commodity().obs;
+  var quoteFilledList = <Map<String, List<FillData>>>[].obs;
 
   // var selectIndex = -1.obs;
   // var viewIndex = 0.obs;
 
-  late StreamSubscription quoteEventSubscription;
-  late StreamSubscription optionEventSubscription;
+  StreamSubscription? quoteEventSubscription;
+  StreamSubscription? optionEventSubscription;
 
   setListener() {
     ///登录成功
@@ -71,7 +79,6 @@ class QuoteLogic extends GetxController {
   loadData(int index) async {
     if (mExchangeList.isNotEmpty && selectedMContractList.first.isNotEmpty) return;
     List<Exchange> list = await Utils.getAllExchange();
-    List<Contract> tmp = [];
     if (list.isNotEmpty) {
       mExchangeList.clear();
       mExchangeList.addAll(list);
@@ -79,14 +86,11 @@ class QuoteLogic extends GetxController {
 
       selectedExchangeList.value = List.filled(Common.screenCount, mExchangeList[0]);
       selectedExchangeList.refresh();
-      if (MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!).isNotEmpty) {
-        tmp = MarketUtils.getDataVarietys(mExchangeList[0].exchangeNo!);
-      } else {
-        tmp = await Utils.getContractWithMain(mExchangeList[0].exchangeNo!);
-      }
-      selectedMContractList.value = List.filled(Common.screenCount, tmp);
+      commodityList.value = Utils.getVariety(mExchangeList[0].exchangeNo);
+      selectedMContractList.value = List.filled(Common.screenCount, await getContracts(mExchangeList[0].exchangeNo!));
       refreshData(index);
     }
+    queryOption();
   }
 
   ///切换交易所
@@ -94,12 +98,19 @@ class QuoteLogic extends GetxController {
     unSubscriptionQuote(viewIndex);
     selectedExchangeList[viewIndex] = mExchangeList[index];
     selectedExchangeList.refresh();
-    if (MarketUtils.getDataVarietys(selectedExchangeList[viewIndex].exchangeNo).isNotEmpty) {
-      selectedMContractList[viewIndex] = MarketUtils.getDataVarietys(selectedExchangeList[viewIndex].exchangeNo);
-    } else {
-      selectedMContractList[viewIndex] = await Utils.getContractWithMain(selectedExchangeList[viewIndex].exchangeNo!);
-    }
+    commodityList.value = Utils.getVariety(selectedExchangeList[viewIndex].exchangeNo);
+    selectedMContractList[viewIndex] = await getContracts(selectedExchangeList[viewIndex].exchangeNo!);
     refreshData(viewIndex);
+  }
+
+  Future<List<Contract>> getContracts(String exchangeNo) async {
+    List<Contract> tmp = [];
+    if (MarketUtils.getDataVarietys(exchangeNo).isNotEmpty) {
+      tmp = MarketUtils.getDataVarietys(exchangeNo);
+    } else {
+      tmp = await Utils.getContractWithMain(exchangeNo);
+    }
+    return tmp;
   }
 
   /// 取消订阅
@@ -460,5 +471,22 @@ class QuoteLogic extends GetxController {
     }
     selectedMContractList.refresh();
     mOptionalList.refresh();
+  }
+
+  void saveOption() async {
+    if (mOptionalList.isNotEmpty) {
+      List<Option> tmp = [];
+      for (var element in mOptionalList) {
+        Option option =
+            Option(excd: element.exCode, scode: element.code, comCode: element.subComCode, comType: element.comType, isMain: element.isMain);
+        tmp.add(option);
+      }
+      SpUtils.set(SpKey.option, jsonEncode(tmp));
+    }
+  }
+
+  void destroy() {
+    quoteEventSubscription?.cancel();
+    optionEventSubscription?.cancel();
   }
 }
