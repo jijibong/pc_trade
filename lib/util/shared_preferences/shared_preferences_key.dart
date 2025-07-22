@@ -14,6 +14,7 @@ class SpKey {
   static String exchange = "exchange";
   static String allContract = "allContract";
   static String option = "option";
+  static String myOption = "myOption";
   static String commodity = "commodity";
   static String kPeriod = "kPeriod";
   static String kPeriodCount = "kPeriodCount";

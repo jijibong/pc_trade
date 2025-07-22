@@ -25,7 +25,7 @@ class TrapeziumPainter extends CustomPainter {
     path
       ..relativeMoveTo(-9, 0) //左上
       ..relativeLineTo(36, -27) //右上
-      ..relativeLineTo(0, size.height * 1.6) //右下
+      ..relativeLineTo(0, size.height * 2.2) //右下
       ..relativeLineTo(-36, -27);
 
     canvas.drawPath(path, paint);

@@ -111,7 +111,7 @@ class SubChartPainter extends CustomPainter {
   static double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
   TextPainter textPaint = TextPainter();
   Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
-  bool isDrawVOL = true;
+  bool isDrawVOL = false;
   bool isDrawVR = false;
   bool isDrawMACD = false;
   bool isDrawKDJ = false;

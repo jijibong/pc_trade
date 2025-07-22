@@ -63,7 +63,21 @@ class AppTheme extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ///自选
+  ///自选
+  int _selectIndex = 1;
+  int get selectIndex => _selectIndex;
+  set selectIndex(int selectIndex) {
+    _selectIndex = selectIndex;
+    notifyListeners();
+  }
+
+  ///分屏
+  int _multiScreen = 0;
+  int get multiScreen => _multiScreen;
+  set multiScreen(int multiScreen) {
+    _multiScreen = multiScreen;
+    notifyListeners();
+  }
   // List<int> _selectIndex = List.filled(Common.screenCount, 1);
   // List<int> get selectIndex => _selectIndex;
   // void setSelectIndex(int index, int value) {

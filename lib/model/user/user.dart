@@ -4,6 +4,7 @@ import '../quote/rate.dart';
 
 class UserUtils {
   static User? currentUser;
+  static String? userJson;
   static BuildContext? appContext;
 }
 
@@ -26,5 +27,17 @@ class User {
     token = json['Token'];
     remark = json['Remark'];
     if (json['Rates'] != null) rates = (json['Rates'] as List).map((e) => Rate.fromJson(e)).toList();
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'Nick': nick,
+      'Id': id,
+      'Status': status,
+      'Account': account,
+      'Token': token,
+      'Remark': remark,
+      'Rates': rates?.map((e) => e.toJson()),
+    };
   }
 }

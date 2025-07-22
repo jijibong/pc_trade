@@ -38,12 +38,12 @@ class QuoteLogic extends GetxController {
   var viewIndexList = List.filled(Common.screenCount, 0).obs; //首页\详情页
   var showChartList = List.filled(Common.screenCount, 0).obs; //图表\列表
   var kPeriodList = List.filled(Common.screenCount, KPeriod()).obs; //周期
-  var optionalIndexList = [1, ...List.filled(Common.screenCount - 1, 0)].obs; //自选
+  // var optionalIndexList = [1, ...List.filled(Common.screenCount - 1, 0)].obs; //自选
   var mOptionalList = <Contract>[].obs;
   // var showContractList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
-  var multiScreen = 0.obs;
+  // var multiScreen = 0.obs;
   var selectedCommodity = Commodity().obs;
   var quoteFilledList = <Map<String, List<FillData>>>[].obs;
 

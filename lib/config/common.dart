@@ -55,7 +55,7 @@ class Common {
   static Color quoteGreenColor = HexColor('#3aff20');
 
   ///Size
-  static double optionWidgetWidth = 0;
+  static double optionWidgetWidth = 40;
 }
 
 ///multi_windows

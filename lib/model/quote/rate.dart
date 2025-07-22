@@ -11,4 +11,12 @@ class Rate {
     type = json['Type'];
   }
 
+
+  Map<String, dynamic> toJson() {
+    return {
+      'Currency': currency,
+      'Rate': rate,
+      'Type': type,
+    };
+  }
 }

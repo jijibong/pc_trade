@@ -228,6 +228,7 @@ class RustDeskMultiWindowManager {
     String remoteId, {
     String? password,
     String? contract,
+    String? hold,
     bool? forceRelay,
   }) async {
     return await newSession(
@@ -238,10 +239,11 @@ class RustDeskMultiWindowManager {
       password: password,
       forceRelay: forceRelay,
       contract: contract,
+      hold: hold,
     );
   }
 
-  Future<MultiWindowCallResult> newPL(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+  Future<MultiWindowCallResult> newPL(String remoteId, {String? password, bool? forceRelay, String? contract, String? hold}) async {
     return await newSession(
       WindowType.PL,
       kWindowEventNewPL,
@@ -249,11 +251,12 @@ class RustDeskMultiWindowManager {
       _plWindows,
       password: password,
       forceRelay: forceRelay,
+      contract: contract,
       hold: hold,
     );
   }
 
-  Future<MultiWindowCallResult> newCondition(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+  Future<MultiWindowCallResult> newCondition(String remoteId, {String? password, bool? forceRelay,  String? hold}) async {
     return await newSession(
       WindowType.Condition,
       kWindowEventNewCondition,

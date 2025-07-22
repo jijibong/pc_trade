@@ -410,7 +410,7 @@ class MarketServer {
           "Count": count,
           "Flag": mPeriod.kpFlag,
         };
-        logger.i(map);
+        // logger.i(map);
         data = await SignData().signData(jsonEncode(map), Config.customKline);
       }
       Response response = await MdHttpUtils.getInstance().post(Config.customKline, data: data);

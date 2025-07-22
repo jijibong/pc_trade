@@ -58,11 +58,11 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   }
 
   initUrl() async {
+    String hold = widget.params['contract'];
+    UserUtils.currentUser = User.fromJson(jsonDecode(hold));
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);
-    String? userInfo = await SpUtils.getString(SpKey.currentUser);
-    if (baseUrl != null && userInfo != null) {
+    if (baseUrl != null ) {
       Config.URL = baseUrl;
-      UserUtils.currentUser = User.fromJson(jsonDecode(userInfo));
       HttpUtils();
       initData();
     } else {

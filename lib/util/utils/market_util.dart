@@ -15,6 +15,7 @@ class MarketUtils {
   static List<Contract> contractList = [];
   static List<Contract> optionList = [];
   static List<Commodity> commodityList = [];
+  static List<int> order = [];
 
   /// 保存实时数据
   static void setDataList(String exCode, List<Contract> list) {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
 import 'package:trade/page/quote/quote_data.dart';
@@ -12,11 +13,14 @@ import 'package:trade/util/event_bus/eventBus_utils.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
+import '../../config/common.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../server/quote/market.dart';
+import '../../util/dialog/add_option_dialog.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/log/log.dart';
+import '../../util/style/paint.dart';
 import '../../util/theme/theme.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
@@ -31,7 +35,6 @@ class Quote extends StatefulWidget {
 
 class _QuoteState extends State<Quote> {
   final QuoteLogic logic = Get.put(QuoteLogic());
-  // final MultiSplitViewController _controller = MultiSplitViewController();
   late AppTheme appTheme;
   final ScrollController _scrollController = ScrollController();
   final ScrollController _commScrollController = ScrollController();
@@ -39,12 +42,10 @@ class _QuoteState extends State<Quote> {
   double _commDragStartOffset = 0.0;
   double _currentOffset = 0.0;
   double _commCurrentOffset = 0.0;
+  List optionFiles = ["我的自选", "..."];
+  String selectedFile = "我的自选";
 
   Future queryExchange() async {
-    // List<Exchange> tmp = await Utils.getAllExchange();
-    // if (tmp.isNotEmpty) {
-    //   await requestAllContract(tmp);
-    // } else {
     if (widget.index == 0) {
       await MarketServer.queryExchangeUrl().then((value) async {
         if (value != null) {
@@ -53,7 +54,6 @@ class _QuoteState extends State<Quote> {
         }
       });
     }
-    // }
   }
 
   Future requestAllContract() async {
@@ -101,6 +101,16 @@ class _QuoteState extends State<Quote> {
     });
   }
 
+  Future requestFiles() async {
+    String? string = await SpUtils.getString(SpKey.myOption);
+    if (string != null) {
+      List tmp = jsonDecode(string);
+      for (Map i in tmp) {
+        // optionFiles.insert(optionFiles.length-2, element);
+      }
+    }
+  }
+
   listener() {
     EventBusUtil.getInstance().on<GoKChart>().listen((event) {
       // logger.i(event.go);
@@ -131,62 +141,7 @@ class _QuoteState extends State<Quote> {
   @override
   Widget build(BuildContext context) {
     appTheme = context.watch<AppTheme>();
-    return ScaffoldPage(
-        padding: EdgeInsets.zero,
-        content:
-            // Row(
-            //   children: [
-            //     SizedBox(
-            //       height: 1.sh,
-            //       width: Common.optionWidgetWidth,
-            //       child: ListView(
-            //         shrinkWrap: true,
-            //         scrollDirection: Axis.vertical,
-            //         children: [
-            //           GestureDetector(
-            //             child: Container(
-            //                 width: Common.optionWidgetWidth,
-            //                 padding: const EdgeInsets.symmetric(vertical: 30),
-            //                 alignment: Alignment.center,
-            //                 child: CustomPaint(
-            //                   painter: TrapeziumPainter(color: appTheme.selectIndex == 0 ? appTheme.commandBarColor : Colors.transparent),
-            //                   child: Text(
-            //                     '自\n选\n界\n面',
-            //                     style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 0 ? Colors.yellow : appTheme.color),
-            //                   ),
-            //                 )),
-            //             onTap: () {
-            //               appTheme.viewIndex = 0;
-            //               appTheme.selectIndex = 0;
-            //             },
-            //           ),
-            //           GestureDetector(
-            //             child: Container(
-            //                 width: Common.optionWidgetWidth,
-            //                 padding: const EdgeInsets.symmetric(vertical: 30),
-            //                 alignment: Alignment.center,
-            //                 child: CustomPaint(
-            //                   painter: TrapeziumPainter(color: appTheme.selectIndex == 1 ? appTheme.commandBarColor : Colors.transparent),
-            //                   child: Text(
-            //                     '国\n际\n期\n货',
-            //                     style: TextStyle(fontSize: 19, color: appTheme.selectIndex == 1 ? Colors.yellow : appTheme.color),
-            //                   ),
-            //                 )),
-            //             onTap: () {
-            //               appTheme.viewIndex = 0;
-            //               appTheme.selectIndex = 1;
-            //             },
-            //           ),
-            //         ],
-            //       ),
-            //     ),
-            // Expanded(child:
-            item()
-        // MultiSplitView(axis: Axis.vertical, resizable: false, controller: _controller, builder: (BuildContext context, Area area) => area.data),
-        // ),
-        //   ],
-        // ),
-        );
+    return ScaffoldPage(padding: EdgeInsets.zero, content: item());
   }
 
   Widget item() {
@@ -199,7 +154,7 @@ class _QuoteState extends State<Quote> {
                 child: logic.viewIndexList[widget.index] == 0
                     ? QuoteData(widget.index)
                     : QuoteDetails(logic.selectedContractList[widget.index], widget.index)),
-            if (widget.index == 0)
+            if (widget.index == 0 && logic.viewIndexList[widget.index] == 0)
               SizedBox(
                 height: 28,
                 child: GestureDetector(
@@ -216,102 +171,125 @@ class _QuoteState extends State<Quote> {
                   },
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: logic.commodityList.length,
+                    itemCount: appTheme.selectIndex == 1 ? logic.commodityList.length : optionFiles.length,
                     controller: _commScrollController,
                     itemBuilder: (BuildContext context, int index) {
-                      return GestureDetector(
-                        onTap: () async {
-                          logic.selectedCommodity.value = logic.commodityList[index];
-                          int thisIndex = 0;
-                          if (logic.selectedExchangeList[widget.index].exchangeNo != null) {
-                            logic.selectedMContractList[widget.index].clear();
-                            logic.selectedMContractList[widget.index]
-                                .addAll(await logic.getContracts(logic.selectedExchangeList[widget.index].exchangeNo!));
-                            for (var e in logic.selectedMContractList[widget.index]) {
-                              if (e.comType == logic.selectedCommodity.value.commodityType && e.comId == logic.selectedCommodity.value.commodityId) {
-                                // logic.selectedMContractList[widget.index].add(e);
-                                thisIndex = logic.selectedMContractList[widget.index].indexOf(e);
-                                break;
+                      if (appTheme.selectIndex == 1) {
+                        return GestureDetector(
+                          onTap: () async {
+                            logic.selectedCommodity.value = logic.commodityList[index];
+                            int thisIndex = 0;
+                            if (logic.selectedExchangeList[widget.index].exchangeNo != null) {
+                              logic.selectedMContractList[widget.index].clear();
+                              logic.selectedMContractList[widget.index]
+                                  .addAll(await logic.getContracts(logic.selectedExchangeList[widget.index].exchangeNo!));
+                              for (var e in logic.selectedMContractList[widget.index]) {
+                                if (e.comType == logic.selectedCommodity.value.commodityType &&
+                                    e.comId == logic.selectedCommodity.value.commodityId) {
+                                  // logic.selectedMContractList[widget.index].add(e);
+                                  thisIndex = logic.selectedMContractList[widget.index].indexOf(e);
+                                  break;
+                                }
                               }
                             }
-                          }
-                          logic.commodityList.refresh();
-                          logic.selectedMContractList.refresh();
-                          EventBusUtil.getInstance().fire(RefreshCommodity(thisIndex));
+                            logic.commodityList.refresh();
+                            logic.selectedMContractList.refresh();
+                            EventBusUtil.getInstance().fire(RefreshCommodity(thisIndex));
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            color: logic.commodityList[index] == logic.selectedCommodity.value ? appTheme.exchangeBgColor : Colors.transparent,
+                            child: Text(
+                              logic.commodityList[index].commodityName ?? "",
+                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                            ),
+                          ),
+                        );
+                      } else {
+                        return GestureDetector(
+                          onTap: () async {
+                            if (index == optionFiles.length - 1) {
+                              showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return AddOptionDialog().addOptionDialog((e) {});
+                                  });
+                            } else {
+                              selectedFile = optionFiles[index];
+                            }
+                            if (mounted) setState(() {});
+                          },
+                          child: Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                            alignment: Alignment.center,
+                            color: optionFiles[index] == selectedFile ? appTheme.exchangeBgColor : Colors.transparent,
+                            child: Text(
+                              optionFiles[index] ?? "",
+                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ),
+            if (widget.index == 0 && appTheme.selectIndex == 1)
+              SizedBox(
+                height: 38,
+                child: GestureDetector(
+                  onHorizontalDragStart: (details) {
+                    _dragStartOffset = details.globalPosition.dx;
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
+                  },
+                  onHorizontalDragEnd: (details) {
+                    _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                    _currentOffset = min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                  },
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: logic.mExchangeList.length,
+                    controller: _scrollController,
+                    itemBuilder: (BuildContext context, int index) {
+                      return GestureDetector(
+                        onTap: () {
+                          logic.viewIndexList[widget.index] = 0;
+                          appTheme.selectIndex = 1;
+                          logic.switchExchange(index, widget.index);
+                          if (mounted) setState(() {});
                         },
                         child: Container(
                           margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          color: logic.commodityList[index] == logic.selectedCommodity.value ? appTheme.exchangeBgColor : Colors.transparent,
+                          color:
+                              logic.mExchangeList[index] == logic.selectedExchangeList[widget.index] ? appTheme.exchangeBgColor : Colors.transparent,
                           child: Text(
-                            logic.commodityList[index].commodityName ?? "",
-                            style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                            logic.mExchangeList[index].exchangeName ?? "",
+                            style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
                           ),
                         ),
                       );
                     },
                   ),
                 ),
+                // GestureDetector(
+                //   onTap: () {
+                //     logic.viewIndexList[widget.index] = 0;
+                //     logic.optionalIndexList[widget.index] = 0;
+                //   },
+                //   child: Container(
+                //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                //     color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
+                //     child: Text(
+                //       '自选界面',
+                //       style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                //     ),
+                //   ),
+                // )
+                // ],
+                // )
               ),
-            if (widget.index == 0)
-              SizedBox(
-                  height: 38,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: GestureDetector(
-                          onHorizontalDragStart: (details) {
-                            _dragStartOffset = details.globalPosition.dx;
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
-                          },
-                          onHorizontalDragEnd: (details) {
-                            _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                            _currentOffset =
-                                min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                          },
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: logic.mExchangeList.length,
-                            controller: _scrollController,
-                            itemBuilder: (BuildContext context, int index) {
-                              return GestureDetector(
-                                onTap: () {
-                                  logic.viewIndexList[widget.index] = 0;
-                                  logic.optionalIndexList[widget.index] = 1;
-                                  logic.switchExchange(index, widget.index);
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
-                                      ? appTheme.exchangeBgColor
-                                      : Colors.transparent,
-                                  child: Text(
-                                    logic.mExchangeList[index].exchangeName ?? "",
-                                    style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          logic.viewIndexList[widget.index] = 0;
-                          logic.optionalIndexList[widget.index] = 0;
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
-                          child: Text(
-                            '自选界面',
-                            style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
-                          ),
-                        ),
-                      )
-                    ],
-                  )),
           ],
         ),
         onPointerDown: (e) {

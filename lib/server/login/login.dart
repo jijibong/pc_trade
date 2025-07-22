@@ -78,7 +78,8 @@ class LoginServer {
       logger.w(response);
       if (response.data["code"] == 0) {
         UserUtils.currentUser = User.fromJson(response.data["data"]);
-        SpUtils.set(SpKey.currentUser, jsonEncode(response.data["data"]));
+        UserUtils.userJson = jsonEncode(response.data["data"]);
+        // SpUtils.set(SpKey.currentUser, jsonEncode(response.data["data"]));
         LoginServer.isLogin = true;
         return true;
       } else if (response.data['msg'] != null) {

@@ -9,9 +9,9 @@ import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:trade/model/quote/contract.dart';
 import 'package:trade/page/quote/quote_logic.dart';
 import 'package:trade/util/event_bus/events.dart';
+import 'package:trade/util/utils/market_util.dart';
 
 import '../../config/common.dart';
-import '../../model/quote/multi_row.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/log/log.dart';
 import '../../util/shared_preferences/shared_preferences_key.dart';
@@ -70,6 +70,7 @@ class _QuoteDataState extends State<QuoteData> {
   @override
   void initState() {
     super.initState();
+    if (MarketUtils.order.isNotEmpty) order = MarketUtils.order;
     if (widget.index == 0) {
       logic.loadData(0);
       logic.setListener();
@@ -140,6 +141,7 @@ class _QuoteDataState extends State<QuoteData> {
                   if (oldIndex < newIndex) newIndex--;
                   final item = order.removeAt(oldIndex);
                   order.insert(newIndex, item);
+                  MarketUtils.order = order;
                 });
               },
             ),
@@ -149,8 +151,7 @@ class _QuoteDataState extends State<QuoteData> {
               width: max(1630, 1.sw - Common.optionWidgetWidth),
               child: Obx(() {
                 return ReorderableListView.builder(
-                  itemCount:
-                      logic.optionalIndexList[widget.index] == 1 ? logic.selectedMContractList[widget.index].length : logic.mOptionalList.length,
+                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.mOptionalList.length,
                   shrinkWrap: true,
                   buildDefaultDragHandles: false,
                   scrollController: scrollController,
@@ -161,7 +162,7 @@ class _QuoteDataState extends State<QuoteData> {
                     );
                   },
                   itemBuilder: (context, index) {
-                    if (logic.optionalIndexList[widget.index] == 0) {
+                    if (appTheme.selectIndex == 0) {
                       final contextController = FlyoutController();
                       return ReorderableDragStartListener(
                           key: Key('$index'),
@@ -201,34 +202,34 @@ class _QuoteDataState extends State<QuoteData> {
                                         MenuFlyoutItem(
                                           text: const Text('取消分屏'),
                                           onPressed: () async {
-                                            logic.multiScreen.value = 0;
+                                            appTheme.multiScreen = 0;
                                           },
                                         ),
                                         MenuFlyoutItem(
                                           text: const Text('二分屏'),
                                           onPressed: () async {
-                                            logic.multiScreen.value = 2;
+                                            appTheme.multiScreen = 2;
                                             EventBusUtil.getInstance().fire(SplitScreen(2));
                                           },
                                         ),
                                         MenuFlyoutItem(
                                           text: const Text('四分屏'),
                                           onPressed: () async {
-                                            logic.multiScreen.value = 4;
+                                            appTheme.multiScreen = 4;
                                             EventBusUtil.getInstance().fire(SplitScreen(4));
                                           },
                                         ),
                                         MenuFlyoutItem(
                                           text: const Text('六分屏'),
                                           onPressed: () async {
-                                            logic.multiScreen.value = 6;
+                                            appTheme.multiScreen = 6;
                                             EventBusUtil.getInstance().fire(SplitScreen(6));
                                           },
                                         ),
                                         MenuFlyoutItem(
                                           text: const Text('九分屏'),
                                           onPressed: () async {
-                                            logic.multiScreen.value = 9;
+                                            appTheme.multiScreen = 9;
                                             EventBusUtil.getInstance().fire(SplitScreen(9));
                                           },
                                         ),
@@ -332,13 +333,11 @@ class _QuoteDataState extends State<QuoteData> {
                     if (oldIndex < newIndex) {
                       newIndex -= 1;
                     }
-                    if (logic.optionalIndexList[widget.index] == 0) {
-                      // var tmp = logic.mOptionalList[oldIndex];
+                    if (appTheme.selectIndex == 0) {
                       var tmp = logic.mOptionalList.removeAt(oldIndex);
                       logic.mOptionalList.insert(newIndex, tmp);
                       logic.saveOption();
                     } else {
-                      // var tmp = logic.selectedMContractList[widget.index][oldIndex];
                       var tmp = logic.selectedMContractList[widget.index].removeAt(oldIndex);
                       logic.selectedMContractList[widget.index].insert(newIndex, tmp);
                     }

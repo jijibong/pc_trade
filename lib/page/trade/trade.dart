@@ -267,15 +267,19 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
 
     await DesktopMultiWindow.invokeMethod(kMainWindowId, kTradeWindowId, {"id": kWindowId});
     // Broker? broker = await Utils.getBroker();
+
+    String hold = widget.params['hold'];
+    UserUtils.currentUser = User.fromJson(jsonDecode(hold));
+    UserUtils.userJson = hold;
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);
-    String? userInfo = await SpUtils.getString(SpKey.currentUser);
+    // String? userInfo = await SpUtils.getString(SpKey.currentUser);
     exchangeList = await Utils.getAllExchange();
     defaultTradeType = await SpUtils.getBool(SpKey.defaultTradeType) ?? true;
     defaultTradeMenu = await SpUtils.getInt(SpKey.defaultTradeMenu) ?? 0;
     String? commodity = await SpUtils.getString(SpKey.commodity);
-    if (baseUrl != null && userInfo != null) {
+    if (baseUrl != null) {
       Config.URL = baseUrl;
-      UserUtils.currentUser = User.fromJson(jsonDecode(userInfo));
+      // UserUtils.currentUser = User.fromJson(jsonDecode(userInfo));
       HttpUtils();
       getFund();
       requestHold();
@@ -1172,7 +1176,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
       InfoBarUtils.showWarningDialog("请选择要止盈止损的持仓");
     } else {
       String mHold = jsonEncode(mHoldOrder);
-      await rustDeskWinManager.newPL("pl", hold: mHold);
+      await rustDeskWinManager.newPL("pl", contract: UserUtils.userJson, hold: mHold);
     }
   }
 
@@ -4030,7 +4034,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                       padding: WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 5, horizontal: 10)),
                       shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                   onPressed: () async {
-                    await rustDeskWinManager.newCondition("condition");
+                    await rustDeskWinManager.newCondition("condition", hold: UserUtils.userJson);
                   },
                   child: Text(
                     "条件单修改",
