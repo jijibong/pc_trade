@@ -10,7 +10,7 @@ import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, SubWindow, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, SubWindow, SectorManage, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -35,6 +35,8 @@ extension Index on int {
         return WindowType.Order;
       case 9:
         return WindowType.SubWindow;
+      case 10:
+        return WindowType.SectorManage;
       default:
         return WindowType.Unknown;
     }
@@ -68,6 +70,7 @@ class RustDeskMultiWindowManager {
   final List<int> _orderWindows = List.empty(growable: true);
   final List<int> _settingWindows = List.empty(growable: true);
   final List<int> _subWindows = List.empty(growable: true);
+  final List<int> _sectorManage = List.empty(growable: true);
 
   // This function must be called in the main window thread.
   // Because the _remoteDesktopWindows is managed in that thread.
@@ -256,7 +259,7 @@ class RustDeskMultiWindowManager {
     );
   }
 
-  Future<MultiWindowCallResult> newCondition(String remoteId, {String? password, bool? forceRelay,  String? hold}) async {
+  Future<MultiWindowCallResult> newCondition(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
     return await newSession(
       WindowType.Condition,
       kWindowEventNewCondition,
@@ -342,6 +345,18 @@ class RustDeskMultiWindowManager {
     );
   }
 
+  Future<MultiWindowCallResult> newSectorManage(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
+    return await newSession(
+      WindowType.SectorManage,
+      kWindowEventSectorManage,
+      remoteId,
+      _sectorManage,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+    );
+  }
+
   Future<MultiWindowCallResult> call(WindowType type, String methodName, dynamic args) async {
     final wnds = _findWindowsByType(type);
     if (wnds.isEmpty) {
@@ -379,6 +394,8 @@ class RustDeskMultiWindowManager {
         return _orderWindows;
       case WindowType.SubWindow:
         return _subWindows;
+      case WindowType.SectorManage:
+        return _sectorManage;
       case WindowType.Unknown:
         break;
     }
@@ -415,6 +432,8 @@ class RustDeskMultiWindowManager {
         break;
       case WindowType.SubWindow:
         _subWindows.clear();
+        break;
+      case WindowType.SectorManage:
         break;
       case WindowType.Unknown:
         break;

@@ -555,6 +555,7 @@ enum DesktopType {
   notification,
   order,
   subWindow,
+  sectorManage,
 }
 
 class OffsetDevicePixelRatio {

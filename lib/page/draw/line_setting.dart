@@ -59,11 +59,8 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
 
   initData() async {
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
-      if (call.method == kWindowEventNewColorPicker) {
+      if (call.method == kWindowEventLineSetting) {
         windowOnTop(windowId());
-        var temp = jsonDecode(widget.params["hold"]);
-        drawToolLine = DrawToolLine.fromJson(temp);
-        if (mounted) setState(() {});
       } else if (call.method == kWindowEventSelectColor) {
         drawToolLine.colorValue = call.arguments["color"];
         if (mounted) setState(() {});

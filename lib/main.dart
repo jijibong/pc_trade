@@ -9,7 +9,6 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:provider/provider.dart';
-import 'package:screen_retriever/screen_retriever.dart';
 import 'package:system_theme/system_theme.dart';
 import 'package:trade/page/draw/color_picker.dart';
 import 'package:trade/page/draw/draw_order.dart';
@@ -17,11 +16,11 @@ import 'package:trade/page/draw/draw_tool.dart';
 import 'package:trade/page/draw/line_setting.dart';
 import 'package:trade/page/home/home.dart';
 import 'package:trade/page/secondary/condition.dart';
+import 'package:trade/page/secondary/sector_manage.dart';
 import 'package:trade/page/secondary/notification.dart';
 import 'package:trade/page/secondary/pl_page.dart';
 import 'package:trade/page/secondary/sub_window.dart';
 import 'package:trade/page/trade/trade.dart';
-import 'package:trade/util/log/log.dart';
 import 'package:trade/util/multi_windows_manager/common.dart';
 import 'package:trade/util/multi_windows_manager/consts.dart';
 import 'package:trade/util/multi_windows_manager/multi_window_manager.dart';
@@ -124,6 +123,13 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopSubWindow,
           );
           break;
+        case WindowType.SectorManage:
+          desktopType = DesktopType.sectorManage;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopSectorManage,
+          );
+          break;
         default:
           break;
       }
@@ -157,7 +163,7 @@ Future<void> main(List<String> args) async {
       runApp(const MyApp());
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
       // SpUtils.clear();
-      // SpUtils.remove(SpKey.option);
+      // SpUtils.remove(SpKey.sector);
     }
   }
 }
@@ -313,6 +319,20 @@ void runMultiWindow(
       WindowController.fromWindowId(kWindowId!)
         ..setFrame(const Offset(0, 0) & const Size(1450, 850))
         ..setTitle("行情")
+        ..show();
+      break;
+    case kAppTypeDesktopSectorManage:
+      _runSectorManage(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.28, size.height * 0.35))
+        ..setTitle("管理板块")
+        ..center()
         ..show();
       break;
     default:
@@ -680,6 +700,46 @@ void _runSubWindow(
             ),
           );
         }),
+  ));
+}
+
+void _runSectorManage(
+  String title,
+  Map<String, dynamic> argument,
+) {
+  runApp(RefreshWrapper(
+    builder: (context) => AnimatedFluentTheme(
+      data: FluentThemeData(visualDensity: VisualDensity.standard),
+      child: GetMaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: title,
+        home: FluentApp(
+          debugShowCheckedModeBanner: false,
+          darkTheme: FluentThemeData(
+            brightness: Brightness.dark,
+            visualDensity: VisualDensity.standard,
+          ),
+          themeMode: _appTheme.mode,
+          theme: FluentThemeData(
+            visualDensity: VisualDensity.standard,
+          ),
+          home: MultiProvider(
+              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
+              child: SectorManage(params: argument)),
+        ),
+        localizationsDelegates: const [
+          FluentLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('zh', 'CN')],
+        builder: (context, child) {
+          child = _keepScaleBuilder(context, child);
+          return child;
+        },
+      ),
+    ),
   ));
 }
 

@@ -47,6 +47,7 @@ const String kAppTypeDesktopColorPicker = "color_picker";
 const String kAppTypeDesktopDrawOrder = "draw_order";
 const String kAppTypeDesktopNotification = "notification";
 const String kAppTypeDesktopSubWindow = "subWindow";
+const String kAppTypeDesktopSectorManage = "sector_manage";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
 // This method is not used, maybe it can be removed.
@@ -70,16 +71,18 @@ const String kWindowEventNewPL = "new_pl";
 const String kWindowEventNewCondition = "new_condition";
 const String kWindowEventNewDraw = "new_draw";
 const String kWindowEventNewColorPicker = "new_color_picker";
-const String kWindowEventLineSetting = "new_color_picker";
+const String kWindowEventLineSetting = "line_setting";
 const String kWindowEventSelectColor = "select_color";
 const String kWindowEventNewNotification = "new_notification";
 const String kWindowEventDrawOrder = "draw_order";
 const String kWindowEventSubWindow = "sub_window";
+const String kWindowEventSectorManage = "sector_manage";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";
-const String kWindowEventNewQuote = "new_quote";
+// const String kWindowEventNewQuote = "new_quote";
 const String kWindowEventRequestQuote = "request_quote";
+const String kWindowEventSectorManageEvent = "sector_manage_event";
 
 const String kWindowEventActiveSession = "active_session";
 const String kWindowEventActiveDisplaySession = "active_display_session";

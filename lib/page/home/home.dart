@@ -255,6 +255,9 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         }
         var map = jsonDecode(call.arguments);
         EventBusUtil.getInstance().fire(OrderEvent(json: map));
+      } else if (call.method == kWindowEventSectorManageEvent) {
+        var jsonString = call.arguments["sectorList"];
+        EventBusUtil.getInstance().fire(SectorEvent(json: jsonString));
       }
     });
   }
@@ -1063,11 +1066,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             } else {
-                              int index = logic.mOptionalList.indexOf(contract);
-                              if (index + 1 == logic.mOptionalList.length) {
+                              int index = logic.homePageList.indexOf(contract);
+                              if (index + 1 == logic.homePageList.length) {
                                 index = -1;
                               }
-                              Contract newContract = logic.mOptionalList[index + 1];
+                              Contract newContract = logic.homePageList[index + 1];
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             }
@@ -1088,11 +1091,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             } else {
-                              int index = logic.mOptionalList.indexOf(contract);
+                              int index = logic.homePageList.indexOf(contract);
                               if (index == 0) {
-                                index = logic.mOptionalList.length;
+                                index = logic.homePageList.length;
                               }
-                              Contract newContract = logic.mOptionalList[index - 1];
+                              Contract newContract = logic.homePageList[index - 1];
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             }

@@ -34,7 +34,7 @@ class Common {
   ///Color
   static Color darkCommandBarColor = HexColor('#2B313F');
   static Color lightCommandBarColor = Colors.white;
-  static Color exchangeTextColor = HexColor('#777B88');
+  static Color exchangeTextColor = HexColor('#ffffff');
   static Color exchangeBgColor = HexColor('#545464');
   static Color dialogTitleColor = HexColor('#2C3140');
   static Color dialogContentColor = HexColor('#424759');

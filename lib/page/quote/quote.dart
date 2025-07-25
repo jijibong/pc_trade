@@ -10,16 +10,19 @@ import 'package:trade/page/quote/quote_data.dart';
 import 'package:trade/page/quote/quote_details/quote_details.dart';
 import 'package:trade/page/quote/quote_logic.dart';
 import 'package:trade/util/event_bus/eventBus_utils.dart';
+import 'package:trade/util/info_bar/info_bar.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
 import '../../config/common.dart';
+import '../../model/option/sector.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../server/quote/market.dart';
 import '../../util/dialog/add_option_dialog.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/log/log.dart';
+import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/style/paint.dart';
 import '../../util/theme/theme.dart';
 import '../../util/utils/market_util.dart';
@@ -38,12 +41,17 @@ class _QuoteState extends State<Quote> {
   late AppTheme appTheme;
   final ScrollController _scrollController = ScrollController();
   final ScrollController _commScrollController = ScrollController();
+  StreamSubscription? _subscription;
+  StreamSubscription? _subscriptionA;
+  StreamSubscription? _subscriptionB;
+  StreamSubscription? _subscriptionC;
   double _dragStartOffset = 0.0;
   double _commDragStartOffset = 0.0;
   double _currentOffset = 0.0;
   double _commCurrentOffset = 0.0;
-  List optionFiles = ["我的自选", "..."];
-  String selectedFile = "我的自选";
+  Map<Sector, List<Contract>> sectorMap = {};
+  Map<Sector, List<Contract>> showSectorMap = {};
+  Sector selectedSector = Sector();
 
   Future queryExchange() async {
     if (widget.index == 0) {
@@ -85,9 +93,9 @@ class _QuoteState extends State<Quote> {
                   orderNum: element.orderNum);
               conList.add(con);
 
-              if (element.mfContract == e.id) {
-                Utils.updateOption(con, true);
-              }
+              // if (element.mfContract == e.id) {
+              //   Utils.updateOption(con, true);
+              // }
             }
           }
         }
@@ -101,18 +109,70 @@ class _QuoteState extends State<Quote> {
     });
   }
 
-  Future requestFiles() async {
-    String? string = await SpUtils.getString(SpKey.myOption);
-    if (string != null) {
-      List tmp = jsonDecode(string);
-      for (Map i in tmp) {
-        // optionFiles.insert(optionFiles.length-2, element);
+  Future requestSector() async {
+    String? jsonString = await SpUtils.getString(SpKey.sector);
+    sectorMap.clear();
+    if (jsonString != null && jsonString != "") {
+      try {
+        sectorMap.addAll(deserializeSectorMap(jsonString));
+        for (var i in sectorMap.keys) {
+          if (i.id == "2") {
+            sectorMap[i] = logic.mainContractList;
+          }
+          if (i.id == "3") {
+            sectorMap[i] = logic.mHoldToContractList;
+          }
+          if (i.id == "4") {
+            sectorMap[i] = logic.historyList;
+          }
+        }
+      } catch (e) {
+        logger.e(e);
+      }
+    } else {
+      sectorMap.addAll({Sector(name: "自选", type: 0, show: true, canDelete: false, editable: true, id: "1"): []});
+      sectorMap.addAll({Sector(name: "主力合约", type: 0, show: false, canDelete: false, editable: false, id: "2"): logic.mainContractList});
+      sectorMap.addAll({Sector(name: "持仓合约", type: 0, show: false, canDelete: false, editable: false, id: "3"): logic.mHoldToContractList});
+      sectorMap.addAll({Sector(name: "浏览记录", type: 0, show: false, canDelete: false, editable: false, id: "4"): logic.historyList});
+    }
+    showSectorMap.clear();
+    logic.sectorList.clear();
+    for (var i in sectorMap.keys) {
+      if (i.show == true) {
+        showSectorMap.addAll({i: sectorMap[i] ?? []});
+      }
+      if (i.editable == true) {
+        logic.sectorList.add(i);
       }
     }
+    selectedSector = showSectorMap.keys.first;
+    logic.homePageList.value = showSectorMap[selectedSector] ?? [];
+    logic.subscriptionHome();
+    if (mounted) setState(() {});
+  }
+
+  ///序列化
+  String serializeSectorMap(Map<Sector, List<Contract>> map) {
+    final serialized = map.map((sector, contracts) => MapEntry(
+          jsonEncode(sector.toJson()),
+          contracts.map((person) => person.toJson()).toList(),
+        ));
+    return jsonEncode(serialized);
+  }
+
+  ///反序列化
+  Map<Sector, List<Contract>> deserializeSectorMap(String jsonString) {
+    final Map<String, dynamic> decodedMap = jsonDecode(jsonString);
+    final Map<Sector, List<Contract>> resultMap = decodedMap.map((key, value) {
+      final sector = Sector.fromJson(jsonDecode(key) as Map<String, dynamic>);
+      final contracts = (value as List).map((item) => Contract.fromJson(item as Map<String, dynamic>)).toList();
+      return MapEntry(sector, contracts);
+    });
+    return resultMap;
   }
 
   listener() {
-    EventBusUtil.getInstance().on<GoKChart>().listen((event) {
+    _subscription = EventBusUtil.getInstance().on<GoKChart>().listen((event) {
       // logger.i(event.go);
       if (event.index == widget.index) {
         if (event.go) {
@@ -123,12 +183,111 @@ class _QuoteState extends State<Quote> {
         }
       }
     });
+
+    ///板块更新
+    _subscriptionA = EventBusUtil.getInstance().on<SectorEvent>().listen((event) async {
+      var tmp = jsonDecode(event.json);
+      List<Sector> temp = [];
+      for (var i in tmp) {
+        temp.add(Sector.fromJson(i));
+      }
+      Map<Sector, List<Contract>> newMap = {};
+      for (var i in temp) {
+        bool exist = false;
+        for (var e in sectorMap.keys) {
+          if (i.id == e.id) {
+            exist = true;
+            newMap.addAll({i: sectorMap[e] ?? []});
+          }
+        }
+        if (!exist) {
+          newMap.addAll({i: []});
+        }
+      }
+      sectorMap.clear();
+      sectorMap.addAll(newMap);
+      showSectorMap.clear();
+      logic.sectorList.clear();
+      for (var i in sectorMap.keys) {
+        if (i.show == true) {
+          showSectorMap.addAll({i: sectorMap[i] ?? []});
+        }
+        if (i.editable == true) {
+          logic.sectorList.add(i);
+        }
+      }
+      final serialized = serializeSectorMap(sectorMap);
+      await SpUtils.set(SpKey.sector, serialized);
+      if (mounted) setState(() {});
+    });
+
+    ///自选更新
+    _subscriptionB = EventBusUtil.getInstance().on<AddOptionEvent>().listen((event) async {
+      bool exist = false;
+      for (var i in sectorMap.keys) {
+        if (i.id == event.sector.id) {
+          if (event.add) {
+            if (sectorMap[i] != null && sectorMap[i]!.isNotEmpty) {
+              for (var i in sectorMap[i]!) {
+                if (i.name == event.contract.name && i.code == event.contract.code && i.comId == event.contract.comId) {
+                  exist = true;
+                  break;
+                }
+              }
+            }
+            if (!exist) {
+              sectorMap[i]?.add(event.contract);
+            }
+          } else {
+            if (sectorMap[i]!.contains(event.contract)) {
+              sectorMap[i]?.remove(event.contract);
+            }
+          }
+          break;
+        }
+      }
+      if (exist) {
+        InfoBarUtils.showErrorDialog("该合约已存在！");
+      } else {
+        if (event.sector.id == "1") {
+          logic.optionOperate(event.contract, event.add);
+        }
+        if (selectedSector.id == event.sector.id) {
+          logic.homePageList.value = showSectorMap[selectedSector] ?? [];
+          logic.subscriptionHome();
+        }
+        final serialized = serializeSectorMap(sectorMap);
+        await SpUtils.set(SpKey.sector, serialized);
+      }
+      if (mounted) setState(() {});
+    });
+
+    ///更新账号自选
+    _subscriptionC = EventBusUtil.getInstance().on<OptionRefresh>().listen((event) async {
+      for (var i in sectorMap.keys) {
+        if (i.id == "1") {
+          sectorMap[i]?.clear();
+          sectorMap[i]?.addAll(event.contractList);
+          if (i.show == true) {
+            showSectorMap[i]?.clear();
+            showSectorMap[i]?.addAll(event.contractList);
+          }
+          break;
+        }
+      }
+      if (selectedSector.id == "1") {
+        logic.homePageList.value = showSectorMap[selectedSector] ?? [];
+        logic.subscriptionHome();
+      }
+      if (mounted) setState(() {});
+    });
   }
 
   @override
   void initState() {
     super.initState();
     queryExchange();
+    requestSector();
     listener();
   }
 
@@ -136,6 +295,11 @@ class _QuoteState extends State<Quote> {
   void dispose() {
     super.dispose();
     _scrollController.dispose();
+    _commScrollController.dispose();
+    _subscription?.cancel();
+    _subscriptionA?.cancel();
+    _subscriptionB?.cancel();
+    _subscriptionC?.cancel();
   }
 
   @override
@@ -171,7 +335,7 @@ class _QuoteState extends State<Quote> {
                   },
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
-                    itemCount: appTheme.selectIndex == 1 ? logic.commodityList.length : optionFiles.length,
+                    itemCount: appTheme.selectIndex == 1 ? logic.commodityList.length : showSectorMap.length + 1,
                     controller: _commScrollController,
                     itemBuilder: (BuildContext context, int index) {
                       if (appTheme.selectIndex == 1) {
@@ -186,7 +350,6 @@ class _QuoteState extends State<Quote> {
                               for (var e in logic.selectedMContractList[widget.index]) {
                                 if (e.comType == logic.selectedCommodity.value.commodityType &&
                                     e.comId == logic.selectedCommodity.value.commodityId) {
-                                  // logic.selectedMContractList[widget.index].add(e);
                                   thisIndex = logic.selectedMContractList[widget.index].indexOf(e);
                                   break;
                                 }
@@ -208,26 +371,35 @@ class _QuoteState extends State<Quote> {
                       } else {
                         return GestureDetector(
                           onTap: () async {
-                            if (index == optionFiles.length - 1) {
-                              showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return AddOptionDialog().addOptionDialog((e) {});
-                                  });
+                            if (index == showSectorMap.length) {
+                              String jsonString = jsonEncode(sectorMap.keys.map((e) => e.toJson()).toList());
+                              await rustDeskWinManager.newSectorManage("newSectorManage", hold: jsonString);
                             } else {
-                              selectedFile = optionFiles[index];
+                              selectedSector = showSectorMap.keys.elementAt(index);
+                              logic.homePageList.value = showSectorMap[selectedSector] ?? [];
+                              logic.subscriptionHome();
                             }
                             if (mounted) setState(() {});
                           },
-                          child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                            alignment: Alignment.center,
-                            color: optionFiles[index] == selectedFile ? appTheme.exchangeBgColor : Colors.transparent,
-                            child: Text(
-                              optionFiles[index] ?? "",
-                              style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
-                            ),
-                          ),
+                          child: index != showSectorMap.length
+                              ? Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                  alignment: Alignment.center,
+                                  color: showSectorMap.keys.elementAt(index) == selectedSector ? appTheme.exchangeBgColor : Colors.transparent,
+                                  child: Text(
+                                    showSectorMap.keys.elementAt(index).name ?? "",
+                                    style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                  ),
+                                )
+                              : Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                  alignment: Alignment.center,
+                                  color: Colors.transparent,
+                                  child: Text(
+                                    "...",
+                                    style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                  ),
+                                ),
                         );
                       }
                     },

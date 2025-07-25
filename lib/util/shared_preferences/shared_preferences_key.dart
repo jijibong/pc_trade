@@ -13,8 +13,8 @@ class SpKey {
   ///交易
   static String exchange = "exchange";
   static String allContract = "allContract";
-  static String option = "option";
-  static String myOption = "myOption";
+  // static String option = "option";
+  static String sector = "sector";
   static String commodity = "commodity";
   static String kPeriod = "kPeriod";
   static String kPeriodCount = "kPeriodCount";

@@ -100,24 +100,24 @@ class Utils {
   }
 
   /// 更新本地自选
-  static void updateOption(Contract mContract, bool isMain) async {
-    String? string = await SpUtils.getString(SpKey.option);
-    if (string != null && string != "") {
-      List optionList = jsonDecode(string);
-      List<Option> tmp = [];
-      for (var element in optionList) {
-        var value = Option.fromJson(element);
-        if (value.excd == mContract.exCode && value.comCode == mContract.subComCode && value.comType == mContract.comType && value.isMain == isMain) {
-          value.scode = mContract.code;
-        }
-        tmp.add(value);
-      }
-      SpUtils.set(SpKey.option, jsonEncode(tmp));
-    }
-  }
+  // static void updateOption(Contract mContract, bool isMain) async {
+  //   String? string = await SpUtils.getString(SpKey.option);
+  //   if (string != null && string != "") {
+  //     List optionList = jsonDecode(string);
+  //     List<Option> tmp = [];
+  //     for (var element in optionList) {
+  //       var value = Option.fromJson(element);
+  //       if (value.excd == mContract.exCode && value.comCode == mContract.subComCode && value.comType == mContract.comType && value.isMain == isMain) {
+  //         value.scode = mContract.code;
+  //       }
+  //       tmp.add(value);
+  //     }
+  //     SpUtils.set(SpKey.option, jsonEncode(tmp));
+  //   }
+  // }
 
-  /// 获取交易所下所有主力合约
-  static Future<List<Contract>> getContractWithMain(String excd) async {
+  /// 获取交易所下所有合约
+  static Future<List<Contract>> getContract(String excd) async {
     List<Contract> conList = [];
     List<Commodity> products = [];
 
@@ -196,6 +196,78 @@ class Utils {
       if (conList.isNotEmpty) {
         MarketUtils.setDataList(excd, conList);
       }
+    }
+    return conList;
+  }
+
+  /// 获取所有主力合约
+  static Future<List<Contract>> getMainContract() async {
+    List<Contract> conList = [];
+    List<Commodity> products = [];
+    products = MarketUtils.commodityList;
+    products.sort((a, b) => a.orderNum!.compareTo(b.orderNum!));
+
+    if (products.isNotEmpty) {
+      for (var element in products) {
+        List<Contract> contractList = [];
+        List<Contract> list = MarketUtils.contractList;
+        for (var e in list) {
+          if (e.contractID == element.mfContract) {
+            contractList.add(e);
+          }
+        }
+        contractList.sort((a, b) => a.name!.compareTo(b.name!));
+        Contract con = Contract();
+        List<Contract> childList = [];
+        for (var bean in contractList) {
+          if (bean.contractID == element.mfContract) {
+            con = Contract(
+                name: bean.name,
+                code: bean.code,
+                exCode: bean.exCode,
+                comName: element.shortName,
+                comType: bean.comType,
+                subComCode: bean.subComCode,
+                subConCode: bean.subConCode,
+                comId: bean.comId,
+                conId: bean.conId,
+                contractID: bean.contractID,
+                preSettlePrice: bean.preSettlePrice,
+                futureTickSize: element.commodityTickSize,
+                contractSize: element.contractSize,
+                currency: element.tradeCurrency,
+                trTime: element.tradeTime,
+                level2List: getLevel2List(),
+                isMain: true);
+          } else {
+            Contract child = Contract(
+                name: bean.name,
+                code: bean.code,
+                exCode: bean.exCode,
+                comName: element.shortName,
+                comType: bean.comType,
+                subComCode: bean.subComCode,
+                subConCode: bean.subConCode,
+                comId: bean.comId,
+                conId: bean.conId,
+                contractID: bean.contractID,
+                preSettlePrice: bean.preSettlePrice,
+                futureTickSize: element.commodityTickSize,
+                contractSize: element.contractSize,
+                currency: element.tradeCurrency,
+                trTime: element.tradeTime,
+                itemType: 1,
+                level2List: getLevel2List(),
+                isMain: false);
+            childList.add(child);
+          }
+        }
+        con.contractItems = childList;
+        conList.add(con);
+      }
+      // if (conList.isNotEmpty) {
+      //   MarketUtils.setDataList(excd, conList);
+      // }
     }
     return conList;
   }
@@ -856,31 +928,31 @@ class Utils {
   }
 
   ///操作自选
-  static Future<void> operateOption(Contract mContract, bool isAdd, int userId) async {
-    String? option = await SpUtils.getString(SpKey.option);
-    List<Option> tmp = [];
-    if (option != null && option != "") {
-      List temp = jsonDecode(option);
-      for (var element in temp) {
-        tmp.add(Option.fromJson(element));
-      }
-    }
-    if (isAdd) {
-      Option option = Option(
-          excd: mContract.exCode,
-          scode: mContract.code,
-          comCode: mContract.subComCode,
-          comType: mContract.comType,
-          userId: userId,
-          isMain: mContract.isMain);
-      tmp.add(option);
-    } else {
-      tmp.removeWhere((element) =>
-          element.excd == mContract.exCode &&
-          element.scode == mContract.code &&
-          element.comType == mContract.comType &&
-          element.isMain == mContract.isMain);
-    }
-    SpUtils.set(SpKey.option, jsonEncode(tmp));
-  }
+  // static Future<void> operateOption(Contract mContract, bool isAdd, int userId) async {
+  //   String? option = await SpUtils.getString(SpKey.option);
+  //   List<Option> tmp = [];
+  //   if (option != null && option != "") {
+  //     List temp = jsonDecode(option);
+  //     for (var element in temp) {
+  //       tmp.add(Option.fromJson(element));
+  //     }
+  //   }
+  //   if (isAdd) {
+  //     Option option = Option(
+  //         excd: mContract.exCode,
+  //         scode: mContract.code,
+  //         comCode: mContract.subComCode,
+  //         comType: mContract.comType,
+  //         userId: userId,
+  //         isMain: mContract.isMain);
+  //     tmp.add(option);
+  //   } else {
+  //     tmp.removeWhere((element) =>
+  //         element.excd == mContract.exCode &&
+  //         element.scode == mContract.code &&
+  //         element.comType == mContract.comType &&
+  //         element.isMain == mContract.isMain);
+  //   }
+  //   SpUtils.set(SpKey.option, jsonEncode(tmp));
+  // }
 }

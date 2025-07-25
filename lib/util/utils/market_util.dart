@@ -36,27 +36,27 @@ class MarketUtils {
   }
 
   ///获取本地自选
-  static Future<List<Contract>> getLocalOptions() async {
-    List<Contract> list = [];
-    String? optionString = await SpUtils.getString(SpKey.option);
-    if (optionString != null && optionString != "") {
-      List optionList = jsonDecode(optionString);
-      for (var element in optionList) {
-        var value = Option.fromJson(element);
-        for (var e in contractList) {
-          if (e.exCode == value.excd && e.code == value.scode && e.comType == value.comType) {
-            e.optionId = value.id;
-            e.isMain = value.isMain;
-            list.add(e);
-          }
-        }
-      }
-    }
-    list = [
-      ...{...list}
-    ];
-    return list;
-  }
+  // static Future<List<Contract>> getLocalOptions() async {
+  //   List<Contract> list = [];
+  //   String? optionString = await SpUtils.getString(SpKey.option);
+  //   if (optionString != null && optionString != "") {
+  //     List optionList = jsonDecode(optionString);
+  //     for (var element in optionList) {
+  //       var value = Option.fromJson(element);
+  //       for (var e in contractList) {
+  //         if (e.exCode == value.excd && e.code == value.scode && e.comType == value.comType) {
+  //           e.optionId = value.id;
+  //           e.isMain = value.isMain;
+  //           list.add(e);
+  //         }
+  //       }
+  //     }
+  //   }
+  //   list = [
+  //     ...{...list}
+  //   ];
+  //   return list;
+  // }
 
   ///根据市场代码获取实时数据列表
   static List<Contract> getDataVarietys(String? exCode) {

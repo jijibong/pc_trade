@@ -116,9 +116,9 @@ class _SubWindowState extends State<SubWindow> with MultiWindowListener {
                   orderNum: element.orderNum);
               conList.add(con);
 
-              if (element.mfContract == e.id) {
-                Utils.updateOption(con, true);
-              }
+              // if (element.mfContract == e.id) {
+              //   Utils.updateOption(con, true);
+              // }
             }
           }
         }

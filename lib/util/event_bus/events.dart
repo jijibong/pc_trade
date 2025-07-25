@@ -1,3 +1,5 @@
+import 'package:trade/model/option/sector.dart';
+
 import '../../model/delegation/res_comm_order.dart';
 import '../../model/delegation/res_del_order.dart';
 import '../../model/k/custom_line.dart';
@@ -29,7 +31,7 @@ class GetAllContracts {
   GetAllContracts(this.index);
 }
 
-///刷新
+///跳转品种
 class RefreshCommodity {
   int index;
   RefreshCommodity(this.index);
@@ -99,6 +101,20 @@ class SwitchContract {
   int index;
   Contract contract;
   SwitchContract(this.index, this.contract);
+}
+
+///添加自选
+class AddOptionEvent {
+  Sector sector;
+  Contract contract;
+  bool add;
+  AddOptionEvent(this.sector, this.contract, this.add);
+}
+
+///自选更新
+class OptionRefresh {
+  List<Contract> contractList;
+  OptionRefresh(this.contractList);
 }
 
 ///画线
@@ -185,4 +201,10 @@ class DrawEvent {
 class OrderEvent {
   dynamic json;
   OrderEvent({required this.json});
+}
+
+///板块更新
+class SectorEvent {
+  String json;
+  SectorEvent({required this.json});
 }

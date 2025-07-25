@@ -1,14 +1,8 @@
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
-import 'package:trade/util/info_bar/info_bar.dart';
 
 import '../../config/common.dart';
-import '../../model/k/k_flag.dart';
-import '../../model/k/k_preiod.dart';
-import '../../page/quote/quote_logic.dart';
-import '../event_bus/eventBus_utils.dart';
-import '../event_bus/events.dart';
-import '../log/log.dart';
+import '../info_bar/info_bar.dart';
 import '../theme/theme.dart';
 
 class AddOptionDialog {
@@ -72,6 +66,10 @@ class AddOptionDialog {
                     style: TextStyle(color: Colors.black),
                   ),
                   onPressed: () {
+                    if (controller.text.isEmpty) {
+                      InfoBarUtils.showWarningBar("板块名称不能为空");
+                      return;
+                    }
                     Get.back();
                     fun(controller.text);
                   },

@@ -8,6 +8,7 @@ import '../../config/common.dart';
 import '../../main.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/option/option.dart';
+import '../../model/option/sector.dart';
 import '../../model/pb/quote/fill.pb.dart';
 import '../../model/position/position.dart';
 import '../../model/quote/commodity.dart';
@@ -31,24 +32,22 @@ import '../../util/utils/utils.dart';
 class QuoteLogic extends GetxController {
   var mExchangeList = <Exchange>[].obs;
   var selectedExchangeList = List.filled(Common.screenCount, Exchange()).obs;
-  // var mContractList = <Contract>[].obs;
   var selectedMContractList = List.filled(Common.screenCount, <Contract>[]).obs;
   var selectedContractList = List.filled(Common.screenCount, Contract()).obs;
   var selectedIndex = 0.obs;
   var viewIndexList = List.filled(Common.screenCount, 0).obs; //首页\详情页
   var showChartList = List.filled(Common.screenCount, 0).obs; //图表\列表
   var kPeriodList = List.filled(Common.screenCount, KPeriod()).obs; //周期
-  // var optionalIndexList = [1, ...List.filled(Common.screenCount - 1, 0)].obs; //自选
-  var mOptionalList = <Contract>[].obs;
-  // var showContractList = <Contract>[].obs;
+  var homePageList = <Contract>[].obs;
+  // var mOptionalList = <Contract>[].obs;
+  var historyList = <Contract>[].obs;
+  var mainContractList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
-  // var multiScreen = 0.obs;
+  var mHoldToContractList = <Contract>[].obs;
   var selectedCommodity = Commodity().obs;
   var quoteFilledList = <Map<String, List<FillData>>>[].obs;
-
-  // var selectIndex = -1.obs;
-  // var viewIndex = 0.obs;
+  var sectorList = <Sector>[].obs;
 
   StreamSubscription? quoteEventSubscription;
   StreamSubscription? optionEventSubscription;
@@ -88,7 +87,9 @@ class QuoteLogic extends GetxController {
       selectedExchangeList.refresh();
       commodityList.value = Utils.getVariety(mExchangeList[0].exchangeNo);
       selectedMContractList.value = List.filled(Common.screenCount, await getContracts(mExchangeList[0].exchangeNo!));
-      refreshData(index);
+      getMainContracts();
+      subscriptionQuote(index);
+      // refreshData(index);
     }
     queryOption();
   }
@@ -100,7 +101,8 @@ class QuoteLogic extends GetxController {
     selectedExchangeList.refresh();
     commodityList.value = Utils.getVariety(selectedExchangeList[viewIndex].exchangeNo);
     selectedMContractList[viewIndex] = await getContracts(selectedExchangeList[viewIndex].exchangeNo!);
-    refreshData(viewIndex);
+    subscriptionQuote(index);
+    // refreshData(viewIndex);
   }
 
   Future<List<Contract>> getContracts(String exchangeNo) async {
@@ -108,9 +110,14 @@ class QuoteLogic extends GetxController {
     if (MarketUtils.getDataVarietys(exchangeNo).isNotEmpty) {
       tmp = MarketUtils.getDataVarietys(exchangeNo);
     } else {
-      tmp = await Utils.getContractWithMain(exchangeNo);
+      tmp = await Utils.getContract(exchangeNo);
     }
     return tmp;
+  }
+
+  getMainContracts() async {
+    mainContractList.value = await Utils.getMainContract();
+    mainContractList.refresh();
   }
 
   /// 取消订阅
@@ -132,20 +139,38 @@ class QuoteLogic extends GetxController {
     }
   }
 
-  /// 取消订阅自选
-  void unSubscriptionOption() {
-    if (mOptionalList.isNotEmpty) {
+  // /// 取消订阅自选
+  // void unSubscriptionOption() {
+  //   if (mOptionalList.isNotEmpty) {
+  //     List<String> json = [];
+  //     json = Utils.getSubJson(0, mOptionalList.length, mOptionalList);
+  //     EventBusUtil.getInstance().fire(SubEvent(json, Operation.UnSendSub));
+  //   }
+  // }
+  //
+  // /// 订阅自选
+  // void subscriptionOption({int? start, int? end}) {
+  //   if (mOptionalList.isNotEmpty) {
+  //     List<String> json = [];
+  //     json = Utils.getSubJson(start ?? 0, end ?? mOptionalList.length, mOptionalList);
+  //     EventBusUtil.getInstance().fire(SubEvent(json, Operation.SendSub));
+  //   }
+  // }
+
+  /// 取消订阅首页合约
+  void unSubscriptionHome() {
+    if (homePageList.isNotEmpty) {
       List<String> json = [];
-      json = Utils.getSubJson(0, mOptionalList.length, mOptionalList);
+      json = Utils.getSubJson(0, homePageList.length, homePageList);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.UnSendSub));
     }
   }
 
-  /// 订阅自选
-  void subscriptionOption({int? start, int? end}) {
-    if (mOptionalList.isNotEmpty) {
+  /// 订阅首页合约
+  void subscriptionHome({int? start, int? end}) {
+    if (homePageList.isNotEmpty) {
       List<String> json = [];
-      json = Utils.getSubJson(start ?? 0, end ?? mOptionalList.length, mOptionalList);
+      json = Utils.getSubJson(start ?? 0, end ?? homePageList.length, homePageList);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.SendSub));
     }
   }
@@ -186,8 +211,13 @@ class QuoteLogic extends GetxController {
             hold.YPosition = res.PositionQty;
           }
           mHoldList.add(hold);
+          Contract? con = MarketUtils.getVariety(hold.exCode, hold.code, hold.comType);
+          if (con != null) {
+            mHoldToContractList.add(con);
+          }
         }
         mHoldList.refresh();
+        mHoldToContractList.refresh();
         EventBusUtil.getInstance().fire(RefreshHold());
       }
     });
@@ -229,7 +259,7 @@ class QuoteLogic extends GetxController {
   void optionEvent() {
     optionEventSubscription = EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
-      for (var element in mOptionalList) {
+      for (var element in homePageList) {
         if (element.exCode == con.exCode && element.code == con.code && element.comType == con.comType) {
           element.lastPrice = con.lastPrice;
           element.change = con.change;
@@ -252,7 +282,7 @@ class QuoteLogic extends GetxController {
           dataHandle(element);
         }
       }
-      mOptionalList.refresh();
+      homePageList.refresh();
     });
   }
 
@@ -326,164 +356,130 @@ class QuoteLogic extends GetxController {
     return con;
   }
 
-  /// 刷新表格数据
+  ///刷新自选状态
   void refreshData(int index) async {
-    if (LoginServer.isLogin) {
-      if (MarketUtils.optionList.isEmpty) {
-        await MarketServer.queryOption().then((value) {
-          if (value != null) {
-            for (var element in selectedMContractList[index]) {
-              element.optional = false;
-              for (var item in MarketUtils.optionList) {
-                if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
-                  element.optional = true;
-                }
-              }
-            }
-          }
-        });
-      } else {
-        for (var element in selectedMContractList[index]) {
-          element.optional = false;
-          for (var item in MarketUtils.optionList) {
-            if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
-              element.optional = true;
-            }
-          }
-        }
-      }
-    } else {
-      List<Contract> list = await MarketUtils.getLocalOptions();
-      if (list.isNotEmpty) {
-        for (var element in selectedMContractList[index]) {
-          element.optional = false;
-          for (var e in list) {
-            if (e.exCode == element.exCode && e.code == element.code && e.comType == element.comType && e.isMain == element.isMain) {
-              element.optional = true;
-            }
-          }
-        }
-      }
-    }
-    selectedMContractList.refresh();
-    subscriptionQuote(index);
+    // if (LoginServer.isLogin) {
+    //   if (MarketUtils.optionList.isEmpty) {
+    //     await MarketServer.queryOption().then((value) {
+    //       if (value != null) {
+    //         for (var element in selectedMContractList[index]) {
+    //           element.optional = false;
+    //           for (var item in MarketUtils.optionList) {
+    //             if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
+    //               element.optional = true;
+    //             }
+    //           }
+    //         }
+    //       }
+    //     });
+    //   } else {
+    //     for (var element in selectedMContractList[index]) {
+    //       element.optional = false;
+    //       for (var item in MarketUtils.optionList) {
+    //         if (item.exCode == element.exCode && item.code == element.code && item.comType == element.comType && item.isMain == element.isMain) {
+    //           element.optional = true;
+    //         }
+    //       }
+    //     }
+    //   }
+    // } else {
+    //   List<Contract> list = await MarketUtils.getLocalOptions();
+    //   if (list.isNotEmpty) {
+    //     for (var element in selectedMContractList[index]) {
+    //       element.optional = false;
+    //       for (var e in list) {
+    //         if (e.exCode == element.exCode && e.code == element.code && e.comType == element.comType && e.isMain == element.isMain) {
+    //           element.optional = true;
+    //         }
+    //       }
+    //     }
+    //   }
+    // }
+    // selectedMContractList.refresh();
+    // subscriptionQuote(index);
   }
 
   ///自选操作
-  void optionOperate(Contract pos, {bool? add}) async {
-    if (add != true && pos.optional == false) {
-      InfoBarUtils.showErrorBar("该合约尚未加入自选");
-    } else if (add == true || pos.optional == false) {
-      if (LoginServer.isLogin) {
-        List<Contract> list = [];
-        list.add(pos);
+  void optionOperate(Contract pos, bool add) async {
+    if (LoginServer.isLogin) {
+      if (add) {
         await MarketServer.addOption(pos).then((value) {
           if (value) {
-            Utils.operateOption(pos, true, UserUtils.currentUser!.id!);
-            optionChange(pos, true);
+            // Utils.operateOption(pos, true, UserUtils.currentUser!.id!);
             InfoBarUtils.showInfoBar("${pos.name}已加入自选");
           }
         });
       } else {
-        Utils.operateOption(pos, true, 0);
-        optionChange(pos, true);
-        InfoBarUtils.showInfoBar("加入自选成功");
-      }
-    } else {
-      if (LoginServer.isLogin) {
-        List<Contract> list = [];
-        list.add(pos);
-        await MarketServer.delOption(list).then((value) {
+        await MarketServer.delOption([pos]).then((value) {
           if (value != null) {
-            optionChange(pos, false);
-            Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
-            InfoBarUtils.showInfoBar("${pos.name}已删除自选");
+            // Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
+            InfoBarUtils.showInfoBar("${pos.name}已移出自选");
+          } else {
+            queryOption();
           }
         });
-      } else {
-        Utils.operateOption(pos, false, 0);
-        InfoBarUtils.showInfoBar("删除自选成功");
-        optionChange(pos, false);
       }
     }
   }
 
-  ///自选页删除自选
-  void delOption(Contract pos) async {
-    if (LoginServer.isLogin) {
-      List<Contract> list = [];
-      list.add(pos);
-      MarketServer.delOption(list).then((value) {
-        if (value != null) {
-          mOptionalList.clear();
-          mOptionalList.addAll(value);
-          mOptionalList.refresh();
-          Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
-          InfoBarUtils.showInfoBar("${pos.name}已移出自选");
-        } else {
-          queryOption();
-        }
-      });
-    } else {
-      Utils.operateOption(pos, false, 0).then((value) async {
-        InfoBarUtils.showInfoBar("${pos.name}已移出自选");
-        List<Contract> list = await MarketUtils.getLocalOptions();
-        mOptionalList.clear();
-        mOptionalList.addAll(list);
-        mOptionalList.refresh();
-      });
-    }
-  }
+  // ///自选页删除自选
+  // void delOption(Contract pos) async {
+  //   if (LoginServer.isLogin) {
+  //     List<Contract> list = [];
+  //     list.add(pos);
+  //     await MarketServer.delOption(list).then((value) {
+  //       if (value != null) {
+  //         // Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
+  //         InfoBarUtils.showInfoBar("${pos.name}已移出自选");
+  //       } else {
+  //         queryOption();
+  //       }
+  //     });
+  //   }
+  // }
 
   ///查询自选
   Future queryOption() async {
     if (LoginServer.isLogin) {
       await MarketServer.queryOption().then((value) {
         if (value != null) {
-          mOptionalList.clear();
-          mOptionalList.addAll(value);
-          mOptionalList.refresh();
+          EventBusUtil.getInstance().fire(OptionRefresh(value));
         }
       });
-    } else {
-      List<Contract> list = await MarketUtils.getLocalOptions();
-      mOptionalList.clear();
-      mOptionalList.addAll(list);
-      mOptionalList.refresh();
     }
-    subscriptionOption();
   }
 
   /// 自选变化通知
-  void optionChange(Contract con, bool change) {
-    for (var e in selectedMContractList) {
-      for (Contract contract in e) {
-        if (contract.exCode == con.exCode && contract.code == con.code && contract.comType == con.comType && contract.isMain == con.isMain) {
-          contract.optional = change;
-          break;
-        }
-      }
-    }
-    if (change) {
-      mOptionalList.add(con);
-    } else {
-      mOptionalList.removeWhere((e) => e.exCode == con.exCode && e.code == con.code && e.comType == con.comType);
-    }
-    selectedMContractList.refresh();
-    mOptionalList.refresh();
-  }
+  // void optionChange(Contract con, bool change) {
+  //   for (var e in selectedMContractList) {
+  //     for (Contract contract in e) {
+  //       if (contract.exCode == con.exCode && contract.code == con.code && contract.comType == con.comType && contract.isMain == con.isMain) {
+  //         contract.optional = change;
+  //         break;
+  //       }
+  //     }
+  //   }
+  //   if (change) {
+  //     mOptionalList.add(con);
+  //   } else {
+  //     mOptionalList.removeWhere((e) => e.exCode == con.exCode && e.code == con.code && e.comType == con.comType);
+  //   }
+  //   selectedMContractList.refresh();
+  //   mOptionalList.refresh();
+  // }
 
-  void saveOption() async {
-    if (mOptionalList.isNotEmpty) {
-      List<Option> tmp = [];
-      for (var element in mOptionalList) {
-        Option option =
-            Option(excd: element.exCode, scode: element.code, comCode: element.subComCode, comType: element.comType, isMain: element.isMain);
-        tmp.add(option);
-      }
-      SpUtils.set(SpKey.option, jsonEncode(tmp));
-    }
-  }
+  ///保存本地自选
+  // void saveOption() async {
+  //   if (mOptionalList.isNotEmpty) {
+  //     List<Option> tmp = [];
+  //     for (var element in mOptionalList) {
+  //       Option option =
+  //           Option(excd: element.exCode, scode: element.code, comCode: element.subComCode, comType: element.comType, isMain: element.isMain);
+  //       tmp.add(option);
+  //     }
+  //     SpUtils.set(SpKey.option, jsonEncode(tmp));
+  //   }
+  // }
 
   void destroy() {
     quoteEventSubscription?.cancel();

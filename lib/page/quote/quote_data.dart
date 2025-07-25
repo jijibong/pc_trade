@@ -32,7 +32,7 @@ class _QuoteDataState extends State<QuoteData> {
   final ScrollController verScrollController = ScrollController();
   final AutoScrollController scrollController = AutoScrollController();
   List<int> order = List.generate(17, (i) => i);
-  List<String> titleList = ['序↓', '合约名称', '最新', '买价', '卖价', '买量', '卖量', '成交量', '持仓量', '涨跌', '昨结算', '开盘', '最高', '最低', '涨幅', '时间', '合约代码'];
+  List<String> titleList = ['序↓', '合约名称', '最新', '买价', '卖价', '买量', '卖量', '成交量', '持仓量', '涨跌', '昨结算', '开盘', '最高', '最低', '涨幅%', '时间', '合约代码'];
 
   listener() {
     ///跳转指定品种
@@ -151,7 +151,7 @@ class _QuoteDataState extends State<QuoteData> {
               width: max(1630, 1.sw - Common.optionWidgetWidth),
               child: Obx(() {
                 return ReorderableListView.builder(
-                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.mOptionalList.length,
+                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.homePageList.length,
                   shrinkWrap: true,
                   buildDefaultDragHandles: false,
                   scrollController: scrollController,
@@ -173,10 +173,10 @@ class _QuoteDataState extends State<QuoteData> {
                                 controller: contextController,
                                 child: Container(
                                   height: 35,
-                                  color: logic.selectedContractList[widget.index] == logic.mOptionalList[index]
+                                  color: logic.selectedContractList[widget.index] == logic.homePageList[index]
                                       ? appTheme.commandBarColor
                                       : Colors.transparent,
-                                  child: Row(children: order.map((i) => getList(logic.mOptionalList[index], index)[i]).toList()),
+                                  child: Row(children: order.map((i) => getList(logic.homePageList[index], index)[i]).toList()),
                                 ),
                               ),
                               onSecondaryTapUp: (d) {
@@ -195,7 +195,7 @@ class _QuoteDataState extends State<QuoteData> {
                                         MenuFlyoutItem(
                                           text: const Text('移除自选'),
                                           onPressed: () {
-                                            logic.delOption(logic.mOptionalList[index]);
+                                            logic.optionOperate(logic.homePageList[index],false);
                                             Flyout.of(context).close();
                                           },
                                         ),
@@ -241,7 +241,7 @@ class _QuoteDataState extends State<QuoteData> {
                               },
                             ),
                             onPointerDown: (e) {
-                              logic.selectedContractList[widget.index] = logic.mOptionalList[index];
+                              logic.selectedContractList[widget.index] = logic.homePageList[index];
                               EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
                               if (mounted) setState(() {}); //提升选中速度
                             },
@@ -270,20 +270,28 @@ class _QuoteDataState extends State<QuoteData> {
                                                 Flyout.of(context).close();
                                               },
                                             ),
-                                            MenuFlyoutItem(
-                                              text: const Text('加入自选'),
-                                              onPressed: () {
-                                                logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                                                Flyout.of(context).close();
-                                              },
-                                            ),
-                                            MenuFlyoutItem(
-                                              text: const Text('移除自选'),
-                                              onPressed: () {
-                                                logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-                                                Flyout.of(context).close();
-                                              },
-                                            ),
+                                            // MenuFlyoutItem(
+                                            //   text: const Text('加入自选'),
+                                            //   onPressed: () {
+                                            //     logic.optionOperate(logic.selectedContractList[widget.index], add: true);
+                                            //     Flyout.of(context).close();
+                                            //   },
+                                            // ),
+                                            MenuFlyoutSubItem(
+                                                text: const Text('加入自选'),
+                                                leading: const Icon(
+                                                  FluentIcons.accept,
+                                                  color: Colors.transparent,
+                                                ),
+                                                items: (context) => logic.sectorList
+                                                    .map((e) => MenuFlyoutItem(
+                                                          text: Text(e.name ?? "--"),
+                                                          onPressed: () {
+                                                            EventBusUtil.getInstance()
+                                                                .fire(AddOptionEvent(e, logic.selectedContractList[widget.index],true));
+                                                          },
+                                                        ))
+                                                    .toList()),
                                             // MenuFlyoutItem(
                                             //   text: const Text('取消分屏'),
                                             //   onPressed: () async {
@@ -334,9 +342,11 @@ class _QuoteDataState extends State<QuoteData> {
                       newIndex -= 1;
                     }
                     if (appTheme.selectIndex == 0) {
-                      var tmp = logic.mOptionalList.removeAt(oldIndex);
-                      logic.mOptionalList.insert(newIndex, tmp);
-                      logic.saveOption();
+                      var tmp = logic.homePageList.removeAt(oldIndex);
+                      logic.homePageList.insert(newIndex, tmp);
+
+                      ///Todo
+                      // logic.saveOption();
                     } else {
                       var tmp = logic.selectedMContractList[widget.index].removeAt(oldIndex);
                       logic.selectedMContractList[widget.index].insert(newIndex, tmp);
@@ -373,9 +383,10 @@ class _QuoteDataState extends State<QuoteData> {
         child: AutoSizeText(
           title ?? "--",
           maxLines: 1,
-          maxFontSize: 18,
+          maxFontSize: 17,
           stepGranularity: 1,
-          style: TextStyle(color: Common.quoteTitleColor, fontSize: 18),
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Common.quoteTitleColor, fontSize: 17),
         ),
       ),
     );
@@ -391,6 +402,7 @@ class _QuoteDataState extends State<QuoteData> {
         maxLines: 1,
         maxFontSize: 17,
         stepGranularity: 1,
+        textAlign: TextAlign.center,
         style: TextStyle(color: color ?? appTheme.color, fontSize: 17),
       ),
     );

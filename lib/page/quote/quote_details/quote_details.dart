@@ -1565,6 +1565,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (con.isMain == true) {
       contract?.isMain = true;
     }
+    if (contract != null && !logic.historyList.contains(contract)) {
+      logic.historyList.add(contract!);
+    }
     getKPeriod();
     getDrawLines();
     refreshData();
@@ -1778,6 +1781,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         contract = mContract;
         if (con.isMain == true) {
           contract?.isMain = true;
+        }
+        if (contract != null && !logic.historyList.contains(contract)) {
+          logic.historyList.add(contract!);
         }
         setTradeTimes(contract?.trTime);
         subscriptionKlineData(true);
@@ -2132,18 +2138,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   Flyout.of(context).close();
                 },
               ),
-              MenuFlyoutItem(
+              MenuFlyoutSubItem(
                   text: const Text('加入自选'),
-                  onPressed: () {
-                    logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                    Flyout.of(context).close();
-                  }),
-              MenuFlyoutItem(
-                  text: const Text('移除自选'),
-                  onPressed: () {
-                    logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-                    Flyout.of(context).close();
-                  }),
+                  leading: const Icon(
+                    FluentIcons.accept,
+                    color: Colors.transparent,
+                  ),
+                  items: (context) => logic.sectorList
+                      .map((e) => MenuFlyoutItem(
+                            text: Text(e.name ?? "--"),
+                            onPressed: () {
+                              EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                            },
+                          ))
+                      .toList()),
+              // MenuFlyoutItem(
+              //     text: const Text('移除自选'),
+              //     onPressed: () {
+              //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+              //       Flyout.of(context).close();
+              //     }),
               MenuFlyoutSubItem(
                 text: const Text('切换画面'),
                 leading: const Icon(
@@ -2891,18 +2905,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       Flyout.of(context).close();
                     },
                   ),
-                  MenuFlyoutItem(
+                  MenuFlyoutSubItem(
                       text: const Text('加入自选'),
-                      onPressed: () {
-                        logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                        Flyout.of(context).close();
-                      }),
-                  MenuFlyoutItem(
-                      text: const Text('移除自选'),
-                      onPressed: () {
-                        logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-                        Flyout.of(context).close();
-                      }),
+                      leading: const Icon(
+                        FluentIcons.accept,
+                        color: Colors.transparent,
+                      ),
+                      items: (context) => logic.sectorList
+                          .map((e) => MenuFlyoutItem(
+                                text: Text(e.name ?? "--"),
+                                onPressed: () {
+                                  EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                                },
+                              ))
+                          .toList()),
+                  // MenuFlyoutItem(
+                  //     text: const Text('移除自选'),
+                  //     onPressed: () {
+                  //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+                  //       Flyout.of(context).close();
+                  //     }),
                   MenuFlyoutSubItem(
                     text: const Text('切换画面'),
                     leading: const Icon(
@@ -3390,18 +3412,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     Flyout.of(context).close();
                   },
                 ),
-                MenuFlyoutItem(
+                MenuFlyoutSubItem(
                     text: const Text('加入自选'),
-                    onPressed: () {
-                      logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                      Flyout.of(context).close();
-                    }),
-                MenuFlyoutItem(
-                    text: const Text('移除自选'),
-                    onPressed: () {
-                      logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-                      Flyout.of(context).close();
-                    }),
+                    leading: const Icon(
+                      FluentIcons.accept,
+                      color: Colors.transparent,
+                    ),
+                    items: (context) => logic.sectorList
+                        .map((e) => MenuFlyoutItem(
+                              text: Text(e.name ?? "--"),
+                              onPressed: () {
+                                EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                              },
+                            ))
+                        .toList()),
+                // MenuFlyoutItem(
+                //     text: const Text('移除自选'),
+                //     onPressed: () {
+                //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+                //       Flyout.of(context).close();
+                //     }),
                 MenuFlyoutSubItem(
                   text: const Text('切换画面'),
                   leading: const Icon(
@@ -3570,7 +3600,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     } else {
                       int count = multiSplitViewController.areasCount;
                       subChartList.add(count);
-                      multiSplitViewController.addArea(Area(builder: (context, area) => subChart(subChartList.length - 1, area.id)));
+                      int length = subChartList.length - 1;
+                      multiSplitViewController.addArea(Area(builder: (context, area) => subChart(length, area.id)));
                       if (mounted) setState(() {});
                     }
                   },
@@ -3949,18 +3980,26 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     Flyout.of(context).close();
                   },
                 ),
-                MenuFlyoutItem(
+                MenuFlyoutSubItem(
                     text: const Text('加入自选'),
-                    onPressed: () {
-                      logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                      Flyout.of(context).close();
-                    }),
-                MenuFlyoutItem(
-                    text: const Text('移除自选'),
-                    onPressed: () {
-                      logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-                      Flyout.of(context).close();
-                    }),
+                    leading: const Icon(
+                      FluentIcons.accept,
+                      color: Colors.transparent,
+                    ),
+                    items: (context) => logic.sectorList
+                        .map((e) => MenuFlyoutItem(
+                              text: Text(e.name ?? "--"),
+                              onPressed: () {
+                                EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                              },
+                            ))
+                        .toList()),
+                // MenuFlyoutItem(
+                //     text: const Text('移除自选'),
+                //     onPressed: () {
+                //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+                //       Flyout.of(context).close();
+                //     }),
                 MenuFlyoutSubItem(
                   text: const Text('切换画面'),
                   leading: const Icon(
