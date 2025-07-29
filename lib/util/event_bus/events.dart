@@ -19,6 +19,12 @@ class BackEvent {
   BackEvent(this.index);
 }
 
+///保存页面
+class SavePage {
+  String name;
+  SavePage(this.name);
+}
+
 ///连接状态
 class SocketState {
   bool connected;
@@ -26,10 +32,7 @@ class SocketState {
 }
 
 ///获取所有合约
-class GetAllContracts {
-  int index;
-  GetAllContracts(this.index);
-}
+class GetAllContracts {}
 
 ///跳转品种
 class RefreshCommodity {

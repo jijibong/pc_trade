@@ -72,7 +72,7 @@ class AppTheme extends ChangeNotifier {
   }
 
   ///分屏
-  int _multiScreen = 0;
+  int _multiScreen = 1;
   int get multiScreen => _multiScreen;
   set multiScreen(int multiScreen) {
     _multiScreen = multiScreen;

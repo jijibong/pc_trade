@@ -18,7 +18,7 @@ import '../../model/quote/position_effect_type.dart';
 import '../../model/quote/side_type.dart';
 import '../../model/user/user.dart';
 import '../../server/condition/condition.dart';
-import '../../util/dialog/add_option_dialog.dart';
+import '../../util/dialog/add_sector_dialog.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
@@ -228,7 +228,7 @@ class _SectorManageState extends State<SectorManage> with MultiWindowListener {
                     showDialog(
                         context: context,
                         builder: (BuildContext context) {
-                          return AddOptionDialog().addOptionDialog((e) {
+                          return AddSectorDialog().addSectorDialog((e) {
                             Sector newSector = Sector(name: e, type: 1, show: true, canDelete: true, editable: true, id: Utils.generateLenString(10));
                             sectorList.add(newSector);
                             if (mounted) setState(() {});

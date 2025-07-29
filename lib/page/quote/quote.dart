@@ -15,11 +15,12 @@ import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
 import '../../config/common.dart';
+import '../../model/option/myPage.dart';
 import '../../model/option/sector.dart';
 import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../server/quote/market.dart';
-import '../../util/dialog/add_option_dialog.dart';
+import '../../util/dialog/add_sector_dialog.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -39,19 +40,16 @@ class Quote extends StatefulWidget {
 class _QuoteState extends State<Quote> {
   final QuoteLogic logic = Get.put(QuoteLogic());
   late AppTheme appTheme;
-  final ScrollController _scrollController = ScrollController();
   final ScrollController _commScrollController = ScrollController();
   StreamSubscription? _subscription;
   StreamSubscription? _subscriptionA;
   StreamSubscription? _subscriptionB;
   StreamSubscription? _subscriptionC;
-  double _dragStartOffset = 0.0;
   double _commDragStartOffset = 0.0;
-  double _currentOffset = 0.0;
   double _commCurrentOffset = 0.0;
   Map<Sector, List<Contract>> sectorMap = {};
   Map<Sector, List<Contract>> showSectorMap = {};
-  Sector selectedSector = Sector();
+
 
   Future queryExchange() async {
     if (widget.index == 0) {
@@ -104,7 +102,7 @@ class _QuoteState extends State<Quote> {
         }
         SpUtils.set(SpKey.commodity, jsonEncode(value));
         SpUtils.set(SpKey.allContract, jsonEncode(conList));
-        EventBusUtil.getInstance().fire(GetAllContracts(widget.index));
+        EventBusUtil.getInstance().fire(GetAllContracts());
       }
     });
   }
@@ -145,9 +143,11 @@ class _QuoteState extends State<Quote> {
         logic.sectorList.add(i);
       }
     }
-    selectedSector = showSectorMap.keys.first;
-    logic.homePageList.value = showSectorMap[selectedSector] ?? [];
-    logic.subscriptionHome();
+    if (logic.selectedSector[widget.index].id == null || !showSectorMap.keys.contains(logic.selectedSector[widget.index])) {
+      logic.selectedSector[widget.index] = showSectorMap.keys.first;
+    }
+    logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+    logic.subscriptionHome(widget.index);
     if (mounted) setState(() {});
   }
 
@@ -252,9 +252,9 @@ class _QuoteState extends State<Quote> {
         if (event.sector.id == "1") {
           logic.optionOperate(event.contract, event.add);
         }
-        if (selectedSector.id == event.sector.id) {
-          logic.homePageList.value = showSectorMap[selectedSector] ?? [];
-          logic.subscriptionHome();
+        if (logic.selectedSector[widget.index].id == event.sector.id) {
+          logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+          logic.subscriptionHome(widget.index);
         }
         final serialized = serializeSectorMap(sectorMap);
         await SpUtils.set(SpKey.sector, serialized);
@@ -275,9 +275,9 @@ class _QuoteState extends State<Quote> {
           break;
         }
       }
-      if (selectedSector.id == "1") {
-        logic.homePageList.value = showSectorMap[selectedSector] ?? [];
-        logic.subscriptionHome();
+      if (logic.selectedSector[widget.index].id == "1") {
+        logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+        logic.subscriptionHome(widget.index);
       }
       if (mounted) setState(() {});
     });
@@ -294,7 +294,6 @@ class _QuoteState extends State<Quote> {
   @override
   void dispose() {
     super.dispose();
-    _scrollController.dispose();
     _commScrollController.dispose();
     _subscription?.cancel();
     _subscriptionA?.cancel();
@@ -318,7 +317,7 @@ class _QuoteState extends State<Quote> {
                 child: logic.viewIndexList[widget.index] == 0
                     ? QuoteData(widget.index)
                     : QuoteDetails(logic.selectedContractList[widget.index], widget.index)),
-            if (widget.index == 0 && logic.viewIndexList[widget.index] == 0)
+            if (logic.viewIndexList[widget.index] == 0)
               SizedBox(
                 height: 28,
                 child: GestureDetector(
@@ -343,10 +342,10 @@ class _QuoteState extends State<Quote> {
                           onTap: () async {
                             logic.selectedCommodity.value = logic.commodityList[index];
                             int thisIndex = 0;
-                            if (logic.selectedExchangeList[widget.index].exchangeNo != null) {
+                            if (logic.selectedExchange.value.exchangeNo != null) {
                               logic.selectedMContractList[widget.index].clear();
                               logic.selectedMContractList[widget.index]
-                                  .addAll(await logic.getContracts(logic.selectedExchangeList[widget.index].exchangeNo!));
+                                  .addAll(await logic.getContracts(logic.selectedExchange.value.exchangeNo!));
                               for (var e in logic.selectedMContractList[widget.index]) {
                                 if (e.comType == logic.selectedCommodity.value.commodityType &&
                                     e.comId == logic.selectedCommodity.value.commodityId) {
@@ -360,7 +359,8 @@ class _QuoteState extends State<Quote> {
                             EventBusUtil.getInstance().fire(RefreshCommodity(thisIndex));
                           },
                           child: Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                            alignment: Alignment.center,
                             color: logic.commodityList[index] == logic.selectedCommodity.value ? appTheme.exchangeBgColor : Colors.transparent,
                             child: Text(
                               logic.commodityList[index].commodityName ?? "",
@@ -375,9 +375,9 @@ class _QuoteState extends State<Quote> {
                               String jsonString = jsonEncode(sectorMap.keys.map((e) => e.toJson()).toList());
                               await rustDeskWinManager.newSectorManage("newSectorManage", hold: jsonString);
                             } else {
-                              selectedSector = showSectorMap.keys.elementAt(index);
-                              logic.homePageList.value = showSectorMap[selectedSector] ?? [];
-                              logic.subscriptionHome();
+                              logic.selectedSector[widget.index] = showSectorMap.keys.elementAt(index);
+                              logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+                              logic.subscriptionHome(widget.index);
                             }
                             if (mounted) setState(() {});
                           },
@@ -385,7 +385,9 @@ class _QuoteState extends State<Quote> {
                               ? Container(
                                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                                   alignment: Alignment.center,
-                                  color: showSectorMap.keys.elementAt(index) == selectedSector ? appTheme.exchangeBgColor : Colors.transparent,
+                                  color: showSectorMap.keys.elementAt(index) == logic.selectedSector[widget.index]
+                                      ? appTheme.exchangeBgColor
+                                      : Colors.transparent,
                                   child: Text(
                                     showSectorMap.keys.elementAt(index).name ?? "",
                                     style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
@@ -406,62 +408,109 @@ class _QuoteState extends State<Quote> {
                   ),
                 ),
               ),
-            if (widget.index == 0 && appTheme.selectIndex == 1)
-              SizedBox(
-                height: 38,
-                child: GestureDetector(
-                  onHorizontalDragStart: (details) {
-                    _dragStartOffset = details.globalPosition.dx;
-                  },
-                  onHorizontalDragUpdate: (details) {
-                    _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
-                  },
-                  onHorizontalDragEnd: (details) {
-                    _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                    _currentOffset = min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                  },
-                  child: ListView.builder(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: logic.mExchangeList.length,
-                    controller: _scrollController,
-                    itemBuilder: (BuildContext context, int index) {
-                      return GestureDetector(
-                        onTap: () {
-                          logic.viewIndexList[widget.index] = 0;
-                          appTheme.selectIndex = 1;
-                          logic.switchExchange(index, widget.index);
-                          if (mounted) setState(() {});
-                        },
-                        child: Container(
-                          margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          color:
-                              logic.mExchangeList[index] == logic.selectedExchangeList[widget.index] ? appTheme.exchangeBgColor : Colors.transparent,
-                          child: Text(
-                            logic.mExchangeList[index].exchangeName ?? "",
-                            style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                // GestureDetector(
-                //   onTap: () {
-                //     logic.viewIndexList[widget.index] = 0;
-                //     logic.optionalIndexList[widget.index] = 0;
-                //   },
-                //   child: Container(
-                //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                //     color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
-                //     child: Text(
-                //       '自选界面',
-                //       style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
-                //     ),
-                //   ),
-                // )
-                // ],
-                // )
-              ),
+            // if (widget.index == 0)
+            //   SizedBox(
+            //     height: 32,
+            //     child: GestureDetector(
+            //       onHorizontalDragStart: (details) {
+            //         _dragStartOffset = details.globalPosition.dx;
+            //       },
+            //       onHorizontalDragUpdate: (details) {
+            //         _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
+            //       },
+            //       onHorizontalDragEnd: (details) {
+            //         _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+            //         _currentOffset = min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+            //       },
+            //       child: ListView.builder(
+            //         scrollDirection: Axis.horizontal,
+            //         itemCount: appTheme.selectIndex == 1 ? logic.mExchangeList.length : myPage.length + 1,
+            //         controller: _scrollController,
+            //         itemBuilder: (BuildContext context, int index) {
+            //           if (appTheme.selectIndex == 1) {
+            //             return GestureDetector(
+            //               onTap: () {
+            //                 logic.viewIndexList[widget.index] = 0;
+            //                 appTheme.selectIndex = 1;
+            //                 logic.switchExchange(index, widget.index);
+            //                 if (mounted) setState(() {});
+            //               },
+            //               child: Container(
+            //                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            //                 alignment: Alignment.center,
+            //                 color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
+            //                     ? appTheme.exchangeBgColor
+            //                     : Colors.transparent,
+            //                 child: Text(
+            //                   logic.mExchangeList[index].exchangeName ?? "",
+            //                   style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+            //                 ),
+            //               ),
+            //             );
+            //           } else {
+            //             if (index == 0) {
+            //               return GestureDetector(
+            //                 onTap: () {
+            //                   appTheme.multiScreen = 1;
+            //                   if (mounted) setState(() {});
+            //                 },
+            //                 child: Container(
+            //                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            //                   alignment: Alignment.center,
+            //                   color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
+            //                       ? appTheme.exchangeBgColor
+            //                       : Colors.transparent,
+            //                   child: Text(
+            //                     "我的合约",
+            //                     style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+            //                   ),
+            //                 ),
+            //               );
+            //             } else {
+            //               return GestureDetector(
+            //                 onTap: () {
+            //                   selectedPage = myPage[index - 1];
+            //                   if (selectedPage.selectedIndex != null) logic.selectedIndex.value = selectedPage.selectedIndex!;
+            //                   if (selectedPage.viewIndexList != null) logic.viewIndexList.value = selectedPage.viewIndexList!;
+            //                   if (selectedPage.showChartList != null) logic.showChartList.value = selectedPage.showChartList!;
+            //                   if (selectedPage.contractList != null) logic.selectedContractList.value = selectedPage.contractList!;
+            //                   if (selectedPage.kPeriodList != null) logic.kPeriodList.value = selectedPage.kPeriodList!;
+            //                   if (selectedPage.selectedSector != null) logic.sectorList.value = selectedPage.selectedSector!;
+            //                   if (mounted) setState(() {});
+            //                 },
+            //                 child: Container(
+            //                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+            //                   alignment: Alignment.center,
+            //                   color: myPage[index - 1] == selectedPage ? appTheme.exchangeBgColor : Colors.transparent,
+            //                   child: Text(
+            //                     myPage[index - 1].name ?? "",
+            //                     style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+            //                   ),
+            //                 ),
+            //               );
+            //             }
+            //           }
+            //           return null;
+            //         },
+            //       ),
+            //     ),
+            //     // GestureDetector(
+            //     //   onTap: () {
+            //     //     logic.viewIndexList[widget.index] = 0;
+            //     //     logic.optionalIndexList[widget.index] = 0;
+            //     //   },
+            //     //   child: Container(
+            //     //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            //     //     color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
+            //     //     child: Text(
+            //     //       '自选界面',
+            //     //       style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+            //     //     ),
+            //     //   ),
+            //     // )
+            //     // ],
+            //     // )
+            //   ),
           ],
         ),
         onPointerDown: (e) {

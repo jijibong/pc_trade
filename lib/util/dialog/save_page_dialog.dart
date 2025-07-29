@@ -11,11 +11,10 @@ import '../event_bus/events.dart';
 import '../log/log.dart';
 import '../theme/theme.dart';
 
-class PeriodDialog {
-  Widget showPeriodDialog(KPFlag mKPFlag, String name) {
+class PageDialog {
+  Widget savePageDialog(Function(String text) fun) {
     final appTheme = AppTheme();
-    final QuoteLogic logic = Get.put(QuoteLogic());
-    TextEditingController controller = TextEditingController(text: "1");
+    TextEditingController controller = TextEditingController(text: "");
     return ContentDialog(
       style: ContentDialogThemeData(
           padding: EdgeInsets.zero,
@@ -37,7 +36,7 @@ class PeriodDialog {
                   ),
                   Expanded(
                     child: Text(
-                      "任意$name技术分析",
+                      "保存页面",
                       style: TextStyle(color: appTheme.color),
                     ),
                   ),
@@ -49,14 +48,14 @@ class PeriodDialog {
                 ],
               ),
             ),
-            Row(
+            const Row(
               children: [
-                Text("请输入$name数:"),
+                Text("页面名称:"),
               ],
             ).marginSymmetric(horizontal: 15),
             Row(
               children: [
-                Expanded(child: TextBox(controller: controller, suffix: Text(name))),
+                Expanded(child: TextBox(controller: controller)),
               ],
             ).marginAll(15),
             const Spacer(),
@@ -74,22 +73,7 @@ class PeriodDialog {
                   ),
                   onPressed: () {
                     Get.back();
-                    int? result = int.tryParse(controller.text);
-                    if (result == null || result < 1 || result > mKPFlag.max!) {
-                      String str = "周期设置不合理，最小1，最大${mKPFlag.max}";
-                      InfoBarUtils.showErrorDialog(str);
-                    } else {
-                      KPeriod fs = KPeriod(name: "$result${mKPFlag.name!}", period: result, cusType: 2, kpFlag: mKPFlag.flag, isDel: false);
-                      if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
-                        if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
-                          return;
-                        }
-                        logic.kPeriodList[logic.selectedIndex.value] = fs;
-                        logic.viewIndexList[logic.selectedIndex.value] = 1;
-                      } else {
-                        EventBusUtil.getInstance().fire(SwitchPeriod(fs));
-                      }
-                    }
+                    fun(controller.text);
                   },
                 ),
                 Button(

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
@@ -22,6 +23,7 @@ import '../../model/broker/broker.dart';
 import '../../model/k/k_flag.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/k/k_time.dart';
+import '../../model/option/myPage.dart';
 import '../../model/quote/contract.dart';
 import '../../model/user/user.dart';
 import '../../server/login/login.dart';
@@ -29,6 +31,7 @@ import '../../server/socket/trade_webSocket.dart';
 import '../../server/socket/webSocket.dart';
 import '../../util/button/button.dart';
 import '../../util/dialog/period_dialog.dart';
+import '../../util/dialog/save_page_dialog.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/http/http.dart';
@@ -59,6 +62,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   TextEditingController pwdController = TextEditingController();
   TextEditingController vCodeController = TextEditingController();
   MultiSplitViewController multiSplitViewController = MultiSplitViewController();
+  final ScrollController _scrollController = ScrollController();
   final systemController = FlyoutController();
   final helpController = FlyoutController();
   final systemKey = GlobalKey();
@@ -70,6 +74,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   String? errorMsg;
   bool connected = false;
   late AppTheme appTheme;
+  double _dragStartOffset = 0.0;
+  double _currentOffset = 0.0;
+  List<MyPage> myPage = [];
+  MyPage? selectedPage;
+  bool myContract = true;
 
   requestNetIp() async {
     await LoginServer.requestNetIp().then((value) {
@@ -260,6 +269,20 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         EventBusUtil.getInstance().fire(SectorEvent(json: jsonString));
       }
     });
+  }
+
+  initPage() async {
+    String? jsonString = await SpUtils.getString(SpKey.myPage);
+    if (jsonString != null && jsonString != "") {
+      try {
+        myPage.clear();
+        var tmp = jsonDecode(jsonString);
+        myPage.addAll(tmp.map<MyPage>((e) => MyPage.fromJson(e)).toList());
+      } catch (e) {
+        logger.e(e);
+      }
+      if (mounted) setState(() {});
+    }
   }
 
   tradeAccount() async {
@@ -462,87 +485,120 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
     ///切换分屏
     EventBusUtil.getInstance().on<SplitScreen>().listen((event) async {
-      // if (event.index == appTheme.multiScreen) return;
-      if (event.index == 2) {
-        while (multiSplitViewController.areasCount > 0) {
-          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+      splitScreen(event.index);
+    });
+
+    ///保存页面
+    EventBusUtil.getInstance().on<SavePage>().listen((event) async {
+      if (myPage.isNotEmpty) {
+        for (var i in myPage) {
+          if (i.name == event.name) {
+            InfoBarUtils.showWarningDialog("名称重复，保存失败！");
+            return;
+          }
         }
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(0)),
-                    Area(builder: (context, area) => const Quote(1)),
-                  ])),
-        );
-      } else if (event.index == 4) {
-        while (multiSplitViewController.areasCount > 0) {
-          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
-        }
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(0)),
-                    Area(builder: (context, area) => const Quote(1)),
-                  ])),
-        );
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(2)),
-                    Area(builder: (context, area) => const Quote(3)),
-                  ])),
-        );
-      } else if (event.index == 6) {
-        while (multiSplitViewController.areasCount > 0) {
-          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
-        }
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(0)),
-                    Area(builder: (context, area) => const Quote(1)),
-                    Area(builder: (context, area) => const Quote(2)),
-                  ])),
-        );
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(3)),
-                    Area(builder: (context, area) => const Quote(4)),
-                    Area(builder: (context, area) => const Quote(5)),
-                  ])),
-        );
-      } else if (event.index == 9) {
-        while (multiSplitViewController.areasCount > 0) {
-          multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
-        }
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(0)),
-                    Area(builder: (context, area) => const Quote(1)),
-                    Area(builder: (context, area) => const Quote(2)),
-                  ])),
-        );
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(3)),
-                    Area(builder: (context, area) => const Quote(4)),
-                    Area(builder: (context, area) => const Quote(5)),
-                  ])),
-        );
-        multiSplitViewController.addArea(
-          Area(
-              builder: (context, area) => MultiSplitView(initialAreas: [
-                    Area(builder: (context, area) => const Quote(6)),
-                    Area(builder: (context, area) => const Quote(7)),
-                    Area(builder: (context, area) => const Quote(8)),
-                  ])),
-        );
+      }
+      if (appTheme.selectIndex == 0) {
+        List tmp = [];
+        tmp.addAll(logic.viewIndexList);
+
+        final MyPage thisPage = MyPage(
+            name: event.name,
+            multiScreen: appTheme.multiScreen,
+            selectedIndex: logic.selectedIndex.value,
+            viewIndexList: List.from(logic.viewIndexList),
+            showChartList: List.from(logic.showChartList),
+            contractList: List.from(logic.selectedContractList),
+            kPeriodList: List.from(logic.kPeriodList),
+            selectedSector: List.from(logic.sectorList));
+        myPage.add(thisPage);
+        var jsonString = jsonEncode(myPage.map((e) => e.toJson()).toList());
+        await SpUtils.set(SpKey.myPage, jsonString);
       }
       if (mounted) setState(() {});
     });
+  }
+
+  splitScreen(int count) {
+    if (count == 2) {
+      while (multiSplitViewController.areasCount > 0) {
+        multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+      }
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(0)),
+                  Area(builder: (context, area) => const Quote(1)),
+                ])),
+      );
+    } else if (count == 4) {
+      while (multiSplitViewController.areasCount > 0) {
+        multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+      }
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(0)),
+                  Area(builder: (context, area) => const Quote(1)),
+                ])),
+      );
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(2)),
+                  Area(builder: (context, area) => const Quote(3)),
+                ])),
+      );
+    } else if (count == 6) {
+      while (multiSplitViewController.areasCount > 0) {
+        multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+      }
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(0)),
+                  Area(builder: (context, area) => const Quote(1)),
+                  Area(builder: (context, area) => const Quote(2)),
+                ])),
+      );
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(3)),
+                  Area(builder: (context, area) => const Quote(4)),
+                  Area(builder: (context, area) => const Quote(5)),
+                ])),
+      );
+    } else if (count == 9) {
+      while (multiSplitViewController.areasCount > 0) {
+        multiSplitViewController.removeAreaAt(multiSplitViewController.areasCount - 1);
+      }
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(0)),
+                  Area(builder: (context, area) => const Quote(1)),
+                  Area(builder: (context, area) => const Quote(2)),
+                ])),
+      );
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(3)),
+                  Area(builder: (context, area) => const Quote(4)),
+                  Area(builder: (context, area) => const Quote(5)),
+                ])),
+      );
+      multiSplitViewController.addArea(
+        Area(
+            builder: (context, area) => MultiSplitView(initialAreas: [
+                  Area(builder: (context, area) => const Quote(6)),
+                  Area(builder: (context, area) => const Quote(7)),
+                  Area(builder: (context, area) => const Quote(8)),
+                ])),
+      );
+    }
+    if (mounted) setState(() {});
   }
 
   @override
@@ -553,6 +609,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     rustDeskWinManager.registerActiveWindowListener(onActiveWindowChanged);
     UserUtils.appContext = context;
     initInfo();
+    initPage();
     showRiskDialog();
     WebSocketServer().initSocket();
     requestNetIp();
@@ -567,6 +624,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     DesktopMultiWindow.removeListener(this);
     WebSocketServer().dispose();
     _controller.dispose();
+    _scrollController.dispose();
   }
 
   @override
@@ -754,6 +812,22 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
+                        icon: Icon(FluentIcons.save_all, color: appTheme.exchangeTextColor),
+                        label: Text('保存页面', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        onPressed: () async {
+                          if (appTheme.multiScreen != 1) {
+                            showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return PageDialog().savePageDialog((e) {
+                                    EventBusUtil.getInstance().fire(SavePage(e));
+                                  });
+                                });
+                          }
+                          // EventBusUtil.getInstance().fire(RefreshEvent());
+                        },
+                      ),
+                      CommandBarButton(
                         icon: Icon(FluentIcons.scale_volume, color: appTheme.exchangeTextColor),
                         label: Text('放大', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
@@ -861,7 +935,6 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       CommandBarButton(
                         label: Text('年', style: TextStyle(color: appTheme.selectCommandBarIndex == 4 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
-                          ///Todo period
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 4;
                             KPeriod fs = KPeriod(name: "年", period: 1, cusType: 2, kpFlag: KPFlag.Year, isDel: false);
@@ -1066,11 +1139,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             } else {
-                              int index = logic.homePageList.indexOf(contract);
-                              if (index + 1 == logic.homePageList.length) {
+                              int index = logic.homePageList[logic.selectedIndex.value].indexOf(contract);
+                              if (index + 1 == logic.homePageList[logic.selectedIndex.value].length) {
                                 index = -1;
                               }
-                              Contract newContract = logic.homePageList[index + 1];
+                              Contract newContract = logic.homePageList[logic.selectedIndex.value][index + 1];
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             }
@@ -1091,11 +1164,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             } else {
-                              int index = logic.homePageList.indexOf(contract);
+                              int index = logic.homePageList[logic.selectedIndex.value].indexOf(contract);
                               if (index == 0) {
-                                index = logic.homePageList.length;
+                                index = logic.homePageList[logic.selectedIndex.value].length;
                               }
-                              Contract newContract = logic.homePageList[index - 1];
+                              Contract newContract = logic.homePageList[logic.selectedIndex.value][index - 1];
                               logic.selectedContractList[logic.selectedIndex.value] = newContract;
                               EventBusUtil.getInstance().fire(SwitchContract(logic.selectedIndex.value, newContract));
                             }
@@ -1156,7 +1229,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       onTap: () {
                         logic.viewIndexList[0] = 0;
                         appTheme.selectIndex = 1;
-                        appTheme.multiScreen = 0;
+                        appTheme.multiScreen = 1;
                         if (mounted) setState(() {});
                       },
                     ),
@@ -1164,14 +1237,139 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                 ),
               ),
               Expanded(
-                  child: appTheme.multiScreen == 0
-                      ? const Quote(0)
-                      : MultiSplitViewTheme(
-                          data: MultiSplitViewThemeData(dividerThickness: 5, dividerPainter: DividerPainter(backgroundColor: Colors.white)),
-                          child: MultiSplitView(
-                            axis: Axis.vertical,
-                            controller: multiSplitViewController,
-                          )))
+                  child: Column(
+                children: [
+                  Expanded(
+                      child: appTheme.multiScreen == 1
+                          ? const Quote(0)
+                          : MultiSplitViewTheme(
+                              data: MultiSplitViewThemeData(dividerThickness: 5, dividerPainter: DividerPainter(backgroundColor: Colors.white)),
+                              child: MultiSplitView(
+                                axis: Axis.vertical,
+                                controller: multiSplitViewController,
+                              ))),
+                  SizedBox(
+                    height: 32,
+                    child: GestureDetector(
+                      onHorizontalDragStart: (details) {
+                        _dragStartOffset = details.globalPosition.dx;
+                      },
+                      onHorizontalDragUpdate: (details) {
+                        _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
+                      },
+                      onHorizontalDragEnd: (details) {
+                        _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                        _currentOffset =
+                            min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                      },
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: appTheme.selectIndex == 1 ? logic.mExchangeList.length : myPage.length + 1,
+                        controller: _scrollController,
+                        itemBuilder: (BuildContext context, int index) {
+                          if (appTheme.selectIndex == 1) {
+                            return GestureDetector(
+                              onTap: () {
+                                logic.viewIndexList[0] = 0;
+                                appTheme.selectIndex = 1;
+                                logic.switchExchange(index, 0);
+                                if (mounted) setState(() {});
+                              },
+                              child: Container(
+                                margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                alignment: Alignment.center,
+                                color: logic.mExchangeList[index] == logic.selectedExchange.value ? appTheme.exchangeBgColor : Colors.transparent,
+                                child: Text(
+                                  logic.mExchangeList[index].exchangeName ?? "",
+                                  style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                                ),
+                              ),
+                            );
+                          } else {
+                            if (index == 0) {
+                              return GestureDetector(
+                                onTap: () {
+                                  selectedPage = null;
+                                  myContract = true;
+                                  appTheme.multiScreen = 1;
+                                  logic.selectedIndex.value = 0;
+                                  logic.viewIndexList[0] = 0;
+                                  if (mounted) setState(() {});
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                  alignment: Alignment.center,
+                                  color: myContract ? appTheme.exchangeBgColor : Colors.transparent,
+                                  child: Text(
+                                    "我的合约",
+                                    style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                                  ),
+                                ),
+                              );
+                            } else {
+                              return GestureDetector(
+                                onTap: () {
+                                  selectedPage = myPage[index - 1];
+                                  myContract = false;
+                                  appTheme.multiScreen = selectedPage?.multiScreen ?? 1;
+                                  if (selectedPage?.selectedIndex != null) logic.selectedIndex.value = selectedPage!.selectedIndex!;
+                                  if (selectedPage?.viewIndexList != null) {
+                                    logic.viewIndexList.clear();
+                                    logic.viewIndexList.addAll(selectedPage!.viewIndexList!);
+                                  }
+                                  if (selectedPage?.showChartList != null) {
+                                    logic.showChartList.clear();
+                                    logic.showChartList.addAll(selectedPage!.showChartList!);
+                                  }
+                                  if (selectedPage?.contractList != null) {
+                                    logic.selectedContractList.clear();
+                                    logic.selectedContractList.addAll(selectedPage!.contractList!);
+                                  }
+                                  if (selectedPage?.kPeriodList != null) {
+                                    logic.kPeriodList.clear();
+                                    logic.kPeriodList.addAll(selectedPage!.kPeriodList!);
+                                  }
+                                  if (selectedPage?.selectedSector != null) {
+                                    logic.sectorList.clear();
+                                    logic.sectorList.addAll(selectedPage!.selectedSector!);
+                                  }
+                                  splitScreen(appTheme.multiScreen);
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                  alignment: Alignment.center,
+                                  color: myPage[index - 1] == selectedPage ? appTheme.exchangeBgColor : Colors.transparent,
+                                  child: Text(
+                                    myPage[index - 1].name ?? "",
+                                    style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                          return null;
+                        },
+                      ),
+                    ),
+                    // GestureDetector(
+                    //   onTap: () {
+                    //     logic.viewIndexList[widget.index] = 0;
+                    //     logic.optionalIndexList[widget.index] = 0;
+                    //   },
+                    //   child: Container(
+                    //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    //     color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
+                    //     child: Text(
+                    //       '自选界面',
+                    //       style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                    //     ),
+                    //   ),
+                    // )
+                    // ],
+                    // )
+                  ),
+                ],
+              )),
             ],
           ))
         ],

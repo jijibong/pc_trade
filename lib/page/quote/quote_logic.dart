@@ -7,7 +7,6 @@ import 'package:trade/util/event_bus/events.dart';
 import '../../config/common.dart';
 import '../../main.dart';
 import '../../model/k/k_preiod.dart';
-import '../../model/option/option.dart';
 import '../../model/option/sector.dart';
 import '../../model/pb/quote/fill.pb.dart';
 import '../../model/position/position.dart';
@@ -16,7 +15,6 @@ import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../model/socket_packet/operation.dart';
 import '../../model/trade/hold_order.dart';
-import '../../model/user/user.dart';
 import '../../server/login/login.dart';
 import '../../server/position/position.dart';
 import '../../server/quote/market.dart';
@@ -24,21 +22,22 @@ import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/consts.dart';
-import '../../util/shared_preferences/shared_preferences_key.dart';
-import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
 class QuoteLogic extends GetxController {
   var mExchangeList = <Exchange>[].obs;
-  var selectedExchangeList = List.filled(Common.screenCount, Exchange()).obs;
+  // var selectedExchangeList = List.filled(Common.screenCount, Exchange()).obs;
+  var selectedExchange = Exchange().obs;
   var selectedMContractList = List.filled(Common.screenCount, <Contract>[]).obs;
   var selectedContractList = List.filled(Common.screenCount, Contract()).obs;
-  var selectedIndex = 0.obs;
+  var selectedIndex = 0.obs; //分屏下当前屏幕序号
   var viewIndexList = List.filled(Common.screenCount, 0).obs; //首页\详情页
   var showChartList = List.filled(Common.screenCount, 0).obs; //图表\列表
   var kPeriodList = List.filled(Common.screenCount, KPeriod()).obs; //周期
-  var homePageList = <Contract>[].obs;
+  // var homePageList = <Contract>[].obs;
+  var selectedSector = List.filled(Common.screenCount, Sector()).obs;
+  var homePageList = List.filled(Common.screenCount, <Contract>[]).obs;
   // var mOptionalList = <Contract>[].obs;
   var historyList = <Contract>[].obs;
   var mainContractList = <Contract>[].obs;
@@ -61,7 +60,7 @@ class QuoteLogic extends GetxController {
 
     ///获取合约
     EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
-      loadData(event.index);
+      loadData();
     });
   }
 
@@ -75,7 +74,7 @@ class QuoteLogic extends GetxController {
     });
   }
 
-  loadData(int index) async {
+  loadData() async {
     if (mExchangeList.isNotEmpty && selectedMContractList.first.isNotEmpty) return;
     List<Exchange> list = await Utils.getAllExchange();
     if (list.isNotEmpty) {
@@ -83,12 +82,12 @@ class QuoteLogic extends GetxController {
       mExchangeList.addAll(list);
       mExchangeList.refresh();
 
-      selectedExchangeList.value = List.filled(Common.screenCount, mExchangeList[0]);
-      selectedExchangeList.refresh();
+      selectedExchange.value = mExchangeList[0];
+      // selectedExchangeList.refresh();
       commodityList.value = Utils.getVariety(mExchangeList[0].exchangeNo);
       selectedMContractList.value = List.filled(Common.screenCount, await getContracts(mExchangeList[0].exchangeNo!));
       getMainContracts();
-      subscriptionQuote(index);
+      subscriptionQuote(0);
       // refreshData(index);
     }
     queryOption();
@@ -97,11 +96,11 @@ class QuoteLogic extends GetxController {
   ///切换交易所
   void switchExchange(int index, int viewIndex) async {
     unSubscriptionQuote(viewIndex);
-    selectedExchangeList[viewIndex] = mExchangeList[index];
-    selectedExchangeList.refresh();
-    commodityList.value = Utils.getVariety(selectedExchangeList[viewIndex].exchangeNo);
-    selectedMContractList[viewIndex] = await getContracts(selectedExchangeList[viewIndex].exchangeNo!);
-    subscriptionQuote(index);
+    selectedExchange.value = mExchangeList[index];
+    // selectedExchangeList.refresh();
+    commodityList.value = Utils.getVariety(selectedExchange.value.exchangeNo);
+    selectedMContractList[viewIndex] = await getContracts(selectedExchange.value.exchangeNo!);
+    subscriptionQuote(viewIndex);
     // refreshData(viewIndex);
   }
 
@@ -158,19 +157,19 @@ class QuoteLogic extends GetxController {
   // }
 
   /// 取消订阅首页合约
-  void unSubscriptionHome() {
+  void unSubscriptionHome(int index) {
     if (homePageList.isNotEmpty) {
       List<String> json = [];
-      json = Utils.getSubJson(0, homePageList.length, homePageList);
+      json = Utils.getSubJson(0, homePageList[index].length, homePageList[index]);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.UnSendSub));
     }
   }
 
   /// 订阅首页合约
-  void subscriptionHome({int? start, int? end}) {
+  void subscriptionHome(int index, {int? start, int? end}) {
     if (homePageList.isNotEmpty) {
       List<String> json = [];
-      json = Utils.getSubJson(start ?? 0, end ?? homePageList.length, homePageList);
+      json = Utils.getSubJson(start ?? 0, end ?? homePageList[index].length, homePageList[index]);
       EventBusUtil.getInstance().fire(SubEvent(json, Operation.SendSub));
     }
   }
@@ -259,27 +258,29 @@ class QuoteLogic extends GetxController {
   void optionEvent() {
     optionEventSubscription = EventBusUtil.getInstance().on<QuoteEvent>().listen((event) {
       Contract con = event.con;
-      for (var element in homePageList) {
-        if (element.exCode == con.exCode && element.code == con.code && element.comType == con.comType) {
-          element.lastPrice = con.lastPrice;
-          element.change = con.change;
-          element.changePer = con.changePer;
-          element.buyPrice = con.buyPrice;
-          element.salePrice = con.salePrice;
-          element.volume = con.volume;
-          element.highPrice = con.highPrice;
-          element.lowPrice = con.lowPrice;
-          element.position = con.position;
-          element.timeStr = con.timeStr;
-          element.delegateSale = con.delegateSale;
-          element.delegateBuy = con.delegateBuy;
-          element.changeString = con.changeString;
-          element.preSettlePrice = con.preSettlePrice;
-          element.openPrice = con.openPrice;
-          element.high = con.high;
-          element.low = con.low;
-          element.changePerString = con.changePerString;
-          dataHandle(element);
+      for (var item in homePageList) {
+        for (var element in item) {
+          if (element.exCode == con.exCode && element.code == con.code && element.comType == con.comType) {
+            element.lastPrice = con.lastPrice;
+            element.change = con.change;
+            element.changePer = con.changePer;
+            element.buyPrice = con.buyPrice;
+            element.salePrice = con.salePrice;
+            element.volume = con.volume;
+            element.highPrice = con.highPrice;
+            element.lowPrice = con.lowPrice;
+            element.position = con.position;
+            element.timeStr = con.timeStr;
+            element.delegateSale = con.delegateSale;
+            element.delegateBuy = con.delegateBuy;
+            element.changeString = con.changeString;
+            element.preSettlePrice = con.preSettlePrice;
+            element.openPrice = con.openPrice;
+            element.high = con.high;
+            element.low = con.low;
+            element.changePerString = con.changePerString;
+            dataHandle(element);
+          }
         }
       }
       homePageList.refresh();

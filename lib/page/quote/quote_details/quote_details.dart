@@ -2509,7 +2509,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 MenuFlyoutItem(
                   text: const Text('取消分屏'),
                   onPressed: () async {
-                    appTheme.multiScreen = 0;
+                    appTheme.multiScreen = 1;
                   },
                 ),
               if (appTheme.selectIndex == 0)
@@ -3290,7 +3290,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     MenuFlyoutItem(
                       text: const Text('取消分屏'),
                       onPressed: () async {
-                        appTheme.multiScreen = 0;
+                        appTheme.multiScreen = 1;
                       },
                     ),
                   if (appTheme.selectIndex == 0)
@@ -3809,7 +3809,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   MenuFlyoutItem(
                     text: const Text('取消分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 0;
+                      appTheme.multiScreen = 1;
                     },
                   ),
                 if (appTheme.selectIndex == 0)
@@ -4233,7 +4233,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   MenuFlyoutItem(
                     text: const Text('取消分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 0;
+                      appTheme.multiScreen = 1;
                     },
                   ),
                 // MenuFlyoutItem(

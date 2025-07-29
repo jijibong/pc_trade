@@ -72,7 +72,7 @@ class _QuoteDataState extends State<QuoteData> {
     super.initState();
     if (MarketUtils.order.isNotEmpty) order = MarketUtils.order;
     if (widget.index == 0) {
-      logic.loadData(0);
+      logic.loadData();
       logic.setListener();
     }
     logic.setAllListener();
@@ -151,7 +151,7 @@ class _QuoteDataState extends State<QuoteData> {
               width: max(1630, 1.sw - Common.optionWidgetWidth),
               child: Obx(() {
                 return ReorderableListView.builder(
-                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.homePageList.length,
+                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.homePageList[widget.index].length,
                   shrinkWrap: true,
                   buildDefaultDragHandles: false,
                   scrollController: scrollController,
@@ -173,10 +173,10 @@ class _QuoteDataState extends State<QuoteData> {
                                 controller: contextController,
                                 child: Container(
                                   height: 35,
-                                  color: logic.selectedContractList[widget.index] == logic.homePageList[index]
+                                  color: logic.selectedContractList[widget.index] == logic.homePageList[widget.index][index]
                                       ? appTheme.commandBarColor
                                       : Colors.transparent,
-                                  child: Row(children: order.map((i) => getList(logic.homePageList[index], index)[i]).toList()),
+                                  child: Row(children: order.map((i) => getList(logic.homePageList[widget.index][index], index)[i]).toList()),
                                 ),
                               ),
                               onSecondaryTapUp: (d) {
@@ -195,14 +195,14 @@ class _QuoteDataState extends State<QuoteData> {
                                         MenuFlyoutItem(
                                           text: const Text('移除自选'),
                                           onPressed: () {
-                                            logic.optionOperate(logic.homePageList[index],false);
+                                            logic.optionOperate(logic.homePageList[widget.index][index], false);
                                             Flyout.of(context).close();
                                           },
                                         ),
                                         MenuFlyoutItem(
                                           text: const Text('取消分屏'),
                                           onPressed: () async {
-                                            appTheme.multiScreen = 0;
+                                            appTheme.multiScreen = 1;
                                           },
                                         ),
                                         MenuFlyoutItem(
@@ -241,7 +241,7 @@ class _QuoteDataState extends State<QuoteData> {
                               },
                             ),
                             onPointerDown: (e) {
-                              logic.selectedContractList[widget.index] = logic.homePageList[index];
+                              logic.selectedContractList[widget.index] = logic.homePageList[widget.index][index];
                               EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
                               if (mounted) setState(() {}); //提升选中速度
                             },
@@ -288,7 +288,7 @@ class _QuoteDataState extends State<QuoteData> {
                                                           text: Text(e.name ?? "--"),
                                                           onPressed: () {
                                                             EventBusUtil.getInstance()
-                                                                .fire(AddOptionEvent(e, logic.selectedContractList[widget.index],true));
+                                                                .fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
                                                           },
                                                         ))
                                                     .toList()),
@@ -342,9 +342,8 @@ class _QuoteDataState extends State<QuoteData> {
                       newIndex -= 1;
                     }
                     if (appTheme.selectIndex == 0) {
-                      var tmp = logic.homePageList.removeAt(oldIndex);
-                      logic.homePageList.insert(newIndex, tmp);
-
+                      var tmp = logic.homePageList[widget.index].removeAt(oldIndex);
+                      logic.homePageList[widget.index].insert(newIndex, tmp);
                       ///Todo
                       // logic.saveOption();
                     } else {
