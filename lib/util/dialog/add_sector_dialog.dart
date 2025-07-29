@@ -5,8 +5,8 @@ import '../../config/common.dart';
 import '../info_bar/info_bar.dart';
 import '../theme/theme.dart';
 
-class AddOptionDialog {
-  Widget addOptionDialog(Function(String text) fun) {
+class AddSectorDialog {
+  Widget addSectorDialog(Function(String text) fun) {
     final appTheme = AppTheme();
     TextEditingController controller = TextEditingController(text: "");
     return ContentDialog(
