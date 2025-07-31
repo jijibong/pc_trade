@@ -115,6 +115,9 @@ class AddOptionEvent {
 }
 
 ///自选更新
+class UpdateOptionEvent {}
+
+///自选更新
 class OptionRefresh {
   List<Contract> contractList;
   OptionRefresh(this.contractList);

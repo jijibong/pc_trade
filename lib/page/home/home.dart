@@ -65,6 +65,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   final ScrollController _scrollController = ScrollController();
   final systemController = FlyoutController();
   final helpController = FlyoutController();
+  final pageController = FlyoutController();
   final systemKey = GlobalKey();
   final helpKey = GlobalKey();
   Broker broker = Broker(brokerId: Common.brokerId);
@@ -79,6 +80,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   List<MyPage> myPage = [];
   MyPage? selectedPage;
   bool myContract = true;
+  bool riskDialogShowing = false;
 
   requestNetIp() async {
     await LoginServer.requestNetIp().then((value) {
@@ -124,7 +126,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
   showRiskDialog() async {
     bool? firstOpen = await SpUtils.getBool(SpKey.firstOpen);
-    if (firstOpen != false) {
+    if (firstOpen != false && !riskDialogShowing) {
+      riskDialogShowing = true;
       await _controller.initialize();
       _controller
         ..setBackgroundColor(Colors.white)
@@ -136,6 +139,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           showDialog(
               context: context,
               barrierDismissible: false,
+              dismissWithEsc: false,
               builder: (_) {
                 return PopScope(
                     canPop: false,
@@ -226,6 +230,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     await SpUtils.set(SpKey.screenSize, jsonEncode(map));
 
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
+      ///退出登录
       if (call.method == kWindowEventHide) {
         LoginServer.isLogin = false;
         UserUtils.currentUser = null;
@@ -234,6 +239,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         tradeWindowId = null;
         await rustDeskWinManager.unregisterActiveWindow(call.arguments['id']);
         await rustDeskWinManager.closeAllSubWindows();
+        tradeAccount();
       } else if (call.method == kWindowEventRequestQuote) {
         Contract? con = MarketUtils.getVariety(
           call.arguments['exCode'],
@@ -285,23 +291,28 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     }
   }
 
-  tradeAccount() async {
-    if (!LoginServer.isLogin) {
-      showLogin();
-    } else {
-      if (logic.selectedContractList[logic.selectedIndex.value].code != null) {
-        String contract = jsonEncode(logic.selectedContractList[logic.selectedIndex.value]);
-        await rustDeskWinManager.newRemoteDesktop("trade", contract: contract, hold: UserUtils.userJson);
-      } else {
-        await rustDeskWinManager.newRemoteDesktop("trade", hold: UserUtils.userJson);
+  tradeAccount() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (mounted) {
+        if (!LoginServer.isLogin) {
+          showLogin();
+        } else {
+          if (logic.selectedContractList[logic.selectedIndex.value].code != null) {
+            String contract = jsonEncode(logic.selectedContractList[logic.selectedIndex.value]);
+            await rustDeskWinManager.newRemoteDesktop("trade", contract: contract, hold: UserUtils.userJson);
+          } else {
+            await rustDeskWinManager.newRemoteDesktop("trade", hold: UserUtils.userJson);
+          }
+        }
       }
-    }
+    });
   }
 
   showLogin() {
     showDialog(
       context: context,
       barrierDismissible: false,
+      dismissWithEsc: false,
       builder: (context) {
         return ContentDialog(
           style: const ContentDialogThemeData(
@@ -315,13 +326,13 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   alignment: Alignment.center,
                   children: [
                     Image.asset("assets/images/tradelogin_bk.png"),
-                    Positioned(
-                        top: 5,
-                        right: 5,
-                        child: IconButton(
-                          icon: const Icon(FluentIcons.clear),
-                          onPressed: () => Get.back(),
-                        ))
+                    // Positioned(
+                    //     top: 5,
+                    //     right: 5,
+                    //     child: IconButton(
+                    //       icon: const Icon(FluentIcons.clear),
+                    //       onPressed: () => Get.back(),
+                    //     ))
                   ],
                 ),
                 boxItem('请输入服务商代码', severController, readOnly: true),
@@ -416,6 +427,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
           EventBusUtil.getInstance().fire(LoginSuccess(true));
           Get.back();
           TradeWebSocketServer().initSocket(broker.quoteUrl);
+          showRiskDialog();
           if (logic.selectedContractList[logic.selectedIndex.value].code != null) {
             String contract = jsonEncode(logic.selectedContractList[logic.selectedIndex.value]);
             await rustDeskWinManager.newRemoteDesktop("trade", contract: contract, hold: UserUtils.userJson);
@@ -610,7 +622,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     UserUtils.appContext = context;
     initInfo();
     initPage();
-    showRiskDialog();
+    // showRiskDialog();
+    tradeAccount();
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();
@@ -682,11 +695,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                                 builder: (context) {
                                   return MenuFlyout(items: [
                                     MenuFlyoutItem(
-                                      text: Text('快捷键设置', style: TextStyle(fontSize: 5.sp)),
+                                      text: const Text('快捷键设置'),
                                       onPressed: Flyout.of(context).close,
                                     ),
                                     MenuFlyoutItem(
-                                      text: Text('币种显示设置', style: TextStyle(fontSize: 5.sp)),
+                                      text: const Text('币种显示设置'),
                                       onPressed: Flyout.of(context).close,
                                     ),
                                   ]);
@@ -714,11 +727,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                                 builder: (context) {
                                   return MenuFlyout(items: [
                                     MenuFlyoutItem(
-                                      text: Text('关于', style: TextStyle(fontSize: 5.sp)),
+                                      text: const Text('关于'),
                                       onPressed: Flyout.of(context).close,
                                     ),
                                     MenuFlyoutItem(
-                                      text: Text('画图', style: TextStyle(fontSize: 5.sp)),
+                                      text: const Text('画图'),
                                       onPressed: Flyout.of(context).close,
                                     ),
                                   ]);
@@ -1097,7 +1110,6 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         label:
                             Text('120', style: TextStyle(color: appTheme.selectCommandBarIndex == 13 ? appTheme.exchangeTextColor : appTheme.color)),
                         onPressed: () {
-                          ///Todo period
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 13;
                             KPeriod fs = KPeriod(name: "2小时", period: 2, cusType: 2, kpFlag: KPFlag.Hour, isDel: false);
@@ -1307,41 +1319,73 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                                 ),
                               );
                             } else {
-                              return GestureDetector(
-                                onTap: () {
-                                  selectedPage = myPage[index - 1];
-                                  myContract = false;
-                                  appTheme.multiScreen = selectedPage?.multiScreen ?? 1;
-                                  if (selectedPage?.selectedIndex != null) logic.selectedIndex.value = selectedPage!.selectedIndex!;
-                                  if (selectedPage?.viewIndexList != null) {
-                                    logic.viewIndexList.clear();
-                                    logic.viewIndexList.addAll(selectedPage!.viewIndexList!);
-                                  }
-                                  if (selectedPage?.showChartList != null) {
-                                    logic.showChartList.clear();
-                                    logic.showChartList.addAll(selectedPage!.showChartList!);
-                                  }
-                                  if (selectedPage?.contractList != null) {
-                                    logic.selectedContractList.clear();
-                                    logic.selectedContractList.addAll(selectedPage!.contractList!);
-                                  }
-                                  if (selectedPage?.kPeriodList != null) {
-                                    logic.kPeriodList.clear();
-                                    logic.kPeriodList.addAll(selectedPage!.kPeriodList!);
-                                  }
-                                  if (selectedPage?.selectedSector != null) {
-                                    logic.sectorList.clear();
-                                    logic.sectorList.addAll(selectedPage!.selectedSector!);
-                                  }
-                                  splitScreen(appTheme.multiScreen);
-                                },
-                                child: Container(
-                                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-                                  alignment: Alignment.center,
-                                  color: myPage[index - 1] == selectedPage ? appTheme.exchangeBgColor : Colors.transparent,
-                                  child: Text(
-                                    myPage[index - 1].name ?? "",
-                                    style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                              final flyoutTargetKey = GlobalKey();
+                              return FlyoutTarget(
+                                key: flyoutTargetKey,
+                                controller: pageController,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    selectedPage = myPage[index - 1];
+                                    myContract = false;
+                                    appTheme.multiScreen = selectedPage?.multiScreen ?? 1;
+                                    if (selectedPage?.selectedIndex != null) logic.selectedIndex.value = selectedPage!.selectedIndex!;
+                                    if (selectedPage?.viewIndexList != null) {
+                                      logic.viewIndexList.clear();
+                                      logic.viewIndexList.addAll(selectedPage!.viewIndexList!);
+                                    }
+                                    if (selectedPage?.showChartList != null) {
+                                      logic.showChartList.clear();
+                                      logic.showChartList.addAll(selectedPage!.showChartList!);
+                                    }
+                                    if (selectedPage?.contractList != null) {
+                                      logic.selectedContractList.clear();
+                                      logic.selectedContractList.addAll(selectedPage!.contractList!);
+                                    }
+                                    if (selectedPage?.kPeriodList != null) {
+                                      logic.kPeriodList.clear();
+                                      logic.kPeriodList.addAll(selectedPage!.kPeriodList!);
+                                    }
+                                    if (selectedPage?.selectedSector != null) {
+                                      logic.sectorList.clear();
+                                      logic.sectorList.addAll(selectedPage!.selectedSector!);
+                                    }
+                                    splitScreen(appTheme.multiScreen);
+                                  },
+                                  onSecondaryTapDown: (d) {
+                                    final targetContext = flyoutTargetKey.currentContext;
+                                    if (targetContext == null) return;
+                                    final box = targetContext.findRenderObject() as RenderBox;
+                                    final position = box.localToGlobal(
+                                      d.localPosition,
+                                      ancestor: Navigator.of(context).context.findRenderObject(),
+                                    );
+                                    pageController.showFlyout(
+                                        barrierDismissible: true,
+                                        dismissOnPointerMoveAway: false,
+                                        dismissWithEsc: true,
+                                        position: position,
+                                        builder: (context) {
+                                          return MenuFlyout(items: [
+                                            MenuFlyoutItem(
+                                              text: const Text('删除'),
+                                              onPressed: () async {
+                                                myPage.removeAt(index - 1);
+                                                var jsonString = jsonEncode(myPage.map((e) => e.toJson()).toList());
+                                                await SpUtils.set(SpKey.myPage, jsonString);
+                                                if (mounted) setState(() {});
+                                              },
+                                            ),
+                                          ]);
+                                        });
+                                  },
+                                  child: Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                                    alignment: Alignment.center,
+                                    color: myPage[index - 1] == selectedPage ? appTheme.exchangeBgColor : Colors.transparent,
+                                    child: Text(
+                                      myPage[index - 1].name ?? "",
+                                      style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+                                    ),
                                   ),
                                 ),
                               );

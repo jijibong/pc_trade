@@ -45,11 +45,11 @@ class _QuoteState extends State<Quote> {
   StreamSubscription? _subscriptionA;
   StreamSubscription? _subscriptionB;
   StreamSubscription? _subscriptionC;
+  StreamSubscription? _subscriptionD;
   double _commDragStartOffset = 0.0;
   double _commCurrentOffset = 0.0;
   Map<Sector, List<Contract>> sectorMap = {};
   Map<Sector, List<Contract>> showSectorMap = {};
-
 
   Future queryExchange() async {
     if (widget.index == 0) {
@@ -281,6 +281,18 @@ class _QuoteState extends State<Quote> {
       }
       if (mounted) setState(() {});
     });
+
+    ///自选排序更新
+    _subscriptionD = EventBusUtil.getInstance().on<UpdateOptionEvent>().listen((event) async {
+      for (var i in sectorMap.keys) {
+        if (logic.selectedSector[widget.index].id == i.id) {
+          sectorMap[i] = logic.homePageList[widget.index];
+          final serialized = serializeSectorMap(sectorMap);
+          await SpUtils.set(SpKey.sector, serialized);
+          return;
+        }
+      }
+    });
   }
 
   @override
@@ -299,6 +311,7 @@ class _QuoteState extends State<Quote> {
     _subscriptionA?.cancel();
     _subscriptionB?.cancel();
     _subscriptionC?.cancel();
+    _subscriptionD?.cancel();
   }
 
   @override
@@ -344,8 +357,7 @@ class _QuoteState extends State<Quote> {
                             int thisIndex = 0;
                             if (logic.selectedExchange.value.exchangeNo != null) {
                               logic.selectedMContractList[widget.index].clear();
-                              logic.selectedMContractList[widget.index]
-                                  .addAll(await logic.getContracts(logic.selectedExchange.value.exchangeNo!));
+                              logic.selectedMContractList[widget.index].addAll(await logic.getContracts(logic.selectedExchange.value.exchangeNo!));
                               for (var e in logic.selectedMContractList[widget.index]) {
                                 if (e.comType == logic.selectedCommodity.value.commodityType &&
                                     e.comId == logic.selectedCommodity.value.commodityId) {

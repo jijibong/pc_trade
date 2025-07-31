@@ -4288,7 +4288,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     onPressed: () => state(() => queryIndex = 0),
                     child: Text(
                       "资金状况",
-                      style: TextStyle(fontSize: 14, color: queryIndex == 0 ? appTheme.color : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 14, color: queryIndex == 0 ? appTheme.commandBarColor : appTheme.exchangeTextColor),
                     )),
                 Button(
                     style: ButtonStyle(
@@ -4298,7 +4298,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     onPressed: () => state(() => queryIndex = 1),
                     child: Text(
                       "历史成交",
-                      style: TextStyle(fontSize: 14, color: queryIndex == 1 ? appTheme.color : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 14, color: queryIndex == 1 ? appTheme.commandBarColor : appTheme.exchangeTextColor),
                     )).marginOnly(left: 15),
                 Button(
                     style: ButtonStyle(
@@ -4308,7 +4308,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     onPressed: () => state(() => queryIndex = 2),
                     child: Text(
                       "平仓明细",
-                      style: TextStyle(fontSize: 14, color: queryIndex == 2 ? appTheme.color : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 14, color: queryIndex == 2 ? appTheme.commandBarColor : appTheme.exchangeTextColor),
                     )).marginOnly(left: 15),
                 Button(
                     style: ButtonStyle(
@@ -4318,7 +4318,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                     onPressed: () => state(() => queryIndex = 3),
                     child: Text(
                       "持仓明细",
-                      style: TextStyle(fontSize: 14, color: queryIndex == 3 ? appTheme.color : appTheme.exchangeTextColor),
+                      style: TextStyle(fontSize: 14, color: queryIndex == 3 ? appTheme.commandBarColor : appTheme.exchangeTextColor),
                     )).marginOnly(left: 15),
                 // Button(
                 //     style: ButtonStyle(

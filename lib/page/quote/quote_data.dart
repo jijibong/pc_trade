@@ -342,10 +342,8 @@ class _QuoteDataState extends State<QuoteData> {
                       newIndex -= 1;
                     }
                     if (appTheme.selectIndex == 0) {
-                      var tmp = logic.homePageList[widget.index].removeAt(oldIndex);
-                      logic.homePageList[widget.index].insert(newIndex, tmp);
-                      ///Todo
-                      // logic.saveOption();
+                      logic.homePageList[widget.index].insert(newIndex, logic.homePageList[widget.index].removeAt(oldIndex));
+                      EventBusUtil.getInstance().fire(UpdateOptionEvent());
                     } else {
                       var tmp = logic.selectedMContractList[widget.index].removeAt(oldIndex);
                       logic.selectedMContractList[widget.index].insert(newIndex, tmp);
