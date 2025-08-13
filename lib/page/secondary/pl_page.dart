@@ -62,6 +62,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
     UserUtils.currentUser = User.fromJson(jsonDecode(hold));
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);
     if (baseUrl != null ) {
+      UserUtils.appContext = context;
       Config.URL = baseUrl;
       HttpUtils();
       initData();

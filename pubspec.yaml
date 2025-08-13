@@ -76,7 +76,7 @@ dependencies:
   #浮点运算 https://pub-web.flutter-io.cn/packages/decimal
   decimal: ^3.0.2
   #存储 https://pub-web.flutter-io.cn/packages/shared_preferences
-  shared_preferences: ^2.3.1
+  shared_preferences: ^2.5.3
   #protobuf https://pub-web.flutter-io.cn/packages/protobuf
   protobuf: ^3.1.0
   #WebSocket https://pub-web.flutter-io.cn/packages/web_socket_client

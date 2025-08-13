@@ -15,6 +15,7 @@ import '../../model/quote/contract.dart';
 import '../../model/quote/exchange.dart';
 import '../../model/socket_packet/operation.dart';
 import '../../model/trade/hold_order.dart';
+import '../../model/trade/res_hold_order.dart';
 import '../../server/login/login.dart';
 import '../../server/position/position.dart';
 import '../../server/quote/market.dart';
@@ -209,7 +210,56 @@ class QuoteLogic extends GetxController {
           } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
             hold.YPosition = res.PositionQty;
           }
-          mHoldList.add(hold);
+          List<ResHoldOrder> details = [];
+          details.add(res);
+          hold.detailList = details;
+          hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
+          bool isExist = false;
+          int position = -1;
+
+          for (var hold in mHoldList) {
+            if (isSameOrder(hold, res)) {
+              position = mHoldList.indexOf(hold);
+              isExist = true;
+              break;
+            }
+          }
+          if (isExist) {
+            //已存在
+            mHoldList[position].detailList?.add(res);
+            mHoldList[position].noMap?[res.PositionNo ?? ""] = res.PositionNo ?? "";
+            //重新计算此单的均价和数量
+            List<ResHoldOrder> details = mHoldList[position].detailList ?? [];
+            int qty = 0;
+            int availableQty = 0;
+            double price = 0;
+            double margin = 0;
+            double profit = 0;
+
+            for (var detail in details) {
+              qty = qty + (detail.PositionQty ?? 0);
+              availableQty = availableQty + (detail.AvailableQty ?? 0);
+              profit = profit + (detail.PositionProfit ?? 0);
+              price = price + (detail.PositionPrice ?? 0) * (detail.PositionQty ?? 0);
+              margin = margin + (detail.MarginValue ?? 0) * (detail.PositionQty ?? 0);
+            }
+
+            price = price / qty;
+            mHoldList[position].quantity = qty;
+            mHoldList[position].AvailableQty = availableQty;
+            mHoldList[position].open = price;
+            mHoldList[position].margin = margin;
+            mHoldList[position].floatProfit = profit;
+            if (res.PositionType == PositionType.POSITION_TODAY) {
+              mHoldList[position].TPosition = (mHoldList[position].TPosition ?? 0) + (res.PositionQty ?? 0);
+            } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
+              mHoldList[position].YPosition = (mHoldList[position].YPosition ?? 0) + (res.PositionQty ?? 0);
+            }
+          } else {
+            // hold.plStatus = await queryPLRecord(hold);
+            mHoldList.add(hold);
+          }
+
           Contract? con = MarketUtils.getVariety(hold.exCode, hold.code, hold.comType);
           if (con != null) {
             mHoldToContractList.add(con);
@@ -220,6 +270,19 @@ class QuoteLogic extends GetxController {
         EventBusUtil.getInstance().fire(RefreshHold());
       }
     });
+  }
+
+  /// 是否为同方向持仓订单
+  bool isSameOrder(HoldOrder hold, ResHoldOrder res) {
+    if (hold.exCode == res.ExchangeNo &&
+        hold.subComCode == res.CommodityNo &&
+        hold.subConCode == res.ContractNo &&
+        hold.comType == res.CommodityType &&
+        hold.orderSide == res.MatchSide) {
+      return true;
+    } else {
+      return false;
+    }
   }
 
   void quoteEvent() {
@@ -406,14 +469,12 @@ class QuoteLogic extends GetxController {
       if (add) {
         await MarketServer.addOption(pos).then((value) {
           if (value) {
-            // Utils.operateOption(pos, true, UserUtils.currentUser!.id!);
             InfoBarUtils.showInfoBar("${pos.name}已加入自选");
           }
         });
       } else {
         await MarketServer.delOption([pos]).then((value) {
           if (value != null) {
-            // Utils.operateOption(pos, false, UserUtils.currentUser!.id!);
             InfoBarUtils.showInfoBar("${pos.name}已移出自选");
           } else {
             queryOption();
@@ -421,6 +482,15 @@ class QuoteLogic extends GetxController {
         });
       }
     }
+  }
+
+  ///取消分屏
+  void cancelMultiScreen() {
+    selectedIndex = 0.obs;
+    viewIndexList.removeRange(1, Common.screenCount);
+    viewIndexList.addAll(List.filled(Common.screenCount - 1, 0));
+    selectedSector.removeRange(1, Common.screenCount);
+    selectedSector.addAll(List.filled(Common.screenCount - 1, Sector()));
   }
 
   // ///自选页删除自选

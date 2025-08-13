@@ -3,6 +3,7 @@ import 'package:get/get.dart';
 
 import '../../config/common.dart';
 import '../../model/user/user.dart';
+import '../log/log.dart';
 import '../theme/theme.dart';
 
 class InfoBarUtils {

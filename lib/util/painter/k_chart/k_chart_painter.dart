@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:ui';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:get/get.dart';
 import 'package:path_drawing/path_drawing.dart';
 
 import '../../../model/k/OHLCEntity.dart';
@@ -24,6 +25,9 @@ import '../../../model/k/k_chart_data/WREntity.dart';
 import '../../../model/k/k_preiod.dart';
 import '../../../model/k/port.dart';
 import '../../../model/k/trade_time.dart';
+import '../../../model/pl/pl.dart';
+import '../../../model/quote/side_type.dart';
+import '../../../model/trade/hold_order.dart';
 import '../../log/log.dart';
 import '../../utils/k_util.dart';
 import '../../utils/utils.dart';
@@ -239,6 +243,8 @@ class ChartPainter extends BaseKChartPainter {
   bool isDrawTimeDown = true;
   bool isDrawing = false;
   bool orderDrawing = false;
+  List<HoldOrder> holdOrder = [];
+  List<PLRecord> pLRecordList = [];
 
   ChartPainter({
     required this.isDrawTime,
@@ -290,6 +296,8 @@ class ChartPainter extends BaseKChartPainter {
     required this.mVolData,
     required this.mVRData,
     required this.isDrawTimeDown,
+    required this.holdOrder,
+    required this.pLRecordList,
   }) : super(isDrawTime: isDrawTime);
 
   @override
@@ -471,6 +479,7 @@ class ChartPainter extends BaseKChartPainter {
           rightMarginSpace, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
     }
 
+    drawPosLines(canvas);
     //绘制十字线
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
       double lowerHeight = kChartViewHeight - TIME_LOWER_CHART_TOP;
@@ -731,6 +740,8 @@ class ChartPainter extends BaseKChartPainter {
 
     //画线下单
     drawLines(canvas);
+
+    drawPosLines(canvas);
   }
 
   void drawHighLowPoint(Canvas canvas, double rate, double textBottom) {
@@ -835,96 +846,8 @@ class ChartPainter extends BaseKChartPainter {
     canvas.drawLine(Offset(timeMarginLeft, kChartViewHeight), Offset(kChartViewWidth - timeMarginRight, kChartViewHeight), girdPaint);
   }
 
-  List<OHLCEntity> getOHLCData() {
-    List<OHLCEntity> list = [];
-    if (mOHLCData.isNotEmpty) {
-      list.addAll(mOHLCData);
-    }
-    return list;
-  }
-
-  static int getMaxPeriod(bool isDrawCost, bool isDrawBollinger, bool isDrawFall) {
-    int max = 0;
-    if (isDrawCost) {
-      // 均线线周期
-      max = max > CostOnePeriod ? max : CostOnePeriod;
-      max = max > CostTwoPeriod ? max : CostTwoPeriod;
-      max = max > CostThreePeriod ? max : CostThreePeriod;
-      max = max > CostFourPeriod ? max : CostFourPeriod;
-      max = max > CostFivePeriod ? max : CostFivePeriod;
-    }
-    if (isDrawBollinger) {
-      max = max > BollingerPeriod ? max : BollingerPeriod;
-    }
-    if (isDrawFall) {
-      //  瀑布线周期
-      max = max > FallPeriod1 * 4 ? max : FallPeriod1 * 4;
-      max = max > FallPeriod2 * 4 ? max : FallPeriod2 * 4;
-      max = max > FallPeriod3 * 4 ? max : FallPeriod3 * 4;
-      max = max > FallPeriod4 * 4 ? max : FallPeriod4 * 4;
-      max = max > FallPeriod5 * 4 ? max : FallPeriod5 * 4;
-      max = max > FallPeriod6 * 4 ? max : FallPeriod6 * 4;
-    }
-    // if (isMidDrawMacd) {
-    //   //  MACD线周期
-    //   max = max > (macdPeriod + macdLPeriod) ? max : (macdPeriod + macdLPeriod);
-    //   max = max > macdLPeriod ? max : macdLPeriod;
-    // }
-    // if (isDrawRsi) {
-    //   //  rsi线周期
-    //   max = max > rsiPeriod ? max : rsiPeriod;
-    // }
-    // if (isDrawPSY) {
-    //   //  PSY线周期
-    //   max = max > (PSYPeriod + PSYMAPeriod) ? max : (PSYPeriod + PSYMAPeriod);
-    //   max = max > PSYPeriod ? max : PSYPeriod;
-    // }
-    // if (isDrawBIAS) {
-    //   //  BIAS线周期
-    //   max = max > BIAS1Period ? max : BIAS1Period;
-    //   max = max > BIAS2Period ? max : BIAS2Period;
-    //   max = max > BIAS3Period ? max : BIAS3Period;
-    // }
-    // if (isDrawCCI) {
-    //   //  CCI线周期
-    //   max = max > CCIPeriod ? max : CCIPeriod;
-    // }
-    // if (isDrawKDJ) {
-    //   //  KDJ线周期
-    //   max = max > KDJPeriod ? max : KDJPeriod;
-    // }
-    // if (isDrawWR) {
-    //   //  WR线周期
-    //   max = max > Wr1Period ? max : Wr1Period;
-    //   max = max > Wr2Period ? max : Wr2Period;
-    // }
-    return max;
-  }
-
-  static int getNumber(int position, double marginLeft, double pWidth, int showNum) {
-    int number = 0;
-    int num = ((position - marginLeft) % pWidth).toInt();
-    if (num == 0) {
-      number = (position - marginLeft) ~/ pWidth;
-    } else {
-      number = ((position - marginLeft) / pWidth + 1).toInt();
-    }
-
-    number = number < 1 ? 1 : number;
-    number = number > showNum ? showNum : number;
-    return number;
-  }
-
-  bool dealY(double Y) {
-    // double positionY = Y;
-    // positionY = positionY > kChartViewHeight - MARGINBOTTOM ? kChartViewHeight - MARGINBOTTOM : positionY;
-    // positionY = positionY < MARGINTOP ? MARGINTOP : positionY;
-    return Y < kChartViewHeight && Y > MARGINTOP;
-  }
-
   void drawLines(Canvas canvas) {
     Paint framePaint = MethodUntil().getDashPaint(Port.costOneColor);
-    TextPainter textPaint = MethodUntil().getTextPainter(Utils.dp2px(5));
     double rate = mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
     // double rate =
     //     (mUperChartHeight - MARGINTOP + Port.text_check - getStringHeight("0", TextPainter(), size: Port.ChartTextSize)) / (mMaxPrice - mMinPrice);
@@ -933,6 +856,8 @@ class ChartPainter extends BaseKChartPainter {
     double stopX = kChartViewWidth;
     double Y = 0;
     framePaint.strokeWidth = Utils.dp2px(1);
+
+    ///画线下单
     for (CustomLine e in drawOrderLines) {
       if (e.kPrice != null) {
         Y = (mMaxPrice - (e.kPrice ?? 0)) * rate + textBottom;
@@ -960,6 +885,7 @@ class ChartPainter extends BaseKChartPainter {
         textPaint
           ..text = TextSpan(
               text: "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(2)}")
+          ..layout()
           ..paint(
               canvas,
               Offset(
@@ -967,11 +893,11 @@ class ChartPainter extends BaseKChartPainter {
                   Y -
                       getStringHeight(
                           "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(2)}",
-                          textPaint)))
-          ..layout();
+                          textPaint)));
       }
     }
 
+    ///画线工具
     for (DrawToolLine e in drawToolLines) {
       Path path = Path(); // 绘制虚线
       Path tmp = Path()
@@ -984,15 +910,15 @@ class ChartPainter extends BaseKChartPainter {
       if (e.pathType == 3 && e.firstPointY != null) {
         ///水平线
         double Y = (mMaxPrice - e.firstPointY!) * rate + textBottom;
-        if (Y > MARGINTOP) {
+        if (dealY(Y)) {
           path.moveTo(startX, Y);
           path.lineTo(stopX, Y);
           e.path = path;
           _paintLines(canvas, e.lineType, path, framePaint);
           textPaint
             ..text = TextSpan(text: e.firstPointY!.toStringAsFixed(2))
-            ..paint(canvas, Offset(startX, Y - getStringHeight(e.firstPointY!.toStringAsFixed(2), textPaint)))
-            ..layout();
+            ..layout()
+            ..paint(canvas, Offset(startX, Y - getStringHeight(e.firstPointY!.toStringAsFixed(2), textPaint)));
         }
       } //
       else if (e.pathType == 4 && e.firstPointX != null) {
@@ -1451,6 +1377,200 @@ class ChartPainter extends BaseKChartPainter {
         canvas.restore();
       } //
     }
+
+    ///盈损线
+    for (PLRecord e in pLRecordList) {
+      Path path = Path();
+      Path borderPath = Path(); // 绘制虚线
+      framePaint
+        ..color = e.selected ? Colors.red : Colors.blue
+        ..strokeWidth = 1;
+      double price = e.StopWin ?? e.StopLoss ?? 0;
+
+      double Y = (mMaxPrice - price) * rate + textBottom;
+      if (dealY(Y)) {
+        path.moveTo(startX, Y);
+        path.lineTo(stopX, Y);
+        canvas.drawPath(
+            dashPath(
+              path,
+              dashArray: CircularIntervalList<double>([4, 4]),
+            ),
+            framePaint);
+
+        double newY = Y - getStringHeight("$price", textPaint);
+        textPaint
+          ..text = TextSpan(
+            text: "$price多头止${e.StopWin != 0 ? "盈" : "损"}${e.RealQty}手",
+          )
+          ..textDirection = TextDirection.ltr
+          ..layout();
+
+        borderPath.moveTo(startX, Y);
+        borderPath.lineTo(startX, newY);
+        borderPath.lineTo(startX + textPaint.width, newY);
+        borderPath.lineTo(startX + textPaint.width, Y);
+        borderPath.close();
+        canvas.drawPath(borderPath, framePaint..color = Colors.blue);
+        textPaint.paint(canvas, Offset(startX, newY));
+      }
+    }
+  }
+
+  ///持仓线
+  void drawPosLines(Canvas canvas) {
+    Paint framePaint = MethodUntil().getDashPaint(Port.macdUpColor);
+    TextPainter subTextPaint = MethodUntil().getTextPainter(Utils.dp2px(5));
+    double rate = 1; //计算最小单位
+    double textBottom = MARGINTOP;
+    double startX = BaseKChartPainter.MARGINLEFT + leftMarginSpace;
+    double stopX = kChartViewWidth;
+    double Y = 0;
+    framePaint.strokeWidth = Utils.dp2px(1);
+
+    if (isDrawTime) {
+      startX = BaseKChartPainter.MARGINLEFT + timeLeftMarginSpace;
+      stopX = kChartViewWidth - rightMarginSpace;
+    }
+    for (HoldOrder e in holdOrder) {
+      if (e.open != null) {
+        if (isDrawTime) {
+          double maxHeight = (mMaxPrice - lastClose) > (lastClose - mMinPrice) ? (mMaxPrice - lastClose) : (lastClose - mMinPrice); //最大价差
+          rate = (kChartViewHeight - MARGINTOP - timeDownChartHeight) / (maxHeight * 2); //计算最小单位
+          Y = (lastClose + maxHeight - e.open!) * rate;
+        } else {
+          rate = mUperChartHeight / (mMaxPrice - mMinPrice);
+          Y = (mMaxPrice - (e.open ?? 0)) * rate + textBottom;
+        }
+      }
+      if (dealY(Y)) {
+        Path path = Path(); // 绘制虚线
+        Path borderPath = Path(); // 绘制虚线
+        path.moveTo(startX, Y);
+        path.lineTo(stopX, Y);
+        //横线
+        canvas.drawPath(
+          dashPath(
+            path,
+            dashArray: CircularIntervalList<double>(CUSTOM_DASH_EFFECT),
+          ),
+          framePaint,
+        );
+
+        double newY = Y -
+            getStringHeight(
+                "${Utils.d2SBySrc(e.open, e.FutureTickSize)}${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手}", subTextPaint);
+
+        textPaint
+          ..text = TextSpan(
+            children: [
+              TextSpan(
+                  text: "${Utils.d2SBySrc(e.open, e.FutureTickSize)}${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手",
+                  style: TextStyle(color: Port.costTwoColor)),
+              if (e.floatProfit != null)
+                TextSpan(
+                    text: "${e.floatProfit! < 0 ? "亏" : "盈"}${e.floatProfit.obs.toStringAsFixed(4)}",
+                    style: TextStyle(color: e.floatProfit! < 0 ? Port.costFourColor : Port.VR_Color))
+            ],
+          )
+          ..textDirection = TextDirection.ltr
+          ..layout();
+        borderPath.moveTo(startX, Y);
+        borderPath.lineTo(startX, newY);
+        borderPath.lineTo(startX + textPaint.width, newY);
+        borderPath.lineTo(startX + textPaint.width, Y);
+        borderPath.close();
+        canvas.drawPath(borderPath, framePaint);
+        textPaint.paint(canvas, Offset(startX, newY));
+      }
+    }
+  }
+
+  List<OHLCEntity> getOHLCData() {
+    List<OHLCEntity> list = [];
+    if (mOHLCData.isNotEmpty) {
+      list.addAll(mOHLCData);
+    }
+    return list;
+  }
+
+  static int getMaxPeriod(bool isDrawCost, bool isDrawBollinger, bool isDrawFall) {
+    int max = 0;
+    if (isDrawCost) {
+      // 均线线周期
+      max = max > CostOnePeriod ? max : CostOnePeriod;
+      max = max > CostTwoPeriod ? max : CostTwoPeriod;
+      max = max > CostThreePeriod ? max : CostThreePeriod;
+      max = max > CostFourPeriod ? max : CostFourPeriod;
+      max = max > CostFivePeriod ? max : CostFivePeriod;
+    }
+    if (isDrawBollinger) {
+      max = max > BollingerPeriod ? max : BollingerPeriod;
+    }
+    if (isDrawFall) {
+      //  瀑布线周期
+      max = max > FallPeriod1 * 4 ? max : FallPeriod1 * 4;
+      max = max > FallPeriod2 * 4 ? max : FallPeriod2 * 4;
+      max = max > FallPeriod3 * 4 ? max : FallPeriod3 * 4;
+      max = max > FallPeriod4 * 4 ? max : FallPeriod4 * 4;
+      max = max > FallPeriod5 * 4 ? max : FallPeriod5 * 4;
+      max = max > FallPeriod6 * 4 ? max : FallPeriod6 * 4;
+    }
+    // if (isMidDrawMacd) {
+    //   //  MACD线周期
+    //   max = max > (macdPeriod + macdLPeriod) ? max : (macdPeriod + macdLPeriod);
+    //   max = max > macdLPeriod ? max : macdLPeriod;
+    // }
+    // if (isDrawRsi) {
+    //   //  rsi线周期
+    //   max = max > rsiPeriod ? max : rsiPeriod;
+    // }
+    // if (isDrawPSY) {
+    //   //  PSY线周期
+    //   max = max > (PSYPeriod + PSYMAPeriod) ? max : (PSYPeriod + PSYMAPeriod);
+    //   max = max > PSYPeriod ? max : PSYPeriod;
+    // }
+    // if (isDrawBIAS) {
+    //   //  BIAS线周期
+    //   max = max > BIAS1Period ? max : BIAS1Period;
+    //   max = max > BIAS2Period ? max : BIAS2Period;
+    //   max = max > BIAS3Period ? max : BIAS3Period;
+    // }
+    // if (isDrawCCI) {
+    //   //  CCI线周期
+    //   max = max > CCIPeriod ? max : CCIPeriod;
+    // }
+    // if (isDrawKDJ) {
+    //   //  KDJ线周期
+    //   max = max > KDJPeriod ? max : KDJPeriod;
+    // }
+    // if (isDrawWR) {
+    //   //  WR线周期
+    //   max = max > Wr1Period ? max : Wr1Period;
+    //   max = max > Wr2Period ? max : Wr2Period;
+    // }
+    return max;
+  }
+
+  static int getNumber(int position, double marginLeft, double pWidth, int showNum) {
+    int number = 0;
+    int num = ((position - marginLeft) % pWidth).toInt();
+    if (num == 0) {
+      number = (position - marginLeft) ~/ pWidth;
+    } else {
+      number = ((position - marginLeft) / pWidth + 1).toInt();
+    }
+
+    number = number < 1 ? 1 : number;
+    number = number > showNum ? showNum : number;
+    return number;
+  }
+
+  bool dealY(double Y) {
+    // double positionY = Y;
+    // positionY = positionY > kChartViewHeight - MARGINBOTTOM ? kChartViewHeight - MARGINBOTTOM : positionY;
+    // positionY = positionY < MARGINTOP ? MARGINTOP : positionY;
+    return Y < kChartViewHeight && Y > MARGINTOP;
   }
 
   int dateTOIndex(String date) {

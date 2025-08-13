@@ -28,10 +28,17 @@ class AppTheme extends ChangeNotifier {
 
   Color _exchangeTextColor = Common.exchangeTextColor;
   Color get exchangeTextColor => _exchangeTextColor;
+  Color _lightExchangeTextColor = Common.lightExchangeTextColor;
+  Color get lightExchangeTextColor => _lightExchangeTextColor;
   Color _exchangeBgColor = Common.exchangeBgColor;
   Color get exchangeBgColor => _exchangeBgColor;
   set exchangeTextColor(Color exchangeTextColor) {
     _exchangeTextColor = exchangeTextColor;
+    notifyListeners();
+  }
+
+  set lightExchangeTextColor(Color lightExchangeTextColor) {
+    _lightExchangeTextColor = lightExchangeTextColor;
     notifyListeners();
   }
 

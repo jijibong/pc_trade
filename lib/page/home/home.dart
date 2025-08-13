@@ -25,6 +25,7 @@ import '../../model/k/k_preiod.dart';
 import '../../model/k/k_time.dart';
 import '../../model/option/myPage.dart';
 import '../../model/quote/contract.dart';
+import '../../model/trade/res_hold_order.dart';
 import '../../model/user/user.dart';
 import '../../server/login/login.dart';
 import '../../server/socket/trade_webSocket.dart';
@@ -484,6 +485,20 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     ///浮动盈亏变化信息
     EventBusUtil.getInstance().on<PositionFloatEvent>().listen((positionFloatEvent) async {
       if (!LoginServer.isLogin) return;
+      for (var hold in logic.mHoldList) {
+        if (hold.noMap != null && hold.noMap!.containsKey(positionFloatEvent.res.PositionNo)) {
+          double floatP = 0;
+          if (hold.detailList != null) {
+            for (ResHoldOrder detail in hold.detailList!) {
+              if (detail.PositionNo == positionFloatEvent.res.PositionNo) {
+                detail.PositionProfit = positionFloatEvent.res.PositionProfit;
+              }
+              floatP = floatP + (detail.PositionProfit ?? 0);
+            }
+            hold.floatProfit = floatP;
+          }
+        }
+      }
       String string = jsonEncode(positionFloatEvent.res);
       await DesktopMultiWindow.invokeMethod(tradeWindowId ?? 1, kPositionFloatEvent, string);
     });
@@ -622,8 +637,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     UserUtils.appContext = context;
     initInfo();
     initPage();
-    // showRiskDialog();
-    tradeAccount();
+    // tradeAccount();
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();

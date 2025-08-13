@@ -269,8 +269,8 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     // Broker? broker = await Utils.getBroker();
 
     String hold = widget.params['hold'];
-    UserUtils.currentUser = User.fromJson(jsonDecode(hold));
     UserUtils.userJson = hold;
+    UserUtils.currentUser = User.fromJson(jsonDecode(hold));
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);
     // String? userInfo = await SpUtils.getString(SpKey.currentUser);
     exchangeList = await Utils.getAllExchange();
@@ -622,8 +622,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
           hold.detailList = details;
           hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
           mHoldList.add(hold);
-        }
-        for (var res in value) {
+
           bool isExist = false;
           int position = -1;
 
@@ -666,35 +665,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
               mHoldDetailList[position].YPosition = (mHoldDetailList[position].YPosition ?? 0) + (res.PositionQty ?? 0);
             }
           } else {
-            HoldOrder hold = HoldOrder(
-                name: res.ContractName,
-                code: "${res.CommodityNo}${res.ContractNo}",
-                exCode: res.ExchangeNo,
-                comType: res.CommodityType,
-                subComCode: res.CommodityNo,
-                subConCode: res.ContractNo,
-                orderSide: res.MatchSide,
-                quantity: res.PositionQty,
-                open: res.PositionPrice,
-                margin: (res.MarginValue ?? 0) * (res.PositionQty ?? 0),
-                floatProfit: res.PositionProfit,
-                FutureContractSize: res.ContractSize,
-                FutureTickSize: res.CommodityTickSize,
-                CurrencyType: res.TradeCurrency,
-                PositionNo: res.PositionNo,
-                CalculatePrice: res.CalculatePrice,
-                AvailableQty: res.AvailableQty);
-
             hold.plStatus = await queryPLRecord(hold);
-            if (res.PositionType == PositionType.POSITION_TODAY) {
-              hold.TPosition = res.PositionQty;
-            } else if (res.PositionType == PositionType.POSITION_YESTODAY) {
-              hold.YPosition = res.PositionQty;
-            }
-            List<ResHoldOrder> details = [];
-            details.add(res);
-            hold.detailList = details;
-            hold.noMap = {res.PositionNo ?? "": res.PositionNo ?? ""};
             mHoldDetailList.add(hold);
           }
         }

@@ -67,9 +67,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
         if (mounted) setState(() {});
       }
     });
-    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId}).then((v){
-      logger.f(v);
-    });
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId});
     WidgetsBinding.instance.addPostFrameCallback((_) {
       selectedColor = appTheme.drawColor;
     });
@@ -311,7 +309,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
         child: Container(
           decoration: BoxDecoration(
             border: Border.all(color: Colors.white),
-            color: type == index ? appTheme.exchangeTextColor : Colors.transparent,
+            color: type == index ? appTheme.lightExchangeTextColor : Colors.transparent,
           ),
           padding: const EdgeInsets.all(3),
           child: RepaintBoundary(

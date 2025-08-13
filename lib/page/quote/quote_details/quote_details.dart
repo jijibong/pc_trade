@@ -41,11 +41,14 @@ import '../../../model/k/k_time.dart';
 import '../../../model/k/port.dart';
 import '../../../model/k/trade_time.dart';
 import '../../../model/pb/quote/fill.pb.dart';
+import '../../../model/pl/pl.dart';
 import '../../../model/quote/contract.dart';
 import '../../../model/quote/side_type.dart';
 import '../../../model/socket_packet/operation.dart';
 import '../../../model/trade/hold_order.dart';
+import '../../../model/trade/res_hold_order.dart';
 import '../../../server/login/login.dart';
+import '../../../server/pl/pl.dart';
 import '../../../server/quote/market.dart';
 import '../../../server/socket/webSocket.dart';
 import '../../../util/dialog/line_dialog.dart';
@@ -79,7 +82,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   final QuoteLogic logic = Get.put(QuoteLogic());
   Contract? contract = Contract();
   List<FillData> quoteFilledData = [];
-  HoldOrder? holdOrder;
+  List<HoldOrder> holdOrder = [];
+  List<PLRecord> pLRecordList = [];
   late AppTheme appTheme;
   var uuid = const Uuid();
   final mainMenuController = FlyoutController();
@@ -322,6 +326,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   StreamSubscription? streamSubscriptionM;
   StreamSubscription? streamSubscriptionN;
   StreamSubscription? streamSubscriptionO;
+  StreamSubscription? streamSubscriptionP;
   MultiSplitViewController multiSplitViewController = MultiSplitViewController();
 
   getKPeriod() async {
@@ -1727,6 +1732,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           drawToolLines[drawToolLines.indexOf(e)] = tmp;
         }
       }
+      List temp = drawToolLines.map((e) => e.toJson()).toList();
+      String jsonString = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
+      await SpUtils.set(SpKey.drawToolLines, jsonString);
       if (mounted) setState(() {});
     });
 
@@ -1748,7 +1756,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///画线下单
-    streamSubscriptionL = EventBusUtil.getInstance().on<SetLine>().listen((event) async {
+    streamSubscriptionL = EventBusUtil.getInstance().on<OrderEvent>().listen((event) async {
       var map = event.json;
       orderDrawType = map['type'];
       if (orderDrawType == 0) {
@@ -1807,16 +1815,75 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         }
       }
     });
+
+    ///浮动盈亏变化信息
+    streamSubscriptionP = EventBusUtil.getInstance().on<PositionFloatEvent>().listen((positionFloatEvent) async {
+      if (!LoginServer.isLogin) return;
+      for (var hold in holdOrder) {
+        if (hold.noMap != null && hold.noMap!.containsKey(positionFloatEvent.res.PositionNo)) {
+          double floatP = 0;
+          if (hold.detailList != null) {
+            for (ResHoldOrder detail in hold.detailList!) {
+              if (detail.PositionNo == positionFloatEvent.res.PositionNo) {
+                detail.PositionProfit = positionFloatEvent.res.PositionProfit;
+              }
+              floatP = floatP + (detail.PositionProfit ?? 0);
+            }
+            hold.floatProfit = floatP;
+            await queryPLRecord(hold);
+          }
+        }
+      }
+      if (mounted) setState(() {});
+    });
   }
 
-  getPosition() {
+  getPosition() async {
+    holdOrder.clear();
     if (logic.mHoldList.isNotEmpty) {
       for (HoldOrder e in logic.mHoldList) {
         if (e.exCode == contract?.exCode && e.code == contract?.code && e.comType == contract?.comType) {
-          holdOrder = e;
+          await queryPLRecord(e);
+          holdOrder.add(e);
         }
       }
     }
+  }
+
+  /// 查询止盈止损
+  Future queryPLRecord(HoldOrder hold) async {
+    pLRecordList.clear();
+    await PLServer.getHisPLRecord(hold.exCode, hold.subComCode, hold.subConCode, hold.comType, hold.orderSide).then((value) {
+      if (value != null && value.isNotEmpty) {
+        for (var e in value) {
+          if (e.State == 1) {
+            pLRecordList.add(e);
+          }
+        }
+        if (mounted) setState(() {});
+      }
+    });
+  }
+
+  ///修改止盈止损
+  void modifyPLRecord() async {
+    // int recordId = mPlRecordList[mSelPosition].Id ?? 0;
+    // int period = await SpUtils.getInt(SpKey.pLPeriod) ?? PLCloseType.Today;
+    // int closetype = period == 0 ? PLCloseType.Today : period;
+    // await PLServer.modifyPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, hold.PLQuantity, closetype, recordId,
+    //     hold.ProfitPriceTicks, hold.LossPriceTicks, hold.FloatLoss)
+    //     .then((value) {
+    //   if (value != null) {
+    //     mPlRecordList.clear();
+    //     mPlRecordList.addAll(value);
+    //     mSelPosition = -1;
+    //     changeText();
+    //     if (mounted) setState(() {});
+    //     InfoBarUtils.showSuccessBar("止盈止损修改成功");
+    //   } else {
+    //     queryPLRecord();
+    //   }
+    // });
   }
 
   switchPeriod(KPeriod period, {int? index, bool? force}) async {
@@ -1889,6 +1956,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     streamSubscriptionM?.cancel();
     streamSubscriptionN?.cancel();
     streamSubscriptionO?.cancel();
+    streamSubscriptionP?.cancel();
     subscriptionKlineData(false);
     subscriptionQuote(false);
     subscriptionFill(false);
@@ -1948,6 +2016,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mVolData: mVolData,
       mVRData: mVRData,
       isDrawTimeDown: isDrawTimeDown,
+      holdOrder: holdOrder,
+      pLRecordList: pLRecordList,
     );
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2006,29 +2076,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                               if (mounted) setState(() {});
                             }
                           },
-                          // onPointerUp: (e) async {
-                          //   if (selectedLine != -1) {
-                          //     WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
-                          //     selectedLine = -1;
-                          //     List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
-                          //     String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
-                          //     await SpUtils.set(SpKey.drawLines, tmp);
-                          //   }
-                          //   if (selectedIndex != -1) {
-                          //     selectedPoint = -1;
-                          //     startMovingPoint = null;
-                          //     initPointX1 = null;
-                          //     initPointX2 = null;
-                          //     initPointX3 = null;
-                          //     initPointY1 = null;
-                          //     initPointY2 = null;
-                          //     initPointY3 = null;
-                          //     List temp = drawToolLines.map((e) => e.toJson()).toList();
-                          //     String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
-                          //     await SpUtils.set(SpKey.drawToolLines, tmp);
-                          //   }
-                          //   if (mounted) setState(() {});
-                          // },
                           child: MouseRegion(
                             cursor: cursor,
                             child: GestureDetector(
@@ -2510,6 +2557,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   text: const Text('取消分屏'),
                   onPressed: () async {
                     appTheme.multiScreen = 1;
+                    logic.cancelMultiScreen();
                   },
                 ),
               if (appTheme.selectIndex == 0)
@@ -2568,7 +2616,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           if (isDrawTime || e.buttons == kSecondaryMouseButton) return;
           String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
           if (orderDrawing) {
-            if (orderDrawType == 3 && holdOrder == null) {
+            if (orderDrawType == 3 && holdOrder.isEmpty) {
               InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
               orderDrawing = false;
               await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
@@ -2577,7 +2625,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             double kPrice = calculatePrice(e.localPosition.dy, painter);
             CustomLine cus = CustomLine(code: name, type: orderDrawType, num: num, price: price, lineY: e.localPosition.dy, kPrice: kPrice);
             if (orderDrawType == 3) {
-              cus.side = holdOrder?.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
+              cus.side = holdOrder.first.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
             }
             WebSocketServer.drawOrderLines.add(cus);
             orderDrawing = false;
@@ -3291,6 +3339,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('取消分屏'),
                       onPressed: () async {
                         appTheme.multiScreen = 1;
+                        logic.cancelMultiScreen();
                       },
                     ),
                   if (appTheme.selectIndex == 0)
@@ -3810,6 +3859,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     text: const Text('取消分屏'),
                     onPressed: () async {
                       appTheme.multiScreen = 1;
+                      logic.cancelMultiScreen();
                     },
                   ),
                 if (appTheme.selectIndex == 0)
@@ -4234,6 +4284,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     text: const Text('取消分屏'),
                     onPressed: () async {
                       appTheme.multiScreen = 1;
+                      logic.cancelMultiScreen();
                     },
                   ),
                 // MenuFlyoutItem(

@@ -87,6 +87,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
       }
     });
 
+    UserUtils.appContext = context;
     String hold = widget.params['hold'];
     UserUtils.currentUser = User.fromJson(jsonDecode(hold));
     String? baseUrl = await SpUtils.getString(SpKey.baseUrl);

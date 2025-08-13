@@ -102,7 +102,7 @@ class VolEntity {
 
     double perHeight = perPrice * 2 * rate;
     path.moveTo(leftMarginSpace, viewHeight - perHeight);
-    path.lineTo(viewWidth - leftMarginSpace, viewHeight - perHeight);
+    path.lineTo(viewWidth, viewHeight - perHeight);
     canvas.drawPath(
       dashPath(
         path,

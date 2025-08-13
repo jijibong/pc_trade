@@ -22,10 +22,10 @@ class Common {
 
   ///Config
   static const String appName = 'FCS.HK行情交易系统（模拟）';
-  static String brokerId = "FCS.HK";
-  static int environment = 83;
-  static int platAttr = 70;
-  static String RiskUrl = "http://notice.yhrjkj.com/RevelationBook.html";
+  static const String brokerId = "FCS.HK";
+  static const int environment = 83;
+  static const int platAttr = 70;
+  static const String RiskUrl = "http://notice.yhrjkj.com/RevelationBook.html";
 
   static bool signData = true;
   static Duration connectTimeout = const Duration(seconds: 30);
@@ -35,6 +35,7 @@ class Common {
   static Color darkCommandBarColor = HexColor('#2B313F');
   static Color lightCommandBarColor = Colors.white;
   static Color exchangeTextColor = HexColor('#ffffff');
+  static Color lightExchangeTextColor = HexColor('#777B88');
   static Color exchangeBgColor = HexColor('#545464');
   static Color dialogTitleColor = HexColor('#2C3140');
   static Color dialogContentColor = HexColor('#424759');

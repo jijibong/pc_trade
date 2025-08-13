@@ -14,6 +14,7 @@ import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/widget/number_box.dart';
 
+///画线下单
 class DrawOrder extends StatefulWidget {
   final Map<String, dynamic> params;
 
