@@ -257,7 +257,7 @@ class CrossLineView extends CustomPainter {
     double startX = X;
     double startY = viewHeight;
     double stopX = X;
-    double stopY = MARGINTOP;
+    double stopY = isDrawTime ? 0 : MARGINTOP;
     TextPainter areaTextPaint = MethodUntil().getTextPainter(Utils.dp2px(15));
     Paint areaPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(29, 32, 44, 1));
     Paint redPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 255, 255, 1));
@@ -270,7 +270,7 @@ class CrossLineView extends CustomPainter {
 
     startX = MARGINLEFT;
     startY = Y;
-    stopX = viewWidth ;
+    stopX = viewWidth;
     stopY = Y;
 
     //横线
@@ -314,9 +314,9 @@ class CrossLineView extends CustomPainter {
         textX = left + 5;
       } else {
         //右边
-        left = viewWidth  - width - rightMarginSpace;
+        left = viewWidth - width - rightMarginSpace;
         top = 0;
-        right = viewWidth -  rightMarginSpace;
+        right = viewWidth - rightMarginSpace;
         bottom = MARGINTOP + height * 12 + margin;
         textX = left + 5;
       }
@@ -401,7 +401,7 @@ class CrossLineView extends CustomPainter {
         //右边
         left = viewWidth - width;
         top = 0;
-        right = viewWidth ;
+        right = viewWidth;
         bottom = MARGINTOP + height * 18;
         textX = left + 5;
       }

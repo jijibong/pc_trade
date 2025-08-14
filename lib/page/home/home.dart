@@ -808,17 +808,6 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         onPressed: () {
                           if (logic.viewIndexList[logic.selectedIndex.value] == 1) {
                             EventBusUtil.getInstance().fire(BackEvent(logic.selectedIndex.value));
-                            // if (appTheme.selectCommandBarIndex == 0) {
-                            //   logic.viewIndexList[logic.selectedIndex.value] = 0;
-                            // } else {
-                            //   if (logic.showChartList[logic.selectedIndex.value] != 0) {
-                            //     logic.showChartList[logic.selectedIndex.value] = 0;
-                            //     return;
-                            //   }
-                            //   appTheme.selectCommandBarIndex = 0;
-                            //   KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            //   EventBusUtil.getInstance().fire(SwitchPeriod(fs));
-                            // }
                           }
                         },
                       ),

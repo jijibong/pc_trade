@@ -37,6 +37,7 @@ class EditableComboBox<T> extends ComboBox<T> {
     required this.onFieldSubmitted,
     this.textController,
     this.onTextChanged,
+    this.updateChange,
     // When adding new arguments, consider adding similar arguments to
     // EditableComboboxFormField.
   });
@@ -78,6 +79,8 @@ class EditableComboBox<T> extends ComboBox<T> {
   ///
   ///   * [onChanged], which is called when the selected value changes.
   final ValueChanged<String>? onTextChanged;
+
+  final Function(String? v)? updateChange;
 
   @override
   State<ComboBox<T>> createState() => _EditableComboboxState<T>();
@@ -123,20 +126,19 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
     value = math.max(value, 0);
     mathValue = value;
     _updateController(value);
-    // updateValue();
   }
 
   void incrementSmall() {
     final value = mathValue + (widget.smallChange ?? 0.01);
     mathValue = value;
     _updateController(value);
-    // updateValue();
   }
 
   void _updateController(num value) {
     controller
       ..text = _format(value) ?? ''
       ..selection = TextSelection.collapsed(offset: controller.text.length);
+    widget.updateChange!(_format(value) ?? '');
   }
 
   String? _format(num? value) {
@@ -214,7 +216,7 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
                       size: 8,
                     ),
                     iconButtonMode: IconButtonMode.small,
-                    onPressed: widget.onChanged != null ? incrementSmall : null,
+                    onPressed: incrementSmall,
                   ),
                   IconButton(
                     icon: const Icon(
@@ -222,7 +224,7 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
                       size: 8,
                     ),
                     iconButtonMode: IconButtonMode.small,
-                    onPressed: widget.onChanged != null ? decrementSmall : null,
+                    onPressed: decrementSmall,
                   ),
                 ],
               ),

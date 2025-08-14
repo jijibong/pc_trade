@@ -130,25 +130,25 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   }
 
   ///修改止盈止损
-  void modifyPLRecord() async {
-    int recordId = mPlRecordList[mSelPosition].Id ?? 0;
-    int period = await SpUtils.getInt(SpKey.pLPeriod) ?? PLCloseType.Today;
-    int closetype = period == 0 ? PLCloseType.Today : period;
-    await PLServer.modifyPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, hold.PLQuantity, closetype, recordId,
-            hold.ProfitPriceTicks, hold.LossPriceTicks, hold.FloatLoss)
-        .then((value) {
-      if (value != null) {
-        mPlRecordList.clear();
-        mPlRecordList.addAll(value);
-        mSelPosition = -1;
-        changeText();
-        if (mounted) setState(() {});
-        InfoBarUtils.showSuccessBar("止盈止损修改成功");
-      } else {
-        queryPLRecord();
-      }
-    });
-  }
+  // void modifyPLRecord() async {
+  //   int recordId = mPlRecordList[mSelPosition].Id ?? 0;
+  //   int period = await SpUtils.getInt(SpKey.pLPeriod) ?? PLCloseType.Today;
+  //   int closetype = period == 0 ? PLCloseType.Today : period;
+  //   await PLServer.modifyPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, hold.PLQuantity, closetype, recordId,
+  //           hold.ProfitPriceTicks, hold.LossPriceTicks, hold.FloatLoss)
+  //       .then((value) {
+  //     if (value != null) {
+  //       mPlRecordList.clear();
+  //       mPlRecordList.addAll(value);
+  //       mSelPosition = -1;
+  //       changeText();
+  //       if (mounted) setState(() {});
+  //       InfoBarUtils.showSuccessBar("止盈止损修改成功");
+  //     } else {
+  //       queryPLRecord();
+  //     }
+  //   });
+  // }
 
   ///打开关闭止盈止损记录
   void enablePLRecord(PLRecord pLRecord, bool checked) async {

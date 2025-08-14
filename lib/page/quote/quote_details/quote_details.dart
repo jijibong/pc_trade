@@ -53,6 +53,7 @@ import '../../../server/quote/market.dart';
 import '../../../server/socket/webSocket.dart';
 import '../../../util/dialog/line_dialog.dart';
 import '../../../util/dialog/period_dialog.dart';
+import '../../../util/dialog/pl_dialog.dart';
 import '../../../util/event_bus/eventBus_utils.dart';
 import '../../../util/event_bus/events.dart';
 import '../../../util/info_bar/info_bar.dart';
@@ -298,6 +299,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Color pankouHighColor = HexColor("#ff204a");
   Color pankouLowColor = HexColor("#ff204a");
   int selectedLine = -1;
+  int selectedPLLine = -1;
   int selectedIndex = -1;
   int selectedPoint = -1;
   Offset? startMovingPoint;
@@ -1867,23 +1869,35 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   ///修改止盈止损
   void modifyPLRecord() async {
-    // int recordId = mPlRecordList[mSelPosition].Id ?? 0;
-    // int period = await SpUtils.getInt(SpKey.pLPeriod) ?? PLCloseType.Today;
-    // int closetype = period == 0 ? PLCloseType.Today : period;
-    // await PLServer.modifyPL(hold.exCode, hold.subComCode, hold.comType, hold.subConCode, hold.orderSide, hold.PLQuantity, closetype, recordId,
-    //     hold.ProfitPriceTicks, hold.LossPriceTicks, hold.FloatLoss)
-    //     .then((value) {
-    //   if (value != null) {
-    //     mPlRecordList.clear();
-    //     mPlRecordList.addAll(value);
-    //     mSelPosition = -1;
-    //     changeText();
-    //     if (mounted) setState(() {});
-    //     InfoBarUtils.showSuccessBar("止盈止损修改成功");
-    //   } else {
-    //     queryPLRecord();
-    //   }
-    // });
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return PLDialog().showPLDialog("${pLRecordList[selectedPLLine].price}", pLRecordList[selectedPLLine].win ? "盈" : "损",
+              functionConfirm: () async {
+            await PLServer.modifyPL(
+                    holdOrder.first.exCode,
+                    holdOrder.first.subComCode,
+                    holdOrder.first.comType,
+                    holdOrder.first.subConCode,
+                    pLRecordList[selectedPLLine].Id,
+                    pLRecordList[selectedPLLine].RealQty,
+                    pLRecordList[selectedPLLine].CloseType,
+                    pLRecordList[selectedPLLine].win ? pLRecordList[selectedPLLine].price : pLRecordList[selectedPLLine].StopWin,
+                    pLRecordList[selectedPLLine].win ? pLRecordList[selectedPLLine].StopLoss : pLRecordList[selectedPLLine].price,
+                    pLRecordList[selectedPLLine].FloatLoss)
+                .then((value) {
+              if (value != null) {
+                if (mounted) setState(() {});
+                InfoBarUtils.showSuccessBar("止盈止损修改成功");
+              } else {
+                queryPLRecord(holdOrder.first);
+              }
+            });
+          }, functionCancel: () async {
+            queryPLRecord(holdOrder.first);
+            if (mounted) setState(() {});
+          });
+        });
   }
 
   switchPeriod(KPeriod period, {int? index, bool? force}) async {
@@ -2164,447 +2178,458 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   Widget timeChart() {
     final contextController = FlyoutController();
     final flyoutTargetKey = GlobalKey();
-    return GestureDetector(
-      onSecondaryTapUp: (d) {
-        final targetContext = flyoutTargetKey.currentContext;
-        if (targetContext == null) return;
-        final box = targetContext.findRenderObject() as RenderBox;
-        final position = box.localToGlobal(
-          d.localPosition,
-          ancestor: Navigator.of(context).context.findRenderObject(),
-        );
-        contextController.showFlyout(
-          barrierColor: Colors.black.withOpacity(0.1),
-          position: position,
-          builder: (context) {
-            return MenuFlyout(items: [
-              MenuFlyoutItem(
-                text: const Text('下单'),
-                onPressed: () {
-                  EventBusUtil.getInstance().fire(LoginEvent());
-                  Flyout.of(context).close();
-                },
-              ),
-              MenuFlyoutSubItem(
-                  text: const Text('加入自选'),
+    return Listener(
+      onPointerHover: (e) {
+        if (isDrawCrossLine) {
+          currentX = e.localPosition.dx;
+          currentY = e.localPosition.dy;
+          if (mounted) {
+            setState(() {});
+          }
+        }
+      },
+      child: GestureDetector(
+        onSecondaryTapUp: (d) {
+          final targetContext = flyoutTargetKey.currentContext;
+          if (targetContext == null) return;
+          final box = targetContext.findRenderObject() as RenderBox;
+          final position = box.localToGlobal(
+            d.localPosition,
+            ancestor: Navigator.of(context).context.findRenderObject(),
+          );
+          contextController.showFlyout(
+            barrierColor: Colors.black.withOpacity(0.1),
+            position: position,
+            builder: (context) {
+              return MenuFlyout(items: [
+                MenuFlyoutItem(
+                  text: const Text('下单'),
+                  onPressed: () {
+                    EventBusUtil.getInstance().fire(LoginEvent());
+                    Flyout.of(context).close();
+                  },
+                ),
+                MenuFlyoutSubItem(
+                    text: const Text('加入自选'),
+                    leading: const Icon(
+                      FluentIcons.accept,
+                      color: Colors.transparent,
+                    ),
+                    items: (context) => logic.sectorList
+                        .map((e) => MenuFlyoutItem(
+                              text: Text(e.name ?? "--"),
+                              onPressed: () {
+                                EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                              },
+                            ))
+                        .toList()),
+                // MenuFlyoutItem(
+                //     text: const Text('移除自选'),
+                //     onPressed: () {
+                //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
+                //       Flyout.of(context).close();
+                //     }),
+                MenuFlyoutSubItem(
+                  text: const Text('切换画面'),
                   leading: const Icon(
                     FluentIcons.accept,
                     color: Colors.transparent,
                   ),
-                  items: (context) => logic.sectorList
-                      .map((e) => MenuFlyoutItem(
-                            text: Text(e.name ?? "--"),
-                            onPressed: () {
-                              EventBusUtil.getInstance().fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
-                            },
-                          ))
-                      .toList()),
-              // MenuFlyoutItem(
-              //     text: const Text('移除自选'),
-              //     onPressed: () {
-              //       logic.optionOperate(logic.selectedContractList[widget.index], add: false);
-              //       Flyout.of(context).close();
-              //     }),
-              MenuFlyoutSubItem(
-                text: const Text('切换画面'),
-                leading: const Icon(
-                  FluentIcons.accept,
-                  color: Colors.transparent,
-                ),
-                items: (context) => [
-                  MenuFlyoutItem(
-                      text: const Text('报价页面'),
-                      onPressed: () {
-                        logic.viewIndexList[widget.index] = 0;
-                        Flyout.of(context).close();
-                      }),
-                  isDrawTime
-                      ? MenuFlyoutItem(
-                          text: const Text('K线'),
-                          onPressed: () {
-                            KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                            logic.showChartList[widget.index] = 0;
-                            switchPeriod(fs, index: 1);
-                          })
-                      : MenuFlyoutItem(
-                          text: const Text('分时'),
-                          onPressed: () {
-                            KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                            switchPeriod(fs, index: 0);
-                          }),
-                  if (!isDrawTime)
+                  items: (context) => [
                     MenuFlyoutItem(
-                      text: const Text('成交报表'),
+                        text: const Text('报价页面'),
+                        onPressed: () {
+                          logic.viewIndexList[widget.index] = 0;
+                          Flyout.of(context).close();
+                        }),
+                    isDrawTime
+                        ? MenuFlyoutItem(
+                            text: const Text('K线'),
+                            onPressed: () {
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              logic.showChartList[widget.index] = 0;
+                              switchPeriod(fs, index: 1);
+                            })
+                        : MenuFlyoutItem(
+                            text: const Text('分时'),
+                            onPressed: () {
+                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              switchPeriod(fs, index: 0);
+                            }),
+                    if (!isDrawTime)
+                      MenuFlyoutItem(
+                        text: const Text('成交报表'),
+                        onPressed: () {
+                          logic.showChartList[widget.index] = 1;
+                        },
+                      ),
+                  ],
+                ),
+                MenuFlyoutSubItem(
+                  text: const Text('技术指标'),
+                  leading: const Icon(
+                    FluentIcons.accept,
+                    color: Colors.transparent,
+                  ),
+                  items: (context) => [
+                    MenuFlyoutSubItem(
+                      text: const Text('趋势分析指标（主图）'),
+                      items: (_) => [
+                        MenuFlyoutItem(
+                          text: const Text('MA组合'),
+                          trailing: const Text('移动平均线组合'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('BOLL'),
+                          trailing: const Text('布林通道线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('PUBU'),
+                          trailing: const Text('瀑布线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('DSX'),
+                          trailing: const Text('全形量化'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('DDHX'),
+                          trailing: const Text('高低点划线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ],
+                    ),
+                    MenuFlyoutSubItem(
+                      text: const Text('量仓分析'),
+                      items: (_) => [
+                        MenuFlyoutItem(
+                          text: const Text('VOL'),
+                          trailing: const Text('成交量'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('VR'),
+                          trailing: const Text('VR容量比率'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('OBV'),
+                          trailing: const Text('能量潮'),
+                          onPressed: Flyout.of(context).close,
+                        )
+                      ],
+                    ),
+                    MenuFlyoutSubItem(
+                      text: const Text('摆动分析'),
+                      items: (_) => [
+                        MenuFlyoutItem(
+                          text: const Text('MACD'),
+                          trailing: const Text('平滑移动平均线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('KDJ'),
+                          trailing: const Text('随机指标'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('RSI'),
+                          trailing: const Text('相对强弱指标'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('CCI'),
+                          trailing: const Text('顺势指标'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('BIAS'),
+                          trailing: const Text('乖离率'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('WR'),
+                          trailing: const Text('威廉指标'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('DMA'),
+                          trailing: const Text('平均线差'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                        MenuFlyoutItem(
+                          text: const Text('PSY'),
+                          trailing: const Text('心理线'),
+                          onPressed: Flyout.of(context).close,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                MenuFlyoutItem(
+                  text: const Text('指标修改'),
+                  onPressed: Flyout.of(context).close,
+                ),
+                MenuFlyoutItem(
+                  text: const Text('显示盘口数据'),
+                  leading: Icon(
+                    FluentIcons.accept,
+                    color: showPanKou ? Colors.green : Colors.transparent,
+                  ),
+                  onPressed: () {
+                    showPanKou = !showPanKou;
+                    if (mounted) setState(() {});
+                    if (!isDrawTime) {
+                      Future.delayed(const Duration(milliseconds: 500), () {
+                        setOHLCData(mOHLCData);
+                      });
+                    }
+                  },
+                ),
+                MenuFlyoutSubItem(
+                  text: const Text('周期切换'),
+                  leading: const Icon(
+                    FluentIcons.accept,
+                    color: Colors.transparent,
+                  ),
+                  items: (context) => [
+                    MenuFlyoutItem(
+                      text: const Text('日线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                      ),
                       onPressed: () {
-                        logic.showChartList[widget.index] = 1;
+                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                        switchPeriod(fs, index: 1);
                       },
                     ),
-                ],
-              ),
-              MenuFlyoutSubItem(
-                text: const Text('技术指标'),
-                leading: const Icon(
-                  FluentIcons.accept,
-                  color: Colors.transparent,
+                    MenuFlyoutItem(
+                      text: const Text('周线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                        switchPeriod(fs, index: 2);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('月线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                        switchPeriod(fs, index: 3);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('年线'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        switchPeriod(fs, index: 4);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('任意天'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 5;
+                        KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return PeriodDialog().showPeriodDialog(mKPFlag, "天");
+                            });
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('1分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 6);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('3分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 7);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('5分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 8);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('10分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 9);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('15分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 10);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('30分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        switchPeriod(fs, index: 11);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('60分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        switchPeriod(fs, index: 12);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('120分钟'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        switchPeriod(fs, index: 13);
+                      },
+                    ),
+                    MenuFlyoutItem(
+                      text: const Text('任意分'),
+                      leading: Icon(
+                        FluentIcons.radio_btn_on,
+                        color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                      ),
+                      onPressed: () {
+                        appTheme.selectCommandBarIndex = 14;
+                        KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
+                        showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
+                            });
+                      },
+                    ),
+                  ],
                 ),
-                items: (context) => [
-                  MenuFlyoutSubItem(
-                    text: const Text('趋势分析指标（主图）'),
-                    items: (_) => [
-                      MenuFlyoutItem(
-                        text: const Text('MA组合'),
-                        trailing: const Text('移动平均线组合'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('BOLL'),
-                        trailing: const Text('布林通道线'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('PUBU'),
-                        trailing: const Text('瀑布线'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('DSX'),
-                        trailing: const Text('全形量化'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('DDHX'),
-                        trailing: const Text('高低点划线'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                    ],
-                  ),
-                  MenuFlyoutSubItem(
-                    text: const Text('量仓分析'),
-                    items: (_) => [
-                      MenuFlyoutItem(
-                        text: const Text('VOL'),
-                        trailing: const Text('成交量'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('VR'),
-                        trailing: const Text('VR容量比率'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('OBV'),
-                        trailing: const Text('能量潮'),
-                        onPressed: Flyout.of(context).close,
-                      )
-                    ],
-                  ),
-                  MenuFlyoutSubItem(
-                    text: const Text('摆动分析'),
-                    items: (_) => [
-                      MenuFlyoutItem(
-                        text: const Text('MACD'),
-                        trailing: const Text('平滑移动平均线'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('KDJ'),
-                        trailing: const Text('随机指标'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('RSI'),
-                        trailing: const Text('相对强弱指标'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('CCI'),
-                        trailing: const Text('顺势指标'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('BIAS'),
-                        trailing: const Text('乖离率'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('WR'),
-                        trailing: const Text('威廉指标'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('DMA'),
-                        trailing: const Text('平均线差'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                      MenuFlyoutItem(
-                        text: const Text('PSY'),
-                        trailing: const Text('心理线'),
-                        onPressed: Flyout.of(context).close,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              MenuFlyoutItem(
-                text: const Text('指标修改'),
-                onPressed: Flyout.of(context).close,
-              ),
-              MenuFlyoutItem(
-                text: const Text('显示盘口数据'),
-                leading: Icon(
-                  FluentIcons.accept,
-                  color: showPanKou ? Colors.green : Colors.transparent,
-                ),
-                onPressed: () {
-                  showPanKou = !showPanKou;
-                  if (mounted) setState(() {});
-                  if (!isDrawTime) {
-                    Future.delayed(const Duration(milliseconds: 500), () {
-                      setOHLCData(mOHLCData);
-                    });
-                  }
-                },
-              ),
-              MenuFlyoutSubItem(
-                text: const Text('周期切换'),
-                leading: const Icon(
-                  FluentIcons.accept,
-                  color: Colors.transparent,
-                ),
-                items: (context) => [
-                  MenuFlyoutItem(
-                    text: const Text('日线'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
-                      switchPeriod(fs, index: 1);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('周线'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
-                      switchPeriod(fs, index: 2);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('月线'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
-                      switchPeriod(fs, index: 3);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('年线'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
-                      switchPeriod(fs, index: 4);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('任意天'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      appTheme.selectCommandBarIndex = 5;
-                      KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
-                      showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return PeriodDialog().showPeriodDialog(mKPFlag, "天");
-                          });
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('1分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 6);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('3分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 7);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('5分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 8);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('10分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 9);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('15分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 10);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('30分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
-                      switchPeriod(fs, index: 11);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('60分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                      switchPeriod(fs, index: 12);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('120分钟'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
-                      switchPeriod(fs, index: 13);
-                    },
-                  ),
-                  MenuFlyoutItem(
-                    text: const Text('任意分'),
-                    leading: Icon(
-                      FluentIcons.radio_btn_on,
-                      color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
-                    ),
-                    onPressed: () {
-                      appTheme.selectCommandBarIndex = 14;
-                      KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
-                      showDialog(
-                          context: context,
-                          builder: (BuildContext context) {
-                            return PeriodDialog().showPeriodDialog(mKPFlag, "分钟");
-                          });
-                    },
-                  ),
-                ],
-              ),
-              MenuFlyoutItem(
-                text: const Text('画线下单'),
-                onPressed: () async {
-                  if (LoginServer.isLogin) {
-                    await rustDeskWinManager.newDrawOrder("drawOrder");
-                  } else {
-                    InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
-                  }
-                },
-              ),
-              MenuFlyoutItem(
-                text: const Text('最大化'),
-                onPressed: Flyout.of(context).close,
-              ),
-              if (appTheme.selectIndex == 0)
                 MenuFlyoutItem(
-                  text: const Text('取消分屏'),
+                  text: const Text('画线下单'),
                   onPressed: () async {
-                    appTheme.multiScreen = 1;
-                    logic.cancelMultiScreen();
+                    if (LoginServer.isLogin) {
+                      await rustDeskWinManager.newDrawOrder("drawOrder");
+                    } else {
+                      InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
+                    }
                   },
                 ),
-              if (appTheme.selectIndex == 0)
                 MenuFlyoutItem(
-                  text: const Text('二分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 2;
-                    EventBusUtil.getInstance().fire(SplitScreen(2));
-                  },
+                  text: const Text('最大化'),
+                  onPressed: Flyout.of(context).close,
                 ),
-              if (appTheme.selectIndex == 0)
-                MenuFlyoutItem(
-                  text: const Text('四分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 4;
-                    EventBusUtil.getInstance().fire(SplitScreen(4));
-                  },
-                ),
-              if (appTheme.selectIndex == 0)
-                MenuFlyoutItem(
-                  text: const Text('六分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 6;
-                    EventBusUtil.getInstance().fire(SplitScreen(6));
-                  },
-                ),
-              if (appTheme.selectIndex == 0)
-                MenuFlyoutItem(
-                  text: const Text('九分屏'),
-                  onPressed: () async {
-                    appTheme.multiScreen = 9;
-                    EventBusUtil.getInstance().fire(SplitScreen(9));
-                  },
-                ),
-            ]);
-          },
-        );
-      },
-      child: FlyoutTarget(
-          controller: contextController,
-          key: flyoutTargetKey,
-          child: RepaintBoundary(child: LayoutBuilder(builder: (context, constraints) {
-            return CustomPaint(
-              size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: painter,
-            );
-          }))),
+                if (appTheme.selectIndex == 0)
+                  MenuFlyoutItem(
+                    text: const Text('取消分屏'),
+                    onPressed: () async {
+                      appTheme.multiScreen = 1;
+                      logic.cancelMultiScreen();
+                    },
+                  ),
+                if (appTheme.selectIndex == 0)
+                  MenuFlyoutItem(
+                    text: const Text('二分屏'),
+                    onPressed: () async {
+                      appTheme.multiScreen = 2;
+                      EventBusUtil.getInstance().fire(SplitScreen(2));
+                    },
+                  ),
+                if (appTheme.selectIndex == 0)
+                  MenuFlyoutItem(
+                    text: const Text('四分屏'),
+                    onPressed: () async {
+                      appTheme.multiScreen = 4;
+                      EventBusUtil.getInstance().fire(SplitScreen(4));
+                    },
+                  ),
+                if (appTheme.selectIndex == 0)
+                  MenuFlyoutItem(
+                    text: const Text('六分屏'),
+                    onPressed: () async {
+                      appTheme.multiScreen = 6;
+                      EventBusUtil.getInstance().fire(SplitScreen(6));
+                    },
+                  ),
+                if (appTheme.selectIndex == 0)
+                  MenuFlyoutItem(
+                    text: const Text('九分屏'),
+                    onPressed: () async {
+                      appTheme.multiScreen = 9;
+                      EventBusUtil.getInstance().fire(SplitScreen(9));
+                    },
+                  ),
+              ]);
+            },
+          );
+        },
+        child: FlyoutTarget(
+            controller: contextController,
+            key: flyoutTargetKey,
+            child: RepaintBoundary(child: LayoutBuilder(builder: (context, constraints) {
+              return CustomPaint(
+                size: Size(constraints.maxWidth, constraints.maxHeight),
+                painter: painter,
+              );
+            }))),
+      ),
     );
   }
 
@@ -2779,6 +2804,19 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                     initPointY3 = null;
                   }
                 }
+                if (pLRecordList.isNotEmpty && selectedLine == -1 && selectedPoint == -1 && selectedIndex == -1) {
+                  for (var element in pLRecordList) {
+                    if (element.path != null && _checkHit(element.path!, e.localPosition)) {
+                      element.selected = true;
+                      cursor = SystemMouseCursors.click;
+                      selectedPLLine = pLRecordList.indexOf(element);
+                      break;
+                    }
+                    element.selected = false;
+                    cursor = SystemMouseCursors.basic;
+                    selectedPLLine = -1;
+                  }
+                }
               }
             }
           }
@@ -2832,8 +2870,16 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 }
               }
             }
+          } else if (selectedPLLine != -1) {
+            pLRecordList[selectedPLLine].price = null;
+            pLRecordList[selectedPLLine].lineY = e.localPosition.dy;
           }
           if (mounted) setState(() {});
+        },
+        onPointerUp: (e) {
+          if (selectedPLLine != -1) {
+            modifyPLRecord();
+          }
         },
         child: GestureDetector(
           onSecondaryTapUp: (d) {

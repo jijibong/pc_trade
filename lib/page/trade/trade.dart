@@ -447,7 +447,7 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
     if (price != "市价" && price != "排队价" && price != "对手价" && price != "最新价" && price != "超价") {
       String str = price.trim();
       if (str.startsWith(".") || str.endsWith(".") || str == "") {
-        InfoBarUtils.showWarningDialog("请输入正确价格");
+        // InfoBarUtils.showWarningDialog("请输入正确价格");
       } else {
         value = double.parse(price.trim());
         value = Utils.getIntegerPrice(value, contract.futureTickSize);
@@ -1955,6 +1955,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                             tradeBuyPrice = getLimitPrice(false).toString();
                             if (globalStateFirst != null) globalStateFirst!(() {});
                           },
+                          onTextChanged: (text) {
+                            price = text;
+                            tradeSalePrice = getLimitPrice(true).toString();
+                            tradeBuyPrice = getLimitPrice(false).toString();
+                            if (globalStateFirst != null) globalStateFirst!(() {});
+                          },
+                          updateChange: (v) {
+                            price = v!;
+                            tradeSalePrice = getLimitPrice(true).toString();
+                            tradeBuyPrice = getLimitPrice(false).toString();
+                            if (globalStateFirst != null) globalStateFirst!(() {});
+                          },
                           onFieldSubmitted: (String text) {
                             price = text;
                             if (globalStateFirst != null) globalStateFirst!(() {});
@@ -2162,17 +2174,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                               text: TextSpan(children: [
                             TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
                             TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                            TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: tradeBuyCanOpen, style: TextStyle(color: appTheme.color)),
                             TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                            TextSpan(text: "0", style: TextStyle(color: appTheme.color))
+                            TextSpan(text: tradeBuyCanClose, style: TextStyle(color: appTheme.color))
                           ])),
                           RichText(
                               text: TextSpan(children: [
                             TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
                             TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                            TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                            TextSpan(text: tradeSaleCanOpen, style: TextStyle(color: appTheme.color)),
                             TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                            TextSpan(text: "0", style: TextStyle(color: appTheme.color))
+                            TextSpan(text: tradeSaleCanClose, style: TextStyle(color: appTheme.color))
                           ])),
                         ],
                       )
@@ -2197,6 +2209,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                             );
                           }).toList(),
                           onChanged: (v) {
+                            price = v!;
+                            tradeSalePrice = getLimitPrice(true).toString();
+                            tradeBuyPrice = getLimitPrice(false).toString();
+                            if (globalStateSecond != null) globalStateSecond!(() {});
+                          },
+                          onTextChanged: (text) {
+                            price = text;
+                            tradeSalePrice = getLimitPrice(true).toString();
+                            tradeBuyPrice = getLimitPrice(false).toString();
+                            if (globalStateSecond != null) globalStateSecond!(() {});
+                          },
+                          updateChange: (v) {
                             price = v!;
                             tradeSalePrice = getLimitPrice(true).toString();
                             tradeBuyPrice = getLimitPrice(false).toString();
@@ -2530,17 +2554,17 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                                 text: TextSpan(children: [
                               TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
                               TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                              TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                              TextSpan(text: tradeBuyCanOpen, style: TextStyle(color: appTheme.color)),
                               TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                              TextSpan(text: "0", style: TextStyle(color: appTheme.color))
+                              TextSpan(text: tradeBuyCanClose, style: TextStyle(color: appTheme.color))
                             ])),
                             RichText(
                                 text: TextSpan(children: [
                               TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
                               TextSpan(text: "可开 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                              TextSpan(text: "--", style: TextStyle(color: appTheme.color)),
+                              TextSpan(text: tradeSaleCanOpen, style: TextStyle(color: appTheme.color)),
                               TextSpan(text: "  可平 ", style: TextStyle(color: appTheme.exchangeTextColor)),
-                              TextSpan(text: "0", style: TextStyle(color: appTheme.color))
+                              TextSpan(text: tradeSaleCanClose, style: TextStyle(color: appTheme.color))
                             ])),
                           ],
                         )
@@ -2565,6 +2589,18 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                               );
                             }).toList(),
                             onChanged: (v) {
+                              price = v!;
+                              tradeSalePrice = getLimitPrice(true).toString();
+                              tradeBuyPrice = getLimitPrice(false).toString();
+                              if (globalStateThird != null) globalStateThird!(() {});
+                            },
+                            onTextChanged: (text) {
+                              price = text;
+                              tradeSalePrice = getLimitPrice(true).toString();
+                              tradeBuyPrice = getLimitPrice(false).toString();
+                              if (globalStateThird != null) globalStateThird!(() {});
+                            },
+                            updateChange: (v) {
                               price = v!;
                               tradeSalePrice = getLimitPrice(true).toString();
                               tradeBuyPrice = getLimitPrice(false).toString();

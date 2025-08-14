@@ -11,7 +11,8 @@ import '../../util/log/log.dart';
 
 class PLServer {
   ///查询止盈止损记录
-  static Future<List<PLRecord>?> getHisPLRecord(String? ExchangeNo, String? CommodityNo, String? ContractNo, int? CommodityType, int? MatchSide) async {
+  static Future<List<PLRecord>?> getHisPLRecord(
+      String? ExchangeNo, String? CommodityNo, String? ContractNo, int? CommodityType, int? MatchSide) async {
     try {
       String? data;
       if (Common.signData) {
@@ -25,6 +26,7 @@ class PLServer {
         data = await SignData().signData(jsonEncode(map), Config.queryPL);
       }
       Response response = await HttpUtils.getInstance().post(Config.queryPL, data: data);
+      // logger.f(response.data);
       if (response.data["code"] == 0) {
         List<PLRecord> pLRecords = [];
         List<dynamic> list = response.data["data"] ?? [];
@@ -81,8 +83,9 @@ class PLServer {
   }
 
   ///修改止盈止损
-  static Future<List<PLRecord>?> modifyPL(String? ExchangeNo, String? CommodityNo, int? CommodityType, String? ContractNo, int? MatchSide, int? OrderQty,
-      int? CloseType, int? RecordId, double? StopWin, double? StopLoss, double? FloatLoss) async {
+  static Future<List<PLRecord>?> modifyPL(String? ExchangeNo, String? CommodityNo, int? CommodityType, String? ContractNo,
+      // int? MatchSide,
+      int? RecordId, int? OrderQty, int? CloseType, double? StopWin, double? StopLoss, double? FloatLoss) async {
     try {
       String? data;
       if (Common.signData) {
@@ -91,7 +94,7 @@ class PLServer {
           "CommodityNo": CommodityNo,
           "ContractNo": ContractNo,
           "CommodityType": CommodityType,
-          "MatchSide": MatchSide,
+          // "MatchSide": MatchSide,
           "RecordId": RecordId,
           "OrderQty": OrderQty,
           "CloseType": CloseType,

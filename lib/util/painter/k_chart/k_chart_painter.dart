@@ -707,13 +707,15 @@ class ChartPainter extends BaseKChartPainter {
   void _drawTitles(Canvas canvas) {
     double perPrice = (mMaxPrice - mMinPrice) / (DEFAULT_UPER_LATITUDE_NUM + 1); //计算每一格纬线框所占有的价格
     for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
+      String text = Utils.getPointNum(mMinPrice + perPrice * i, length: 2);
       textPaint
-        ..text = TextSpan(
-            text: Utils.getPointNum(mMinPrice + perPrice * i, length: 2), style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text = TextSpan(text: text, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas,
-            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - timeLeftMarginSpace, UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP));
+        ..paint(
+            canvas,
+            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) - 5,
+                UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP));
     }
 
     // 绘制十字线
@@ -863,7 +865,7 @@ class ChartPainter extends BaseKChartPainter {
         Y = (mMaxPrice - (e.kPrice ?? 0)) * rate + textBottom;
         e.lineY = Y;
       } else if (e.lineY != null) {
-        e.kPrice = double.tryParse((mMaxPrice - ((e.lineY! - textBottom) / rate)).toStringAsFixed(2));
+        e.kPrice = double.tryParse((mMaxPrice - ((e.lineY! - textBottom) / rate)).toStringAsFixed(4));
         Y = e.lineY!;
       }
 
@@ -884,7 +886,7 @@ class ChartPainter extends BaseKChartPainter {
 
         textPaint
           ..text = TextSpan(
-              text: "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(2)}")
+              text: "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(4)}")
           ..layout()
           ..paint(
               canvas,
@@ -892,7 +894,7 @@ class ChartPainter extends BaseKChartPainter {
                   startX,
                   Y -
                       getStringHeight(
-                          "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(2)}",
+                          "${e.type == 1 ? "买开" : e.type == 2 ? "卖开" : "平仓"}${e.num}手 ${e.kPrice?.toStringAsFixed(4)}",
                           textPaint)));
       }
     }
@@ -916,9 +918,9 @@ class ChartPainter extends BaseKChartPainter {
           e.path = path;
           _paintLines(canvas, e.lineType, path, framePaint);
           textPaint
-            ..text = TextSpan(text: e.firstPointY!.toStringAsFixed(2))
+            ..text = TextSpan(text: e.firstPointY!.toStringAsFixed(4))
             ..layout()
-            ..paint(canvas, Offset(startX, Y - getStringHeight(e.firstPointY!.toStringAsFixed(2), textPaint)));
+            ..paint(canvas, Offset(startX, Y - getStringHeight(e.firstPointY!.toStringAsFixed(4), textPaint)));
         }
       } //
       else if (e.pathType == 4 && e.firstPointX != null) {
@@ -1385,12 +1387,20 @@ class ChartPainter extends BaseKChartPainter {
       framePaint
         ..color = e.selected ? Colors.red : Colors.blue
         ..strokeWidth = 1;
-      double price = e.StopWin ?? e.StopLoss ?? 0;
+      double Y = 0;
 
-      double Y = (mMaxPrice - price) * rate + textBottom;
+      if (e.price != null) {
+        Y = (mMaxPrice - (e.price ?? 0)) * rate + textBottom;
+        e.lineY = Y;
+      } else if (e.lineY != null) {
+        e.price = double.tryParse((mMaxPrice - ((e.lineY! - textBottom) / rate)).toStringAsFixed(4));
+        Y = e.lineY!;
+      }
+
       if (dealY(Y)) {
         path.moveTo(startX, Y);
         path.lineTo(stopX, Y);
+        e.path = path;
         canvas.drawPath(
             dashPath(
               path,
@@ -1398,10 +1408,10 @@ class ChartPainter extends BaseKChartPainter {
             ),
             framePaint);
 
-        double newY = Y - getStringHeight("$price", textPaint);
+        double newY = Y - getStringHeight("${e.price}", textPaint);
         textPaint
           ..text = TextSpan(
-            text: "$price多头止${e.StopWin != 0 ? "盈" : "损"}${e.RealQty}手",
+            text: "${e.price}多头止${e.win ? "盈" : "损"}${e.RealQty}手",
           )
           ..textDirection = TextDirection.ltr
           ..layout();

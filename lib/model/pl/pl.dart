@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 class PLRecord {
   bool isSelected = false;
   int? Id;
@@ -10,6 +12,10 @@ class PLRecord {
   int? PositionType;
   String? CloseTime;
   String? CreateAt;
+  double? lineY;
+  Path? path;
+  bool win = true;
+  double? price;
   bool selected = false;
 
   PLRecord({
@@ -36,6 +42,10 @@ class PLRecord {
     PositionType = json['PositionType'];
     CloseTime = json['CloseTime'];
     CreateAt = json['CreateAt'];
+    win = ((json['StopLoss'] != null && json['StopLoss'].toDouble() != 0) || (json['FloatLoss'] != null && json['FloatLoss'].toDouble() != 0))
+        ? false
+        : true;
+    price = win ? StopWin : StopLoss;
   }
 
   Map<String, dynamic> toJson() {
