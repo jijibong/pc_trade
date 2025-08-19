@@ -245,6 +245,7 @@ class ChartPainter extends BaseKChartPainter {
   bool orderDrawing = false;
   List<HoldOrder> holdOrder = [];
   List<PLRecord> pLRecordList = [];
+  int hoverIndex = 0;
 
   ChartPainter({
     required this.isDrawTime,
@@ -298,6 +299,7 @@ class ChartPainter extends BaseKChartPainter {
     required this.isDrawTimeDown,
     required this.holdOrder,
     required this.pLRecordList,
+    required this.hoverIndex,
   }) : super(isDrawTime: isDrawTime);
 
   @override
@@ -484,7 +486,7 @@ class ChartPainter extends BaseKChartPainter {
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
       double lowerHeight = kChartViewHeight - TIME_LOWER_CHART_TOP;
       CrossLineView.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, lowerHeight, currentX, currentY, mPointWidth, MARGINTOP, timeMarginLeft,
-          timeLeftMarginSpace, rightMarginSpace, showNum, 0, mOHLCData, isDrawTime, lastClose, mKPeriod);
+          timeLeftMarginSpace, rightMarginSpace, showNum, 0, mOHLCData, isDrawTime, lastClose, hoverIndex, mKPeriod);
     }
   }
 
@@ -551,8 +553,26 @@ class ChartPainter extends BaseKChartPainter {
 
     //绘制瀑布线
     if (isDrawFall && isSmartFall == false && mFallData != null) {
-      mFallData?.drawFall(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL, BaseKChartPainter.MARGINLEFT,
-          leftMarginSpace, MARGINTOP, mUperChartHeight, FallPeriod1, FallPeriod2, FallPeriod3, FallPeriod4, FallPeriod5, FallPeriod6);
+      mFallData?.drawFall(
+          canvas,
+          mDataStartIndext,
+          mShowDataNum,
+          mCandleWidth,
+          mMaxPrice,
+          mMinPrice,
+          CANDLE_INTERVAL,
+          BaseKChartPainter.MARGINLEFT,
+          leftMarginSpace,
+          MARGINTOP,
+          mUperChartHeight,
+          FallPeriod1,
+          FallPeriod2,
+          FallPeriod3,
+          FallPeriod4,
+          FallPeriod5,
+          FallPeriod6,
+          currentIndex(),
+          isDrawCrossLine);
     }
 
     //绘制均线
@@ -578,13 +598,15 @@ class ChartPainter extends BaseKChartPainter {
           isDrawCost2,
           isDrawCost3,
           isDrawCost4,
-          isDrawCost5);
+          isDrawCost5,
+          isDrawCrossLine,
+          currentIndex());
     }
 
     //绘制布林线
     if (isDrawBollinger && mBollingerData != null) {
       mBollingerData?.drawBollinger(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT, leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD);
+          BaseKChartPainter.MARGINLEFT, leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD, isDrawCrossLine, currentIndex());
     }
   }
 
@@ -623,20 +645,20 @@ class ChartPainter extends BaseKChartPainter {
         //画横线
         canvas.drawLine(Offset(BaseKChartPainter.MARGINLEFT, Y), Offset(BaseKChartPainter.MARGINLEFT + mChartWidth, Y), paintT);
         //绘制价格
-        double left, top, right, bottom, priceX, priceY;
-        priceX = BaseKChartPainter.MARGINLEFT + mChartWidth + 5;
-        priceY = Y + getStringHeight(price, textPaint) / 2;
-        left = BaseKChartPainter.MARGINLEFT + mChartWidth;
-        top = Y - getStringHeight(price, textPaint) / 2 - 5;
-        right = left + getStringWidth(price, textPaint) + 15;
-        bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
+        // double left, top, right, bottom, priceX, priceY;
+        // priceX = BaseKChartPainter.MARGINLEFT + mChartWidth + 5;
+        // priceY = Y + getStringHeight(price, textPaint) / 2;
+        // left = BaseKChartPainter.MARGINLEFT + mChartWidth;
+        // top = Y - getStringHeight(price, textPaint) / 2 - 5;
+        // right = left + getStringWidth(price, textPaint) + 15;
+        // bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
 
-        priceX = BaseKChartPainter.MARGINLEFT + -getStringWidth(price, textPaint) - 15;
-        priceY = Y + getStringHeight(price, textPaint) / 2;
-        left = BaseKChartPainter.MARGINLEFT + mChartWidth - getStringWidth(price, textPaint) - 15;
-        top = Y - getStringHeight(price, textPaint) / 2 - 5;
-        right = left + getStringWidth(price, textPaint) + 15;
-        bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
+        double priceX = BaseKChartPainter.MARGINLEFT + -getStringWidth(price, textPaint) - 15;
+        double priceY = Y + getStringHeight(price, textPaint) / 2;
+        double left = BaseKChartPainter.MARGINLEFT + mChartWidth - getStringWidth(price, textPaint) - 15;
+        double top = Y - getStringHeight(price, textPaint) / 2 - 5;
+        double right = left + getStringWidth(price, textPaint) + 15;
+        double bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
 
         canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redTPaint);
         redPaint
@@ -714,8 +736,8 @@ class ChartPainter extends BaseKChartPainter {
         ..layout()
         ..paint(
             canvas,
-            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) - 5,
-                UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP));
+            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - getStringWidth(text, textPaint) - 5,
+                UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP + getStringHeight(text, textPaint) / 2));
     }
 
     // 绘制十字线
@@ -737,6 +759,7 @@ class ChartPainter extends BaseKChartPainter {
           mOHLCData,
           isDrawTime,
           lastClose,
+          hoverIndex,
           mKPeriod);
     }
 
@@ -1562,17 +1585,17 @@ class ChartPainter extends BaseKChartPainter {
     return max;
   }
 
-  static int getNumber(int position, double marginLeft, double pWidth, int showNum) {
+  int currentIndex() {
     int number = 0;
-    int num = ((position - marginLeft) % pWidth).toInt();
+    double marginLeft = BaseKChartPainter.MARGINLEFT + leftMarginSpace;
+    int num = ((currentX - marginLeft) % mCandleWidth).toInt();
     if (num == 0) {
-      number = (position - marginLeft) ~/ pWidth;
+      number = (currentX - marginLeft) ~/ mCandleWidth;
     } else {
-      number = ((position - marginLeft) / pWidth + 1).toInt();
+      number = ((currentX - marginLeft) / mCandleWidth + 1).toInt();
     }
-
-    number = number < 1 ? 1 : number;
-    number = number > showNum ? showNum : number;
+    number = max(number, 0);
+    number = number + mDataStartIndext;
     return number;
   }
 

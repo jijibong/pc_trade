@@ -323,7 +323,9 @@ class FallLineEntity {
       int FallPeriod3,
       int FallPeriod4,
       int FallPeriod5,
-      int FallPeriod6) {
+      int FallPeriod6,
+      int currentIndex,
+      bool isDrawCrossLine) {
     double rate = 0.0; //每单位像素价格
     Paint onePaint = MethodUntil().getDrawPaint(Port.fall1Color);
     Paint twoPaint = MethodUntil().getDrawPaint(Port.fall2Color);
@@ -459,53 +461,55 @@ class FallLineEntity {
         } else {
           pbx6 = "0.000";
         }
-        String text = "PB$FallPeriod1:$pbx1";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
 
-        text = "PB$FallPeriod2:$pbx2";
+        if (isDrawCrossLine) {
+          if (currentIndex - (FallPeriod1 * 4 - 1) > 0) {
+            pbx1 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod1 * 4 - 1)]);
+          } else {
+            pbx1 = "";
+          }
+          if (currentIndex - (FallPeriod2 * 4 - 1) > 0) {
+            pbx2 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod2 * 4 - 1)]);
+          } else {
+            pbx2 = "";
+          }
+          if (currentIndex - (FallPeriod3 * 4 - 1) > 0) {
+            pbx3 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod3 * 4 - 1)]);
+          } else {
+            pbx3 = "";
+          }
+          if (currentIndex - (FallPeriod4 * 4 - 1) > 0) {
+            pbx4 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod4 * 4 - 1)]);
+          } else {
+            pbx4 = "";
+          }
+          if (currentIndex - (FallPeriod5 * 4 - 1) > 0) {
+            pbx5 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod5 * 4 - 1)]);
+          } else {
+            pbx5 = "";
+          }
+          if (currentIndex - (FallPeriod6 * 4 - 1) > 0) {
+            pbx6 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod6 * 4 - 1)]);
+          } else {
+            pbx6 = "";
+          }
+        }
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(children: [
+            TextSpan(
+                text:
+                    "PUBU${pbx1 != "" ? "($FallPeriod1" : ""}${pbx2 != "" ? ",$FallPeriod2" : ""}${pbx3 != "" ? ",$FallPeriod3" : ""}${pbx4 != "" ? ",$FallPeriod4" : ""}${pbx5 != "" ? ",$FallPeriod5" : ""}${pbx6 != "" ? ",$FallPeriod6" : ""}${pbx1 != "" ? ")" : ""}  ",
+                style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx1 != "") TextSpan(text: "  PB1:$pbx1", style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx2 != "") TextSpan(text: "  PB2:$pbx2", style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx3 != "") TextSpan(text: "  PB3:$pbx3", style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx4 != "") TextSpan(text: "  PB4:$pbx4", style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx5 != "") TextSpan(text: "  PB5:$pbx5", style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx6 != "") TextSpan(text: "  PB6:$pbx6", style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+          ])
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "PB$FallPeriod3:$pbx3";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "PB$FallPeriod4:$pbx4";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "PB$FallPeriod5:$pbx5";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "PB$FallPeriod6:$pbx6";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }
   }

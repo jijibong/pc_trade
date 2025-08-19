@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:fluent_ui/fluent_ui.dart';
 
+import '../../../util/log/log.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/utils/utils.dart';
@@ -193,7 +194,9 @@ class BollingerEntity {
       double MARGINTOP,
       double uperChartHeight,
       int BollingerPeriod,
-      double BollingerSD) {
+      double BollingerSD,
+      bool isDrawCrossLine,
+      int currentIndex) {
     double rate = 0.0; //每单位像素价格
     Paint midPaint = MethodUntil().getDrawPaint(Port.BollingerMidColor);
     Paint upPaint = MethodUntil().getDrawPaint(Port.BollingerUpColor);
@@ -237,52 +240,55 @@ class BollingerEntity {
       }
 
       //绘制当前周期，最新一根数据的up,down,middle
-      // logger.i("i:$i ,mDataStartIndext:$mDataStartIndext ,mShowDataNum:$mShowDataNum");
-
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        String up, mid, down;
-        if ((mDataStartIndext + mShowDataNum) > BollingerPeriod &&
+        if (isDrawCrossLine && currentIndex - BollingerPeriod > -1) {
+          textPaint
+            ..text = TextSpan(children: [
+              TextSpan(
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "MID:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)]))}  ",
+                  style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text:
+                      "TOP:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)] + 2 * BollingerSQRT[currentIndex - (BollingerPeriod - 1)]))}  ",
+                  style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text:
+                      "BOTTOM:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)] - 2 * BollingerSQRT[currentIndex - (BollingerPeriod - 1)]))}",
+                  style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            ])
+            ..textDirection = TextDirection.ltr
+            ..layout()
+            ..paint(canvas, Offset(textXStart, 0));
+        } else if ((mDataStartIndext + mShowDataNum) > BollingerPeriod &&
             (i - (BollingerPeriod - 1)) < BollingerAVE.length &&
-            (i - (BollingerPeriod - 1)) < BollingerSQRT.length) {
-          up = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)] + 2 * BollingerSQRT[i - (BollingerPeriod - 1)]));
-          mid = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)]));
-          down = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)] - 2 * BollingerSQRT[i - (BollingerPeriod - 1)]));
+            (i - (BollingerPeriod - 1)) < BollingerSQRT.length &&
+            !isDrawCrossLine) {
+          String up = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)] + 2 * BollingerSQRT[i - (BollingerPeriod - 1)]));
+          String mid = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)]));
+          String down = Utils.getPointNum((BollingerAVE[i - (BollingerPeriod - 1)] - 2 * BollingerSQRT[i - (BollingerPeriod - 1)]));
+          textPaint
+            ..text = TextSpan(children: [
+              TextSpan(
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(text: "MID:$mid  ", style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(text: "TOP:$up  ", style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(text: "BOTTOM:$down", style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            ])
+            ..textDirection = TextDirection.ltr
+            ..layout()
+            ..paint(canvas, Offset(textXStart, 0));
         } else {
-          up = "0.000";
-          mid = "0.000";
-          down = "0.000";
+          textPaint
+            ..text = TextSpan(children: [
+              TextSpan(
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            ])
+            ..textDirection = TextDirection.ltr
+            ..layout()
+            ..paint(canvas, Offset(textXStart, 0));
         }
-        String text = "BLD($BollingerPeriod, $BollingerSD)";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "TOP:$up";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "MID:$mid";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "BOTTOM:$down";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }
   }

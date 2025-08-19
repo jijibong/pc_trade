@@ -82,6 +82,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   MyPage? selectedPage;
   bool myContract = true;
   bool riskDialogShowing = false;
+  int selectedIndex = 0;
+  int perIndex = -1;
 
   requestNetIp() async {
     await LoginServer.requestNetIp().then((value) {
@@ -327,13 +329,13 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   alignment: Alignment.center,
                   children: [
                     Image.asset("assets/images/tradelogin_bk.png"),
-                    // Positioned(
-                    //     top: 5,
-                    //     right: 5,
-                    //     child: IconButton(
-                    //       icon: const Icon(FluentIcons.clear),
-                    //       onPressed: () => Get.back(),
-                    //     ))
+                    Positioned(
+                        top: 5,
+                        right: 5,
+                        child: IconButton(
+                          icon: const Icon(FluentIcons.clear),
+                          onPressed: () => quit(),
+                        ))
                   ],
                 ),
                 boxItem('请输入服务商代码', severController, readOnly: true),
@@ -406,6 +408,43 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         );
       },
     );
+  }
+
+  quit() async {
+    bool isPreventClose = await windowManager.isPreventClose();
+    if (isPreventClose && mounted) {
+      showDialog(
+        context: context,
+        builder: (_) {
+          return ContentDialog(
+            title: const Text('提示'),
+            content: const Text('确认要退出${Common.appName}吗？'),
+            actions: [
+              FilledButton(
+                child: const Text('确定'),
+                onPressed: () async {
+                  // Navigator.pop(_);
+                  // if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
+                  //   await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
+                  // }
+                  // await rustDeskWinManager.closeAllSubWindows();
+                  // await windowManager.close();
+                  exit(0);
+                },
+              ),
+              Button(
+                child: const Text('取消'),
+                onPressed: () {
+                  Navigator.pop(_);
+                },
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      exit(0);
+    }
   }
 
   Future login() async {
@@ -513,6 +552,13 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     ///切换分屏
     EventBusUtil.getInstance().on<SplitScreen>().listen((event) async {
       splitScreen(event.index);
+    });
+
+    ///放大分屏
+    EventBusUtil.getInstance().on<SelectScreen>().listen((event) async {
+      perIndex = appTheme.multiScreen;
+      selectedIndex = event.index;
+      appTheme.multiScreen = 1;
     });
 
     ///保存页面
@@ -806,6 +852,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
                         label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
                         onPressed: () {
+                          if (perIndex != -1) {
+                            appTheme.multiScreen = perIndex;
+                            perIndex = -1;
+                            return;
+                          }
                           if (logic.viewIndexList[logic.selectedIndex.value] == 1) {
                             EventBusUtil.getInstance().fire(BackEvent(logic.selectedIndex.value));
                           }
@@ -1256,7 +1307,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                 children: [
                   Expanded(
                       child: appTheme.multiScreen == 1
-                          ? const Quote(0)
+                          ? Quote(selectedIndex)
                           : MultiSplitViewTheme(
                               data: MultiSplitViewThemeData(dividerThickness: 5, dividerPainter: DividerPainter(backgroundColor: Colors.white)),
                               child: MultiSplitView(
@@ -1457,40 +1508,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
   @override
   void onWindowClose() async {
-    bool isPreventClose = await windowManager.isPreventClose();
-    if (isPreventClose && mounted) {
-      showDialog(
-        context: context,
-        builder: (_) {
-          return ContentDialog(
-            title: const Text('提示'),
-            content: const Text('确认要退出${Common.appName}吗？'),
-            actions: [
-              FilledButton(
-                child: const Text('确定'),
-                onPressed: () async {
-                  // Navigator.pop(_);
-                  // if (rustDeskWinManager.getActiveWindows().contains(kMainWindowId)) {
-                  //   await rustDeskWinManager.unregisterActiveWindow(kMainWindowId);
-                  // }
-                  // await rustDeskWinManager.closeAllSubWindows();
-                  // await windowManager.close();
-                  exit(0);
-                },
-              ),
-              Button(
-                child: const Text('取消'),
-                onPressed: () {
-                  Navigator.pop(_);
-                },
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      exit(0);
-    }
+    quit();
   }
 }
 

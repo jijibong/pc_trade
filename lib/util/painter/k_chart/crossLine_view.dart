@@ -248,6 +248,7 @@ class CrossLineView extends CustomPainter {
       List<OHLCEntity> list,
       bool isDrawTime,
       double lastClsoe,
+      int hoverIndex,
       KPeriod mKPeriod) {
     int number = getNumber(X.toInt(), MARGINLEFT + leftMarginSpace, mPointWidth, showNum, isDrawTime);
 //		Log.i("", "第"+number+" 根K线");
@@ -266,6 +267,7 @@ class CrossLineView extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = Utils.dp2px(1);
     //竖线
+
     canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
 
     startX = MARGINLEFT;
@@ -274,7 +276,9 @@ class CrossLineView extends CustomPainter {
     stopY = Y;
 
     //横线
-    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
+    if (hoverIndex == 0) {
+      canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
+    }
 
     int index = isDrawTime ? startIndex + number : startIndex + number - 1;
     OHLCEntity? ohlc = index < list.length ? list[index] : null;
@@ -481,6 +485,50 @@ class CrossLineView extends CustomPainter {
         ..text = TextSpan(text: hold, style: TextStyle(color: whiteColor, fontSize: ts))
         ..layout()
         ..paint(canvas, Offset(textX, top + height * 17));
+    }
+  }
+
+  ///副图十字线
+  static void drawSubCrossLine(
+      Canvas canvas,
+      double viewHeight,
+      double viewWidth,
+      double X,
+      double Y,
+      double mPointWidth,
+      double MARGINTOP,
+      double MARGINLEFT,
+      double leftMarginSpace,
+      double rightMarginSpace,
+      int showNum,
+      int startIndex,
+      List<OHLCEntity> list,
+      int index,
+      int hoverIndex) {
+    int number = getNumber(X.toInt(), MARGINLEFT + leftMarginSpace, mPointWidth, showNum, false);
+    X = MARGINLEFT + number * mPointWidth + leftMarginSpace;
+    Y = dealY(Y, viewHeight, MARGINTOP);
+
+    double startX = X;
+    double startY = viewHeight;
+    double stopX = X;
+    double stopY = 0;
+    Paint redPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 255, 255, 1));
+    Paint framePaint = MethodUntil().getDrawPaint(const Color.fromRGBO(38, 41, 55, 1));
+    framePaint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = Utils.dp2px(1);
+    //竖线
+    canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
+
+    startX = MARGINLEFT;
+    startY = Y;
+    stopX = viewWidth;
+    stopY = Y;
+
+    //横线
+    if (hoverIndex == index) {
+      canvas.drawLine(Offset(startX, startY), Offset(stopX, stopY), redPaint);
     }
   }
 

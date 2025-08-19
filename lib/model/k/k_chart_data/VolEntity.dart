@@ -78,7 +78,7 @@ class VolEntity {
 
   /// 绘制Vol
   void drawVol(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight) {
+      double leftMarginSpace, double halfTextHeight, bool isDrawCrossLine, int currentIndex) {
     if (mVolList.isEmpty) {
       return;
     }
@@ -149,7 +149,6 @@ class VolEntity {
       //绘制当前周期，最新一根数据的成交量
       if (i == mDataStartIndext + mShowDataNum - 1) {
         String volume = (mVolList[i].volume ?? 0).toString();
-        String text = "VOL:$volume";
         Color tmp;
         if (open < close) {
           //上涨
@@ -161,6 +160,10 @@ class VolEntity {
           //下跌
           tmp = Port.VolDown_Color;
         }
+        if (isDrawCrossLine && currentIndex <= mVolList.length) {
+          volume = (mVolList[currentIndex - 1].volume ?? 0).toString();
+        }
+        String text = "VOL:$volume";
         textPaint
           ..text = TextSpan(text: text, style: TextStyle(color: tmp, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr

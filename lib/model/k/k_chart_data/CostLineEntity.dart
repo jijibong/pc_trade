@@ -363,7 +363,9 @@ class CostLineEntity {
       bool isDrawCost2,
       bool isDrawCost3,
       bool isDrawCost4,
-      bool isDrawCost5) {
+      bool isDrawCost5,
+      bool isDrawCrossLine,
+      int currentIndex) {
     double rate = 0.0; //每单位像素价格
     Paint onePaint = MethodUntil().getDrawPaint(Port.costOneColor);
     Paint twoPaint = MethodUntil().getDrawPaint(Port.costTwoColor);
@@ -477,45 +479,52 @@ class CostLineEntity {
           cost5 = "0.000";
         }
 
-        String text = "MA$CostOnePeriod:$cost1";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
+        if (isDrawCrossLine) {
+          if (currentIndex - (CostOnePeriod - 1) > 0) {
+            cost1 = Utils.getPointNum(CostOne[currentIndex - (CostOnePeriod - 1)]);
+          } else {
+            cost1 = "";
+          }
+          if (currentIndex - (CostTwoPeriod - 1) > 0) {
+            cost2 = Utils.getPointNum(CostTwo[currentIndex - (CostTwoPeriod - 1)]);
+          } else {
+            cost2 = "";
+          }
+          if (currentIndex - (CostThreePeriod - 1) > 0) {
+            cost3 = Utils.getPointNum(CostThree[currentIndex - (CostThreePeriod - 1)]);
+          } else {
+            cost3 = "";
+          }
+          if (currentIndex - (CostFourPeriod - 1) > 0) {
+            cost4 = Utils.getPointNum(CostFour[currentIndex - (CostFourPeriod - 1)]);
+          } else {
+            cost4 = "";
+          }
+          if (currentIndex - (CostFivePeriod - 1) > 0) {
+            cost5 = Utils.getPointNum(CostFive[currentIndex - (CostFivePeriod - 1)]);
+          } else {
+            cost5 = "";
+          }
+        }
 
-        text = "MA$CostTwoPeriod:$cost2";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(children: [
+            TextSpan(
+                text:
+                    "MA${cost1 != "" ? "($CostOnePeriod" : ""}${cost2 != "" ? ",$CostTwoPeriod" : ""}${cost3 != "" ? ",$CostThreePeriod" : ""}${cost4 != "" ? ",$CostFourPeriod" : ""}${cost5 != "" ? ",$CostFivePeriod" : ""}${cost1 != "" ? ")" : ""}  ",
+                style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost1 != "") TextSpan(text: "  MA$CostOnePeriod:$cost1", style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost2 != "") TextSpan(text: "  MA$CostTwoPeriod:$cost2", style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost3 != "")
+              TextSpan(text: "  MA$CostThreePeriod:$cost3", style: TextStyle(color: Port.costThreeColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost4 != "")
+              TextSpan(text: "  MA$CostFourPeriod:$cost4", style: TextStyle(color: Port.costFourColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost5 != "")
+              TextSpan(text: "  MA$CostFivePeriod:$cost5", style: TextStyle(color: Port.costFiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+          ])
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "MA$CostThreePeriod:$cost3";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "MA$CostFourPeriod:$cost4";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "MA$CostFivePeriod:$cost5";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.costFiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, 0));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
       }
     }
   }

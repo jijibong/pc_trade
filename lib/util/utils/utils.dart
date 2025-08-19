@@ -503,7 +503,7 @@ class Utils {
   /// 根据小数点位置保存小数位数
   static String getPointNum(double num, {int? length}) {
     String text = "";
-    int digit = length ?? 3;
+    int digit = length ?? 2;
     String strNum = Decimal.fromJson(num.toString()).toString();
 
     int loc = strNum.indexOf(".");

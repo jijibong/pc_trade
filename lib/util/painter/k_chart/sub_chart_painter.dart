@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:path_drawing/path_drawing.dart';
@@ -126,6 +127,12 @@ class SubChartPainter extends CustomPainter {
   double mCandleWidth = Port.CandleWidth;
   int mDataStartIndext = 0;
   int mShowDataNum = 180;
+  bool isDrawCrossLine = false;
+  double currentX = -1;
+  double currentY = -1;
+  KPeriod mKPeriod = KPeriod();
+  int hoverIndex = 0;
+  int index = 0;
 
   SubChartPainter({
     required this.mCandleWidth,
@@ -153,6 +160,12 @@ class SubChartPainter extends CustomPainter {
     required this.mPSYData,
     required this.mVolData,
     required this.mVRData,
+    required this.isDrawCrossLine,
+    required this.currentX,
+    required this.currentY,
+    required this.mKPeriod,
+    required this.hoverIndex,
+    required this.index,
   }) : super();
 
   @override
@@ -165,11 +178,32 @@ class SubChartPainter extends CustomPainter {
   }
 
   void drawUpperRegion(Canvas canvas, Size size) {
+    // 绘制十字线
+    if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
+      CrossLineView.drawSubCrossLine(
+        canvas,
+        size.height,
+        size.width,
+        currentX,
+        currentY,
+        mCandleWidth,
+        0,
+        BaseKChartPainter.MARGINLEFT,
+        ChartPainter.leftMarginSpace,
+        ChartPainter.rightMarginSpace,
+        mShowDataNum,
+        mDataStartIndext,
+        mOHLCData,
+        index,
+        hoverIndex,
+      );
+    }
+
     //绘制MACD
     if (isDrawMACD && mMACDData != null) {
       //绘制MACD
       mMACDData?.drawMACD(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
-          ChartPainter.leftMarginSpace, halfTextHeight, macdLPeriod, macdSPeriod, macdPeriod);
+          ChartPainter.leftMarginSpace, halfTextHeight, macdLPeriod, macdSPeriod, macdPeriod, isDrawCrossLine, currentIndex());
     }
 
     //绘制RSI
@@ -211,7 +245,7 @@ class SubChartPainter extends CustomPainter {
     //绘制成交量
     if (isDrawVOL && mVolData != null) {
       mVolData?.drawVol(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight);
+          halfTextHeight, isDrawCrossLine, currentIndex());
     }
 
     //绘制vr
@@ -224,6 +258,20 @@ class SubChartPainter extends CustomPainter {
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
     canvas.drawLine(Offset(ChartPainter.leftMarginSpace, 0), Offset(ChartPainter.leftMarginSpace, viewHeight), girdPaint);
     canvas.drawLine(Offset(0, viewHeight), Offset(viewWidth, viewHeight), girdPaint);
+  }
+
+  int currentIndex() {
+    int number = 0;
+    double marginLeft = BaseKChartPainter.MARGINLEFT + ChartPainter.leftMarginSpace;
+    int num = ((currentX - marginLeft) % mCandleWidth).toInt();
+    if (num == 0) {
+      number = (currentX - marginLeft) ~/ mCandleWidth;
+    } else {
+      number = ((currentX - marginLeft) / mCandleWidth + 1).toInt();
+    }
+    number = max(number, 0);
+    number = number + mDataStartIndext;
+    return number;
   }
 
   static double getStringWidth(String text, TextPainter paint, {double? size}) {

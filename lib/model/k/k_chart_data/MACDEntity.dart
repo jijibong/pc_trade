@@ -256,7 +256,7 @@ class MACDEntity {
    * @param canvas
    */
   void drawMACD(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int macdLPeriod, int macdSPeriod, int macdPeriod) {
+      double leftMarginSpace, double halfTextHeight, int macdLPeriod, int macdSPeriod, int macdPeriod, bool isDrawCrossLine, int currentIndex) {
     if (DIFs.isEmpty || DEAs.isEmpty || MACDs.isEmpty) {
       return;
     }

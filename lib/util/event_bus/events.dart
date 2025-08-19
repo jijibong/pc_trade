@@ -19,6 +19,12 @@ class BackEvent {
   BackEvent(this.index);
 }
 
+///放大分屏
+class SelectScreen {
+  int index;
+  SelectScreen(this.index);
+}
+
 ///保存页面
 class SavePage {
   String name;
