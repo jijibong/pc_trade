@@ -188,7 +188,7 @@ class KDJEntity {
    * 绘制KDJ,价格线
    */
   void drawKDJ(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int KDJPeriod, int KDJ_M1, int KDJ_M2) {
+      double leftMarginSpace, double halfTextHeight, int KDJPeriod, int KDJ_M1, int KDJ_M2, bool isDrawCrossLine, int currentIndex) {
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double latitudeSpacing = lowerHight / 3; //每格高度
     double rate = 0.0; //每单位像素价格
@@ -210,7 +210,7 @@ class KDJEntity {
     //绘制虚线
     Path path = Path(); // 绘制虚线
     path.moveTo(leftMarginSpace, viewHeight - latitudeSpacing - textBottom);
-    path.lineTo(viewWidth - leftMarginSpace, viewHeight - latitudeSpacing - textBottom);
+    path.lineTo(viewWidth, viewHeight - latitudeSpacing - textBottom);
     canvas.drawPath(
       dashPath(
         path,
@@ -256,52 +256,37 @@ class KDJEntity {
 
       //绘制当前周期，最新一根数据的KDJ
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String K, D, J;
-        if ((mDataStartIndext + mShowDataNum) > KDJPeriod &&
+        String? K, D, J;
+
+        if (isDrawCrossLine) {
+          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Ks.length) {
+            K = Utils.getPointNum(Ks[currentIndex - KDJPeriod + 1]);
+          }
+          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Ds.length) {
+            D = Utils.getPointNum(Ds[currentIndex - KDJPeriod + 1]);
+          }
+          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Js.length) {
+            J = Utils.getPointNum(Js[currentIndex - KDJPeriod + 1]);
+          }
+        } else if ((mDataStartIndext + mShowDataNum) > KDJPeriod &&
             (i - (KDJPeriod - 1)) < Ks.length &&
             (i - (KDJPeriod - 1)) < Ds.length &&
             (i - (KDJPeriod - 1)) < Js.length) {
           K = Utils.getPointNum(Ks[i - (KDJPeriod - 1)]);
           D = Utils.getPointNum(Ds[i - (KDJPeriod - 1)]);
           J = Utils.getPointNum(Js[i - (KDJPeriod - 1)]);
-        } else {
-          K = "0.000";
-          D = "0.000";
-          J = "0.000";
         }
 
-        double textXStart = Port.defult_icon_width + leftMarginSpace;
-        String text = "KDJ($KDJPeriod , $KDJ_M1 , $KDJ_M2)";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(children: [
+            TextSpan(text: "KDJ($KDJPeriod , $KDJ_M1 , $KDJ_M2)", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (K != null) TextSpan(text: "  K:$K", style: TextStyle(color: Port.KDJ_KColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (D != null) TextSpan(text: "  D:$D", style: TextStyle(color: Port.KDJ_DColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (J != null) TextSpan(text: "  J:$J", style: TextStyle(color: Port.KDJ_JColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+          ])
           ..textDirection = TextDirection.ltr
           ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "K:$K";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_KColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "D:$D";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_DColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "J:$J";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.KDJ_JColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
+          ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));
       }
     }
   }

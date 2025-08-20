@@ -209,37 +209,37 @@ class SubChartPainter extends CustomPainter {
     //绘制RSI
     if (isDrawRSI && mRSIData != null) {
       mRSIData?.drawRSI(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, rsiPeriod);
+          halfTextHeight, rsiPeriod, isDrawCrossLine, currentIndex());
     }
 
     //绘制KDJ
     if (isDrawKDJ && mKDJData != null) {
       mKDJData?.drawKDJ(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, KDJPeriod, KDJ_M1, KDJ_M2);
+          halfTextHeight, KDJPeriod, KDJ_M1, KDJ_M2, isDrawCrossLine, currentIndex());
     }
 
     //绘制WR
     if (isDrawWR && mWRData != null) {
       mWRData?.drawWR(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, Wr1Period, Wr2Period);
+          halfTextHeight, Wr1Period, Wr2Period, isDrawCrossLine, currentIndex());
     }
 
     //绘制CCI
     if (isDrawCCI && mCCIData != null) {
       mCCIData?.drawCCI(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, CCIPeriod);
+          halfTextHeight, CCIPeriod, isDrawCrossLine, currentIndex());
     }
 
     //绘制BIAS
     if (isDrawBIAS && mBIASData != null) {
       mBIASData?.drawBIAS(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL,
-          ChartPainter.leftMarginSpace, halfTextHeight, BIAS1Period, BIAS2Period, BIAS3Period);
+          ChartPainter.leftMarginSpace, halfTextHeight, BIAS1Period, BIAS2Period, BIAS3Period, isDrawCrossLine, currentIndex());
     }
 
     //绘制PSY
     if (isDrawPSY && mPSYData != null) {
       mPSYData?.drawPSY(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, PSYPeriod, PSYMAPeriod);
+          halfTextHeight, PSYPeriod, PSYMAPeriod, isDrawCrossLine, currentIndex());
     }
 
     //绘制成交量
@@ -251,7 +251,7 @@ class SubChartPainter extends CustomPainter {
     //绘制vr
     if (isDrawVR && mVRData != null) {
       mVRData?.drawVR(canvas, size.height, size.width, mDataStartIndext, mShowDataNum, mCandleWidth, CANDLE_INTERVAL, ChartPainter.leftMarginSpace,
-          halfTextHeight, VRPeriod);
+          halfTextHeight, VRPeriod, isDrawCrossLine, currentIndex());
     }
   }
 

@@ -447,63 +447,44 @@ class CostLineEntity {
 
       //绘制当前周期，最新一根数据
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        String cost1, cost2, cost3, cost4, cost5;
-        //周期1的当前数据
-        if ((mDataStartIndext + mShowDataNum) > CostOnePeriod && isDrawCost1 && (i - (CostOnePeriod - 1)) < CostOne.length) {
-          cost1 = Utils.getPointNum(CostOne[i - (CostOnePeriod - 1)]);
-        } else {
-          cost1 = "0.000";
-        }
-        //周期2的当前数据
-        if ((mDataStartIndext + mShowDataNum) > CostTwoPeriod && isDrawCost2 && (i - (CostTwoPeriod - 1)) < CostTwo.length) {
-          cost2 = Utils.getPointNum(CostTwo[i - (CostTwoPeriod - 1)]);
-        } else {
-          cost2 = "0.000";
-        }
-        //周期3的当前数据
-        if ((mDataStartIndext + mShowDataNum) > CostThreePeriod && isDrawCost3 && (i - (CostThreePeriod - 1)) < CostThree.length) {
-          cost3 = Utils.getPointNum(CostThree[i - (CostThreePeriod - 1)]);
-        } else {
-          cost3 = "0.000";
-        }
-        //周期4的当前数据
-        if ((mDataStartIndext + mShowDataNum) > CostFourPeriod && isDrawCost4 && (i - (CostFourPeriod - 1)) < CostFour.length) {
-          cost4 = Utils.getPointNum(CostFour[i - (CostFourPeriod - 1)]);
-        } else {
-          cost4 = "0.000";
-        }
-        //周期5的当前数据
-        if ((mDataStartIndext + mShowDataNum) > CostFivePeriod && isDrawCost5 && (i - (CostFivePeriod - 1)) < CostFive.length) {
-          cost5 = Utils.getPointNum(CostFive[i - (CostFivePeriod - 1)]);
-        } else {
-          cost5 = "0.000";
-        }
+        String? cost1, cost2, cost3, cost4, cost5;
 
         if (isDrawCrossLine) {
           if (currentIndex - (CostOnePeriod - 1) > 0) {
             cost1 = Utils.getPointNum(CostOne[currentIndex - (CostOnePeriod - 1)]);
-          } else {
-            cost1 = "";
           }
           if (currentIndex - (CostTwoPeriod - 1) > 0) {
             cost2 = Utils.getPointNum(CostTwo[currentIndex - (CostTwoPeriod - 1)]);
-          } else {
-            cost2 = "";
           }
           if (currentIndex - (CostThreePeriod - 1) > 0) {
             cost3 = Utils.getPointNum(CostThree[currentIndex - (CostThreePeriod - 1)]);
-          } else {
-            cost3 = "";
           }
           if (currentIndex - (CostFourPeriod - 1) > 0) {
             cost4 = Utils.getPointNum(CostFour[currentIndex - (CostFourPeriod - 1)]);
-          } else {
-            cost4 = "";
           }
           if (currentIndex - (CostFivePeriod - 1) > 0) {
             cost5 = Utils.getPointNum(CostFive[currentIndex - (CostFivePeriod - 1)]);
-          } else {
-            cost5 = "";
+          }
+        } else {
+          //周期1的当前数据
+          if ((mDataStartIndext + mShowDataNum) > CostOnePeriod && isDrawCost1 && (i - (CostOnePeriod - 1)) < CostOne.length) {
+            cost1 = Utils.getPointNum(CostOne[i - (CostOnePeriod - 1)]);
+          }
+          //周期2的当前数据
+          if ((mDataStartIndext + mShowDataNum) > CostTwoPeriod && isDrawCost2 && (i - (CostTwoPeriod - 1)) < CostTwo.length) {
+            cost2 = Utils.getPointNum(CostTwo[i - (CostTwoPeriod - 1)]);
+          }
+          //周期3的当前数据
+          if ((mDataStartIndext + mShowDataNum) > CostThreePeriod && isDrawCost3 && (i - (CostThreePeriod - 1)) < CostThree.length) {
+            cost3 = Utils.getPointNum(CostThree[i - (CostThreePeriod - 1)]);
+          }
+          //周期4的当前数据
+          if ((mDataStartIndext + mShowDataNum) > CostFourPeriod && isDrawCost4 && (i - (CostFourPeriod - 1)) < CostFour.length) {
+            cost4 = Utils.getPointNum(CostFour[i - (CostFourPeriod - 1)]);
+          }
+          //周期5的当前数据
+          if ((mDataStartIndext + mShowDataNum) > CostFivePeriod && isDrawCost5 && (i - (CostFivePeriod - 1)) < CostFive.length) {
+            cost5 = Utils.getPointNum(CostFive[i - (CostFivePeriod - 1)]);
           }
         }
 
@@ -511,15 +492,17 @@ class CostLineEntity {
           ..text = TextSpan(children: [
             TextSpan(
                 text:
-                    "MA${cost1 != "" ? "($CostOnePeriod" : ""}${cost2 != "" ? ",$CostTwoPeriod" : ""}${cost3 != "" ? ",$CostThreePeriod" : ""}${cost4 != "" ? ",$CostFourPeriod" : ""}${cost5 != "" ? ",$CostFivePeriod" : ""}${cost1 != "" ? ")" : ""}  ",
+                    "MA${cost1 != null ? "($CostOnePeriod" : ""}${cost2 != null ? ",$CostTwoPeriod" : ""}${cost3 != null ? ",$CostThreePeriod" : ""}${cost4 != null ? ",$CostFourPeriod" : ""}${cost5 != null ? ",$CostFivePeriod" : ""}${cost1 != null ? ")" : ""}  ",
                 style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (cost1 != "") TextSpan(text: "  MA$CostOnePeriod:$cost1", style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (cost2 != "") TextSpan(text: "  MA$CostTwoPeriod:$cost2", style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (cost3 != "")
+            if (cost1 != null)
+              TextSpan(text: "  MA$CostOnePeriod:$cost1", style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost2 != null)
+              TextSpan(text: "  MA$CostTwoPeriod:$cost2", style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (cost3 != null)
               TextSpan(text: "  MA$CostThreePeriod:$cost3", style: TextStyle(color: Port.costThreeColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (cost4 != "")
+            if (cost4 != null)
               TextSpan(text: "  MA$CostFourPeriod:$cost4", style: TextStyle(color: Port.costFourColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (cost5 != "")
+            if (cost5 != null)
               TextSpan(text: "  MA$CostFivePeriod:$cost5", style: TextStyle(color: Port.costFiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr

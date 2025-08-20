@@ -135,7 +135,7 @@ class PSYEntity {
    * 绘制PSY,价格线
    */
   void drawPSY(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int PSYPeriod, int PSYMAPeriod) {
+      double leftMarginSpace, double halfTextHeight, int PSYPeriod, int PSYMAPeriod, bool isDrawCrossLine, int currentIndex) {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double rate = 0.0; //每单位像素价格
@@ -224,45 +224,35 @@ class PSYEntity {
 
       //绘制当前周期，最新一根数据的PSY
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String psy, psyMa;
-        if ((mDataStartIndext + mShowDataNum) > PSYPeriod && (i - (PSYPeriod - 1)) < PSYs.length) {
-          psy = Utils.getPointNum(PSYs[i - (PSYPeriod - 1)]);
+        String? psy, psyMa;
+
+        if (isDrawCrossLine) {
+          if (currentIndex - PSYPeriod + 1 > 0 && currentIndex - PSYPeriod + 1 < PSYs.length) {
+            psy = Utils.getPointNum(PSYs[currentIndex - (PSYPeriod - 1)]);
+          }
+          if (currentIndex - PSYPeriod - PSYMAPeriod + 1 > 0 && currentIndex - PSYPeriod + 1 < PSYMAs.length) {
+            psy = Utils.getPointNum(PSYs[currentIndex - (PSYPeriod + PSYMAPeriod - 1)]);
+          }
         } else {
-          psy = "0.000";
-        }
-        if ((mDataStartIndext + mShowDataNum) > PSYPeriod + PSYMAPeriod && (i - (PSYPeriod + PSYMAPeriod - 1)) < PSYMAs.length) {
-          psyMa = Utils.getPointNum(PSYMAs[i - (PSYPeriod + PSYMAPeriod - 1)]);
-        } else {
-          psyMa = "0.000";
+          if ((mDataStartIndext + mShowDataNum) > PSYPeriod && (i - (PSYPeriod - 1)) < PSYs.length) {
+            psy = Utils.getPointNum(PSYs[i - (PSYPeriod - 1)]);
+          }
+          if ((mDataStartIndext + mShowDataNum) > PSYPeriod + PSYMAPeriod && (i - (PSYPeriod + PSYMAPeriod - 1)) < PSYMAs.length) {
+            psyMa = Utils.getPointNum(PSYMAs[i - (PSYPeriod + PSYMAPeriod - 1)]);
+          }
         }
 
         String text = "PSY($PSYPeriod , $PSYMAPeriod)";
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(children: [
+            TextSpan(text: "PSY($PSYPeriod , $PSYMAPeriod)", style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psy != null) TextSpan(text: "  psy: $psy", style: TextStyle(color: Port.PSYColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psyMa != null) TextSpan(text: "  payMa: $psyMa", style: TextStyle(color: Port.PSYMAColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+          ])
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(textXStart, Port.text_check));
         textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "psy: $psy";
-        // textPaint.setColor(Port.PSYColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.PSYColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "payMa: $psyMa";
-        // textPaint.setColor(Port.PSYMAColor);
-        // canvas.drawText(text, textXStart, LOWER_CHART_TOP+DEFAULT_AXIS_TITLE_SIZE+5, textPaint);
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.PSYMAColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
       }
     }
   }

@@ -849,8 +849,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                     compactBreakpointWidth: 0.8.sw,
                     primaryItems: [
                       CommandBarButton(
-                        icon: Icon(FluentIcons.back, color: appTheme.exchangeTextColor),
-                        label: Text('返回', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.back, color: appTheme.color),
+                        label: Text('返回', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
                           if (perIndex != -1) {
                             appTheme.multiScreen = perIndex;
@@ -863,8 +863,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.home, color: appTheme.exchangeTextColor),
-                        label: Text('首页', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.home, color: appTheme.color),
+                        label: Text('首页', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
                           logic.viewIndexList[logic.selectedIndex.value] = 0;
                           logic.showChartList[logic.selectedIndex.value] = 0;
@@ -872,15 +872,15 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.refresh, color: appTheme.exchangeTextColor),
-                        label: Text('刷新', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.refresh, color: appTheme.color),
+                        label: Text('刷新', style: TextStyle(color: appTheme.color)),
                         onPressed: () async {
                           EventBusUtil.getInstance().fire(RefreshEvent());
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.save_all, color: appTheme.exchangeTextColor),
-                        label: Text('保存页面', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.save_all, color: appTheme.color),
+                        label: Text('保存页面', style: TextStyle(color: appTheme.color)),
                         onPressed: () async {
                           if (appTheme.multiScreen != 1) {
                             showDialog(
@@ -895,29 +895,29 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.scale_volume, color: appTheme.exchangeTextColor),
-                        label: Text('放大', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.scale_volume, color: appTheme.color),
+                        label: Text('放大', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
                           EventBusUtil.getInstance().fire(ScaleKLine(true));
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.scale_up, color: appTheme.exchangeTextColor),
-                        label: Text('缩小', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.scale_up, color: appTheme.color),
+                        label: Text('缩小', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
                           EventBusUtil.getInstance().fire(ScaleKLine(false));
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.edit_create, color: appTheme.exchangeTextColor),
-                        label: Text('画图工具', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.edit_create, color: appTheme.color),
+                        label: Text('画图工具', style: TextStyle(color: appTheme.color)),
                         onPressed: () async {
                           await rustDeskWinManager.newDrawTool("draw");
                         },
                       ),
                       CommandBarButton(
-                        icon: Icon(FluentIcons.tablet_mode, color: appTheme.exchangeTextColor),
-                        label: Text('画线下单', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        icon: Icon(FluentIcons.tablet_mode, color: appTheme.color),
+                        label: Text('画线下单', style: TextStyle(color: appTheme.color)),
                         onPressed: () async {
                           if (LoginServer.isLogin) {
                             await rustDeskWinManager.newDrawOrder("drawOrder");
@@ -928,7 +928,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       ),
                       CommandBarButton(
                         icon: Icon(FluentIcons.line_chart, color: appTheme.selectCommandBarIndex == 0 ? appTheme.exchangeTextColor : appTheme.color),
-                        label: Text('分时图', style: TextStyle(color: appTheme.exchangeTextColor)),
+                        label: Text('分时图', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
                           if (ButtonUtil.checkClick()) {
                             appTheme.selectCommandBarIndex = 0;
@@ -1192,7 +1192,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
-                        icon: const Icon(FluentIcons.double_chevron_up, size: 10),
+                        icon: Icon(FluentIcons.double_chevron_up, size: 10, color: appTheme.color),
                         onPressed: () {
                           Contract contract = logic.selectedContractList[logic.selectedIndex.value];
                           if (contract.code != null) {
@@ -1217,7 +1217,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         },
                       ),
                       CommandBarButton(
-                        icon: const Icon(FluentIcons.double_chevron_down, size: 10),
+                        icon: Icon(FluentIcons.double_chevron_down, size: 10, color: appTheme.color),
                         onPressed: () {
                           Contract contract = logic.selectedContractList[logic.selectedIndex.value];
                           if (contract.code != null) {

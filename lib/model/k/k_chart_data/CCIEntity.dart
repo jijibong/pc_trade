@@ -130,7 +130,7 @@ class CCIEntity {
   }
 
   void drawCCI(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int CCIPeriod) {
+      double leftMarginSpace, double halfTextHeight, int CCIPeriod, bool isDrawCrossLine, int currentIndex) {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double latitudeSpacing = lowerHeight / 4; //每格高度
@@ -161,7 +161,8 @@ class CCIEntity {
       //绘制价格
       double textWidth = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice * i)} ", textPaint);
       textPaint
-        ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text =
+            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
         ..paint(canvas, Offset(leftMarginSpace - textWidth, lowerHeight - latitudeSpacing * i + textBottom - halfTextHeight));
@@ -178,24 +179,23 @@ class CCIEntity {
         //K线
         int nextNumber = (i - mDataStartIndext + 1) >= mShowDataNum ? i - (CCIPeriod - 1) : i - (CCIPeriod - 1) + 1;
         if (nextNumber < CCIs.length) {
-          double startY = (maxPrice - CCIs[i - (CCIPeriod - 1)]) * rate + textBottom+ halfTextHeight * 2;
-          double stopY = (maxPrice - CCIs[nextNumber]) * rate + textBottom+ halfTextHeight * 2;
+          double startY = (maxPrice - CCIs[i - (CCIPeriod - 1)]) * rate + textBottom + halfTextHeight * 2;
+          double stopY = (maxPrice - CCIs[nextNumber]) * rate + textBottom + halfTextHeight * 2;
           canvas.drawLine(Offset(startX, startY), Offset(nextX, stopY), purplePaint);
         }
       }
 
       //绘制当前周期，最新一根数据的KDJ
       if (i == (mDataStartIndext + mShowDataNum - 1) && (i - (CCIPeriod - 1)) < CCIs.length) {
-        String cci;
-        if ((mDataStartIndext + mShowDataNum) > CCIPeriod) {
+        String? cci;
+        if (isDrawCrossLine) {
+          cci = Utils.getPointNum(CCIs[currentIndex - (CCIPeriod - 1)]);
+        } else if ((mDataStartIndext + mShowDataNum) > CCIPeriod) {
           cci = Utils.getPointNum(CCIs[i - (CCIPeriod - 1)]);
-        } else {
-          cci = "0.000";
         }
 
-        String text = "CCI($CCIPeriod): ($cci)";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.CCIColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(text: "CCI($CCIPeriod)  ($cci)", style: TextStyle(color: Port.CCIColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));

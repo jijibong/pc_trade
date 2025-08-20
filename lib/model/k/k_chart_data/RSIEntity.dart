@@ -142,7 +142,7 @@ class RSIEntity {
    * 绘制RSI,价格线
    */
   void drawRSI(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int rsiPeriod) {
+      double leftMarginSpace, double halfTextHeight, int rsiPeriod, bool isDrawCrossLine, int currentIndex) {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double rate = 0.0; //每单位像素价格
@@ -161,7 +161,7 @@ class RSIEntity {
     double Y = viewHeight - lowerHeight * 0.5 + textBottom;
     String price = "50";
     path.moveTo(leftMarginSpace, Y);
-    path.lineTo(viewWidth - leftMarginSpace, Y);
+    path.lineTo(viewWidth, Y);
     canvas.drawPath(
       dashPath(
         path,
@@ -195,16 +195,18 @@ class RSIEntity {
 
       //绘制当前周期，最新一根数据的rsi
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        String rsi;
-        if ((mDataStartIndext + mShowDataNum) > rsiPeriod && i - (rsiPeriod - 1) < RSIs.length) {
+        String rsi = "";
+
+        if (isDrawCrossLine) {
+          if (currentIndex - rsiPeriod + 1 > 0 && currentIndex - rsiPeriod + 1 < RSIs.length) {
+            rsi = Utils.getPointNum(RSIs[currentIndex - rsiPeriod + 1]);
+          }
+        } else if ((mDataStartIndext + mShowDataNum) > rsiPeriod && i - (rsiPeriod - 1) < RSIs.length) {
           rsi = Utils.getPointNum(RSIs[i - (rsiPeriod - 1)]);
-        } else {
-          rsi = "0.000";
         }
 
-        String text = "RSI($rsiPeriod):$rsi";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.rsiColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(text: "RSI($rsiPeriod)  $rsi", style: TextStyle(color: Port.rsiColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));

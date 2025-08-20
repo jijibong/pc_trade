@@ -128,7 +128,7 @@ class VREntity {
    * @param canvas
    */
   void drawVR(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int period) {
+      double leftMarginSpace, double halfTextHeight, int period, bool isDrawCrossLine, int currentIndex) {
     if (mVrlList.isEmpty) {
       return;
     }
@@ -187,16 +187,18 @@ class VREntity {
 
       //绘制当前周期，最新一根数据的vr
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        String rsi;
-        if ((mDataStartIndext + mShowDataNum) > period && (i - (period - 1)) < mVrlList.length) {
+        String? rsi;
+
+        if (isDrawCrossLine) {
+          if (currentIndex - period + 1 > 0 && currentIndex - period + 1 < mVrlList.length) {
+            rsi = Utils.getPointNum(mVrlList[currentIndex - (period - 1)]);
+          }
+        } else if ((mDataStartIndext + mShowDataNum) > period && (i - (period - 1)) < mVrlList.length) {
           rsi = Utils.getPointNum(mVrlList[i - (period - 1)]);
-        } else {
-          rsi = "0.000";
         }
 
-        String text = "VR:($period): $rsi";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.VR_Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(text: "VR:($period)  $rsi", style: TextStyle(color: Port.VR_Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));

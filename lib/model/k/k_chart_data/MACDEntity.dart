@@ -385,67 +385,60 @@ class MACDEntity {
 
       //绘制当前周期，最新一根数据的diff,dea,macd
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        String diff, dea, macd = "";
-        // logger.i("mDataStartIndext:$mDataStartIndext  mShowDataNum:$mShowDataNum  macdLPeriod:$macdLPeriod  i:$i  DIFs:${DIFs.length}");
+        String? diff, dea, macd;
 
-        if ((mDataStartIndext + mShowDataNum) > macdLPeriod && (i - (macdLPeriod - 1)) < DIFs.length) {
-          diff = Utils.getPointNum(DIFs[i - (macdLPeriod - 1)]);
+        if (isDrawCrossLine) {
+          if (currentIndex - macdLPeriod + 1 > -1 && currentIndex - macdLPeriod + 1 < DEAs.length) {
+            diff = Utils.getPointNum(DIFs[currentIndex - macdLPeriod + 1]);
+          }
+          if (currentIndex - macdLPeriod - macdPeriod + 1 > -1 && currentIndex - macdLPeriod - macdPeriod + 1 < DEAs.length) {
+            dea = Utils.getPointNum(DEAs[currentIndex - macdLPeriod - macdPeriod + 1]);
+          }
+          if (currentIndex - macdLPeriod - macdPeriod + 1 > -1 && currentIndex - macdLPeriod - macdPeriod + 1 < MACDs.length) {
+            macd = Utils.getPointNum(MACDs[currentIndex - macdLPeriod - macdPeriod + 1]);
+          }
         } else {
-          diff = "0.000";
-        }
+          if ((mDataStartIndext + mShowDataNum) > macdLPeriod && (i - (macdLPeriod - 1)) < DIFs.length) {
+            diff = Utils.getPointNum(DIFs[i - (macdLPeriod - 1)]);
+          }
 
-        if ((mDataStartIndext + mShowDataNum) > (macdLPeriod + macdPeriod) &&
-            (i - (macdLPeriod + macdPeriod - 1)) < DEAs.length &&
-            (i - (macdLPeriod + macdPeriod - 1)) < MACDs.length) {
-          dea = Utils.getPointNum(DEAs[i - (macdLPeriod + macdPeriod - 1)]);
-          macd = Utils.getPointNum(MACDs[i - (macdLPeriod + macdPeriod - 1)]);
-        } else {
-          dea = "0.000";
-          macd = "0.000";
-        }
-
-        double textXStart = Port.defult_icon_width + leftMarginSpace;
-        String text = "MACD($macdSPeriod , $macdLPeriod , $macdPeriod)";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(230, 56, 89, 1), fontSize: textsize))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "DEA:$dea , $diff , $macd";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.macdSlowColor, fontSize: textsize))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        text = "DIFF:$diff";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.macdFastColor, fontSize: textsize))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) + 15;
-
-        // 绘制矩形
-        if (i >= (macdLPeriod + macdPeriod - 1) && (i - (macdLPeriod + macdPeriod - 1)) < MACDs.length) {
-          text = "STICK:$macd";
-          if (MACDs[i - (macdLPeriod + macdPeriod - 1)] >= 0) {
-            textPaint
-              ..text = TextSpan(text: text, style: TextStyle(color: Port.macdUpColor, fontSize: textsize))
-              ..textDirection = TextDirection.ltr
-              ..layout()
-              ..paint(canvas, Offset(textXStart, Port.text_check));
-          } else {
-            textPaint
-              ..text = TextSpan(text: text, style: TextStyle(color: Port.macdDownColor, fontSize: textsize))
-              ..textDirection = TextDirection.ltr
-              ..layout()
-              ..paint(canvas, Offset(textXStart, Port.text_check));
+          if ((mDataStartIndext + mShowDataNum) > (macdLPeriod + macdPeriod) &&
+              (i - (macdLPeriod + macdPeriod - 1)) < DEAs.length &&
+              (i - (macdLPeriod + macdPeriod - 1)) < MACDs.length) {
+            dea = Utils.getPointNum(DEAs[i - (macdLPeriod + macdPeriod - 1)]);
+            macd = Utils.getPointNum(MACDs[i - (macdLPeriod + macdPeriod - 1)]);
           }
         }
+
+        textPaint
+          ..text = TextSpan(
+            children: [
+              TextSpan(text: "MACD($macdSPeriod , $macdLPeriod , $macdPeriod)", style: TextStyle(color: Port.chartTxtColor, fontSize: textsize)),
+              if (diff != null) TextSpan(text: "  DIFF:$diff", style: TextStyle(color: Port.macdFastColor, fontSize: textsize)),
+              if (dea != null) TextSpan(text: "  DEA:$dea", style: TextStyle(color: Port.macdSlowColor, fontSize: textsize)),
+              if (macd != null) TextSpan(text: "  $macd", style: TextStyle(color: Port.macdFastColor, fontSize: textsize)),
+            ],
+          )
+          ..textDirection = TextDirection.ltr
+          ..layout()
+          ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));
+
+        // if (i >= (macdLPeriod + macdPeriod - 1) && (i - (macdLPeriod + macdPeriod - 1)) < MACDs.length) {
+        //   text = "STICK:$macd";
+        //   if (MACDs[i - (macdLPeriod + macdPeriod - 1)] >= 0) {
+        //     textPaint
+        //       ..text = TextSpan(text: text, style: TextStyle(color: Port.macdUpColor, fontSize: textsize))
+        //       ..textDirection = TextDirection.ltr
+        //       ..layout()
+        //       ..paint(canvas, Offset(textXStart, Port.text_check));
+        //   } else {
+        //     textPaint
+        //       ..text = TextSpan(text: text, style: TextStyle(color: Port.macdDownColor, fontSize: textsize))
+        //       ..textDirection = TextDirection.ltr
+        //       ..layout()
+        //       ..paint(canvas, Offset(textXStart, Port.text_check));
+        //   }
+        // }
       }
     }
   }

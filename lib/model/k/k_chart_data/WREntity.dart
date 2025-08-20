@@ -144,7 +144,7 @@ class WREntity {
    * 绘制WR,价格线
    */
   void drawWR(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int Wr1Period, int Wr2Period) {
+      double leftMarginSpace, double halfTextHeight, int Wr1Period, int Wr2Period, bool isDrawCrossLine, int currentIndex) {
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double latitudeSpacing = lowerHight / 2; //每格高度
     double rate = 0.0; //每单位像素价格
@@ -213,41 +213,33 @@ class WREntity {
 
       //绘制当前周期，最新一根数据的KDJ
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String wr1, wr2;
-        if ((mDataStartIndext + mShowDataNum) > Wr1Period && (i - (Wr1Period - 1)) < WR1.length) {
-          wr1 = Utils.getPointNum(WR1[i - (Wr1Period - 1)]);
+        String? wr1, wr2;
+
+        if (isDrawCrossLine) {
+          if (currentIndex - Wr1Period + 1 > 0 && currentIndex - Wr1Period + 1 < WR1.length) {
+            wr1 = Utils.getPointNum(WR1[currentIndex - Wr1Period + 1]);
+          }
+          if (currentIndex - Wr2Period + 1 > 0 && currentIndex - Wr2Period + 1 < WR2.length) {
+            wr2 = Utils.getPointNum(WR2[currentIndex - Wr2Period + 1]);
+          }
         } else {
-          wr1 = "0.000";
+          if ((mDataStartIndext + mShowDataNum) > Wr1Period && (i - (Wr1Period - 1)) < WR1.length) {
+            wr1 = Utils.getPointNum(WR1[i - (Wr1Period - 1)]);
+          }
+          if ((mDataStartIndext + mShowDataNum) > Wr2Period && (i - (Wr2Period - 1)) < WR2.length) {
+            wr2 = Utils.getPointNum(WR2[i - (Wr2Period - 1)]);
+          }
         }
-        if ((mDataStartIndext + mShowDataNum) > Wr2Period && (i - (Wr2Period - 1)) < WR2.length) {
-          wr2 = Utils.getPointNum(WR2[i - (Wr2Period - 1)]);
-        } else {
-          wr2 = "0.000";
-        }
 
-        String text = "WR($Wr1Period , $Wr2Period)";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(children: [
+            TextSpan(text: "WR($Wr1Period , $Wr2Period)", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (wr1 != null) TextSpan(text: "  WR1: $wr1", style: TextStyle(color: Port.WR1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (wr2 != null) TextSpan(text: "  WR2: $wr2", style: TextStyle(color: Port.WR2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ])
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
-
-        text = "WR1: $wr1";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.WR1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
-
-        text = "WR2: $wr2";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.WR2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
       }
     }
   }

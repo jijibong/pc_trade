@@ -419,93 +419,70 @@ class FallLineEntity {
 
       //绘制当前周期，最新一根数据的up,down,middle
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String pbx1, pbx2, pbx3, pbx4, pbx5, pbx6;
-        //瀑布线1数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod1 * 4 && (i - (FallPeriod1 * 4 - 1)) < PBX1.length) {
-          pbx1 = Utils.getPointNum(PBX1[i - (FallPeriod1 * 4 - 1)]);
-        } else {
-          pbx1 = "0.000";
-        }
-
-        //瀑布线2数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod2 * 4 && (i - (FallPeriod2 * 4 - 1)) < PBX2.length) {
-          pbx2 = Utils.getPointNum(PBX2[i - (FallPeriod2 * 4 - 1)]);
-        } else {
-          pbx2 = "0.000";
-        }
-
-        //瀑布线3数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod3 * 4 && (i - (FallPeriod3 * 4 - 1)) < PBX3.length) {
-          pbx3 = Utils.getPointNum(PBX3[i - (FallPeriod3 * 4 - 1)]);
-        } else {
-          pbx3 = "0.000";
-        }
-
-        //瀑布线4数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod4 * 4 && (i - (FallPeriod4 * 4 - 1)) < PBX4.length) {
-          pbx4 = Utils.getPointNum(PBX4[i - (FallPeriod4 * 4 - 1)]);
-        } else {
-          pbx4 = "0.000";
-        }
-
-        //瀑布线5数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod5 * 4 && (i - (FallPeriod5 * 4 - 1)) < PBX5.length) {
-          pbx5 = Utils.getPointNum(PBX5[i - (FallPeriod5 * 4 - 1)]);
-        } else {
-          pbx5 = "0.000";
-        }
-
-        //瀑布线6数据
-        if ((mDataStartIndext + mShowDataNum) > FallPeriod6 * 4 && (i - (FallPeriod6 * 4 - 1)) < PBX6.length) {
-          pbx6 = Utils.getPointNum(PBX6[i - (FallPeriod6 * 4 - 1)]);
-        } else {
-          pbx6 = "0.000";
-        }
+        String? pbx1, pbx2, pbx3, pbx4, pbx5, pbx6;
 
         if (isDrawCrossLine) {
           if (currentIndex - (FallPeriod1 * 4 - 1) > 0) {
             pbx1 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod1 * 4 - 1)]);
-          } else {
-            pbx1 = "";
           }
           if (currentIndex - (FallPeriod2 * 4 - 1) > 0) {
             pbx2 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod2 * 4 - 1)]);
-          } else {
-            pbx2 = "";
           }
           if (currentIndex - (FallPeriod3 * 4 - 1) > 0) {
             pbx3 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod3 * 4 - 1)]);
-          } else {
-            pbx3 = "";
           }
           if (currentIndex - (FallPeriod4 * 4 - 1) > 0) {
             pbx4 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod4 * 4 - 1)]);
-          } else {
-            pbx4 = "";
           }
           if (currentIndex - (FallPeriod5 * 4 - 1) > 0) {
             pbx5 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod5 * 4 - 1)]);
-          } else {
-            pbx5 = "";
           }
           if (currentIndex - (FallPeriod6 * 4 - 1) > 0) {
             pbx6 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod6 * 4 - 1)]);
-          } else {
-            pbx6 = "";
+          }
+        } else {
+          //瀑布线1数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod1 * 4 && (i - (FallPeriod1 * 4 - 1)) < PBX1.length) {
+            pbx1 = Utils.getPointNum(PBX1[i - (FallPeriod1 * 4 - 1)]);
+          }
+
+          //瀑布线2数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod2 * 4 && (i - (FallPeriod2 * 4 - 1)) < PBX2.length) {
+            pbx2 = Utils.getPointNum(PBX2[i - (FallPeriod2 * 4 - 1)]);
+          }
+
+          //瀑布线3数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod3 * 4 && (i - (FallPeriod3 * 4 - 1)) < PBX3.length) {
+            pbx3 = Utils.getPointNum(PBX3[i - (FallPeriod3 * 4 - 1)]);
+          }
+
+          //瀑布线4数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod4 * 4 && (i - (FallPeriod4 * 4 - 1)) < PBX4.length) {
+            pbx4 = Utils.getPointNum(PBX4[i - (FallPeriod4 * 4 - 1)]);
+          }
+
+          //瀑布线5数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod5 * 4 && (i - (FallPeriod5 * 4 - 1)) < PBX5.length) {
+            pbx5 = Utils.getPointNum(PBX5[i - (FallPeriod5 * 4 - 1)]);
+          }
+
+          //瀑布线6数据
+          if ((mDataStartIndext + mShowDataNum) > FallPeriod6 * 4 && (i - (FallPeriod6 * 4 - 1)) < PBX6.length) {
+            pbx6 = Utils.getPointNum(PBX6[i - (FallPeriod6 * 4 - 1)]);
           }
         }
         textPaint
           ..text = TextSpan(children: [
             TextSpan(
                 text:
-                    "PUBU${pbx1 != "" ? "($FallPeriod1" : ""}${pbx2 != "" ? ",$FallPeriod2" : ""}${pbx3 != "" ? ",$FallPeriod3" : ""}${pbx4 != "" ? ",$FallPeriod4" : ""}${pbx5 != "" ? ",$FallPeriod5" : ""}${pbx6 != "" ? ",$FallPeriod6" : ""}${pbx1 != "" ? ")" : ""}  ",
+                    "PUBU${pbx1 != null ? "($FallPeriod1" : ""}${pbx2 != null ? ",$FallPeriod2" : ""}${pbx3 != null ? ",$FallPeriod3" : ""}${pbx4 != null ? ",$FallPeriod4" : ""}${pbx5 != null ? ",$FallPeriod5" : ""}${pbx6 != null ? ",$FallPeriod6" : ""}${pbx1 != null ? ")" : ""}  ",
                 style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx1 != "") TextSpan(text: "  PB1:$pbx1", style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx2 != "") TextSpan(text: "  PB2:$pbx2", style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx3 != "") TextSpan(text: "  PB3:$pbx3", style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx4 != "") TextSpan(text: "  PB4:$pbx4", style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx5 != "") TextSpan(text: "  PB5:$pbx5", style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx6 != "") TextSpan(text: "  PB6:$pbx6", style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx1 != null) TextSpan(text: "  PB1:$pbx1", style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx2 != null) TextSpan(text: "  PB2:$pbx2", style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx3 != null) TextSpan(text: "  PB3:$pbx3", style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx4 != null) TextSpan(text: "  PB4:$pbx4", style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx5 != null) TextSpan(text: "  PB5:$pbx5", style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx6 != null) TextSpan(text: "  PB6:$pbx6", style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr
           ..layout()

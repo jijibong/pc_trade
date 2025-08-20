@@ -177,7 +177,7 @@ class BIASEntity {
    * 绘制RSI,价格线
    */
   void drawBIAS(Canvas canvas, double viewHeight, double viewWidth, int mDataStartIndext, int mShowDataNum, double mCandleWidth, int CANDLE_INTERVAL,
-      double leftMarginSpace, double halfTextHeight, int BIAS1Period, int BIAS2Period, int BIAS3Period) {
+      double leftMarginSpace, double halfTextHeight, int BIAS1Period, int BIAS2Period, int BIAS3Period, bool isDrawCrossLine, int currentIndex) {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double latitudeSpacing = lowerHeight / 4; //每格高度
@@ -217,7 +217,8 @@ class BIASEntity {
     for (int i = 1; i <= 3; i++) {
       double textWidth = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice * i)} ", textPaint);
       textPaint
-        ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text =
+            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
         ..paint(canvas, Offset(leftMarginSpace - textWidth, viewHeight - latitudeSpacing * i - textBottom - halfTextHeight));
@@ -264,50 +265,41 @@ class BIASEntity {
 
       //绘制当前周期，最新一根数据的BIAS
       if (i == (mDataStartIndext + mShowDataNum - 1)) {
-        String bias1, bias2, bias3;
-        if ((mDataStartIndext + mShowDataNum) > BIAS1Period && (i - (BIAS1Period - 1)) < BIASs1.length) {
-          bias1 = Utils.getPointNum(BIASs1[i - (BIAS1Period - 1)]);
+        String? bias1, bias2, bias3;
+
+        if (isDrawCrossLine) {
+          if (currentIndex - (BIAS1Period - 1) > 0 && currentIndex - (BIAS1Period - 1) < BIASs1.length) {
+            bias1 = Utils.getPointNum(BIASs1[currentIndex - (BIAS1Period - 1)]);
+          }
+          if (currentIndex - (BIAS2Period - 1) > 0 && currentIndex - (BIAS2Period - 1) < BIASs1.length) {
+            bias1 = Utils.getPointNum(BIASs2[currentIndex - (BIAS2Period - 1)]);
+          }
+          if (currentIndex - (BIAS3Period - 1) > 0 && currentIndex - (BIAS3Period - 1) < BIASs1.length) {
+            bias1 = Utils.getPointNum(BIASs3[currentIndex - (BIAS3Period - 1)]);
+          }
         } else {
-          bias1 = "0.000";
-        }
-        if ((mDataStartIndext + mShowDataNum) > BIAS2Period && (i - (BIAS2Period - 1)) < BIASs2.length) {
-          bias2 = Utils.getPointNum(BIASs2[i - (BIAS2Period - 1)]);
-        } else {
-          bias2 = "0.000";
-        }
-        if ((mDataStartIndext + mShowDataNum) > BIAS3Period && (i - (BIAS3Period - 1)) < BIASs3.length) {
-          bias3 = Utils.getPointNum(BIASs3[i - (BIAS3Period - 1)]);
-        } else {
-          bias3 = "0.000";
+          if ((mDataStartIndext + mShowDataNum) > BIAS1Period && (i - (BIAS1Period - 1)) < BIASs1.length) {
+            bias1 = Utils.getPointNum(BIASs1[i - (BIAS1Period - 1)]);
+          }
+          if ((mDataStartIndext + mShowDataNum) > BIAS2Period && (i - (BIAS2Period - 1)) < BIASs2.length) {
+            bias2 = Utils.getPointNum(BIASs2[i - (BIAS2Period - 1)]);
+          }
+          if ((mDataStartIndext + mShowDataNum) > BIAS3Period && (i - (BIAS3Period - 1)) < BIASs3.length) {
+            bias3 = Utils.getPointNum(BIASs3[i - (BIAS3Period - 1)]);
+          }
         }
 
-        String text = "BIAS($BIAS1Period , $BIAS2Period , $BIAS3Period)";
         textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
-
-        text = "bias1: $bias1";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
-
-        text = "bias2: $bias2";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(textXStart, Port.text_check));
-        textXStart = textXStart + ChartPainter.getStringWidth(text, textPaint) + 15;
-
-        text = "bias3: $bias3";
-        textPaint
-          ..text = TextSpan(text: text, style: TextStyle(color: Port.BIAS3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(
+            children: [
+              TextSpan(
+                  text: "BIAS($BIAS1Period , $BIAS2Period , $BIAS3Period)",
+                  style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias1 != null) TextSpan(text: "  BIAS1: $bias1", style: TextStyle(color: Port.BIAS1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias2 != null) TextSpan(text: "  BIAS2: $bias2", style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias3 != null) TextSpan(text: "  BIAS3: $bias3", style: TextStyle(color: Port.BIAS3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            ],
+          )
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(textXStart, Port.text_check));
