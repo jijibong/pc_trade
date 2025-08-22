@@ -683,7 +683,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     UserUtils.appContext = context;
     initInfo();
     initPage();
-    // tradeAccount();
+    tradeAccount();
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();
@@ -852,7 +852,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         icon: Icon(FluentIcons.back, color: appTheme.color),
                         label: Text('返回', style: TextStyle(color: appTheme.color)),
                         onPressed: () {
-                          if (perIndex != -1) {
+                          if (perIndex != -1 && appTheme.selectIndex == 0) {
                             appTheme.multiScreen = perIndex;
                             perIndex = -1;
                             return;
@@ -1294,6 +1294,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           )),
                       onTap: () {
                         logic.viewIndexList[0] = 0;
+                        selectedIndex = 0;
+                        perIndex = -1;
                         appTheme.selectIndex = 1;
                         appTheme.multiScreen = 1;
                         if (mounted) setState(() {});

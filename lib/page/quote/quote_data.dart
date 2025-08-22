@@ -109,238 +109,208 @@ class _QuoteDataState extends State<QuoteData> {
               },
               children: [for (int i = 0; i < order.length; i++) titleItem(titleList[order[i]], i)],
               onReorder: (oldIndex, newIndex) {
-                setState(() {
-                  if (oldIndex < newIndex) newIndex--;
-                  final item = order.removeAt(oldIndex);
-                  order.insert(newIndex, item);
-                  MarketUtils.order = order;
-                });
+                if (mounted) {
+                  setState(() {
+                    if (oldIndex < newIndex) newIndex--;
+                    final item = order.removeAt(oldIndex);
+                    order.insert(newIndex, item);
+                    MarketUtils.order = order;
+                  });
+                }
               },
             ),
           ),
           Expanded(
             child: SizedBox(
               width: max(1630, 1.sw - Common.optionWidgetWidth),
-                child: Obx(() {
-                  return ReorderableListView.builder(
-                    itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.homePageList[widget.index].length,
-                    shrinkWrap: true,
-                    buildDefaultDragHandles: false,
-                    scrollController: scrollController,
-                    proxyDecorator: (child, index, animation) {
-                      return Container(
-                        color: Colors.transparent,
-                        child: child,
-                      );
-                    },
-                    itemBuilder: (context, index) {
-                      if (appTheme.selectIndex == 0) {
-                        final contextController = FlyoutController();
-                        return ReorderableDragStartListener(
-                            key: Key('$index'),
-                            index: index,
-                            child: Listener(
-                              child: GestureDetector(
-                                child: FlyoutTarget(
-                                  controller: contextController,
-                                  child: Container(
-                                    height: 35,
-                                    color: logic.selectedContractList[widget.index] == logic.homePageList[widget.index][index]
-                                        ? appTheme.commandBarColor
-                                        : Colors.transparent,
-                                    child: Row(children: order.map((i) => getList(logic.homePageList[widget.index][index], index)[i]).toList()),
-                                  ),
+              child: Obx(() {
+                return ReorderableListView.builder(
+                  itemCount: appTheme.selectIndex == 1 ? logic.selectedMContractList[widget.index].length : logic.homePageList[widget.index].length,
+                  shrinkWrap: true,
+                  buildDefaultDragHandles: false,
+                  scrollController: scrollController,
+                  proxyDecorator: (child, index, animation) {
+                    return const Divider();
+                  },
+                  itemBuilder: (context, index) {
+                    if (appTheme.selectIndex == 0) {
+                      final contextController = FlyoutController();
+                      return ReorderableDragStartListener(
+                          key: Key('$index'),
+                          index: index,
+                          child: Listener(
+                            child: GestureDetector(
+                              child: FlyoutTarget(
+                                controller: contextController,
+                                child: Container(
+                                  height: 35,
+                                  color: logic.selectedContractList[widget.index] == logic.homePageList[widget.index][index]
+                                      ? appTheme.commandBarColor
+                                      : Colors.transparent,
+                                  child: Row(children: order.map((i) => getList(logic.homePageList[widget.index][index], index)[i]).toList()),
                                 ),
-                                onSecondaryTapUp: (d) {
-                                  contextController.showFlyout(
-                                      barrierColor: Colors.black.withOpacity(0.1),
-                                      position: d.globalPosition,
-                                      builder: (context) {
-                                        return MenuFlyout(items: [
+                              ),
+                              onSecondaryTapUp: (d) {
+                                contextController.showFlyout(
+                                    barrierColor: Colors.black.withOpacity(0.1),
+                                    position: d.globalPosition,
+                                    builder: (context) {
+                                      return MenuFlyout(items: [
+                                        MenuFlyoutItem(
+                                          text: const Text('下单'),
+                                          onPressed: () {
+                                            EventBusUtil.getInstance().fire(LoginEvent());
+                                            Flyout.of(context).close();
+                                          },
+                                        ),
+                                        if (logic.selectedSector[widget.index].id != "2" &&
+                                            logic.selectedSector[widget.index].id != "3" &&
+                                            logic.selectedSector[widget.index].id != "4")
                                           MenuFlyoutItem(
-                                            text: const Text('下单'),
+                                            text: const Text('移除自选'),
                                             onPressed: () {
-                                              EventBusUtil.getInstance().fire(LoginEvent());
-                                              Flyout.of(context).close();
+                                              EventBusUtil.getInstance().fire(AddOptionEvent(
+                                                  logic.selectedSector[widget.index], logic.selectedContractList[widget.index], false));
                                             },
                                           ),
-                                          if (logic.selectedSector[widget.index].id != "2" &&
-                                              logic.selectedSector[widget.index].id != "3" &&
-                                              logic.selectedSector[widget.index].id != "4")
+                                        MenuFlyoutItem(
+                                          text: const Text('取消分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 1;
+                                            logic.cancelMultiScreen();
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('二分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 2;
+                                            EventBusUtil.getInstance().fire(SplitScreen(2));
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('四分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 4;
+                                            EventBusUtil.getInstance().fire(SplitScreen(4));
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('六分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 6;
+                                            EventBusUtil.getInstance().fire(SplitScreen(6));
+                                          },
+                                        ),
+                                        MenuFlyoutItem(
+                                          text: const Text('九分屏'),
+                                          onPressed: () async {
+                                            appTheme.multiScreen = 9;
+                                            EventBusUtil.getInstance().fire(SplitScreen(9));
+                                          },
+                                        ),
+                                      ]);
+                                    });
+                              },
+                              onDoubleTap: () {
+                                EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
+                              },
+                            ),
+                            onPointerDown: (onPointerDownEvent) {
+                              for (var e in logic.homePageList[widget.index]) {
+                                e.selected = false; //取消其他合约选中状态
+                                if (logic.homePageList.indexOf(e) == index) {
+                                  e.selected = true; //保持当前合约选中状态
+                                }
+                              }
+                              logic.selectedContractList[widget.index] = logic.homePageList[widget.index][index];
+                              EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
+                              if (mounted) setState(() {}); //提升选中速度
+                            },
+                          ));
+                    } else {
+                      final contextController = FlyoutController();
+                      return ReorderableDragStartListener(
+                          key: Key('$index'),
+                          index: index,
+                          child: AutoScrollTag(
+                              key: Key('AutoScrollTag$index'),
+                              controller: scrollController,
+                              index: index,
+                              child: Listener(
+                                child: GestureDetector(
+                                  onSecondaryTapUp: (d) {
+                                    contextController.showFlyout(
+                                        barrierColor: Colors.black.withOpacity(0.1),
+                                        position: d.globalPosition,
+                                        builder: (context) {
+                                          return MenuFlyout(items: [
                                             MenuFlyoutItem(
-                                              text: const Text('移除自选'),
+                                              text: const Text('下单'),
                                               onPressed: () {
-                                                EventBusUtil.getInstance().fire(AddOptionEvent(
-                                                    logic.selectedSector[widget.index], logic.selectedContractList[widget.index], false));
+                                                EventBusUtil.getInstance().fire(LoginEvent());
+                                                Flyout.of(context).close();
                                               },
                                             ),
-                                          MenuFlyoutItem(
-                                            text: const Text('取消分屏'),
-                                            onPressed: () async {
-                                              appTheme.multiScreen = 1;
-                                              logic.cancelMultiScreen();
-                                            },
-                                          ),
-                                          MenuFlyoutItem(
-                                            text: const Text('二分屏'),
-                                            onPressed: () async {
-                                              appTheme.multiScreen = 2;
-                                              EventBusUtil.getInstance().fire(SplitScreen(2));
-                                            },
-                                          ),
-                                          MenuFlyoutItem(
-                                            text: const Text('四分屏'),
-                                            onPressed: () async {
-                                              appTheme.multiScreen = 4;
-                                              EventBusUtil.getInstance().fire(SplitScreen(4));
-                                            },
-                                          ),
-                                          MenuFlyoutItem(
-                                            text: const Text('六分屏'),
-                                            onPressed: () async {
-                                              appTheme.multiScreen = 6;
-                                              EventBusUtil.getInstance().fire(SplitScreen(6));
-                                            },
-                                          ),
-                                          MenuFlyoutItem(
-                                            text: const Text('九分屏'),
-                                            onPressed: () async {
-                                              appTheme.multiScreen = 9;
-                                              EventBusUtil.getInstance().fire(SplitScreen(9));
-                                            },
-                                          ),
-                                        ]);
-                                      });
-                                },
-                                onDoubleTap: () {
-                                  EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
-                                },
-                              ),
-                              onPointerDown: (onPointerDownEvent) {
-                                for (var e in logic.homePageList[widget.index]) {
-                                  e.selected = false; //取消其他合约选中状态
-                                  if (logic.homePageList.indexOf(e) == index) {
-                                    e.selected = true; //保持当前合约选中状态
-                                  }
-                                }
-                                logic.selectedContractList[widget.index] = logic.homePageList[widget.index][index];
-                                EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
-                                if (mounted) setState(() {}); //提升选中速度
-                              },
-                            ));
-                      } else {
-                        final contextController = FlyoutController();
-                        return ReorderableDragStartListener(
-                            key: Key('$index'),
-                            index: index,
-                            child: AutoScrollTag(
-                                key: Key('AutoScrollTag$index'),
-                                controller: scrollController,
-                                index: index,
-                                child: Listener(
-                                  child: GestureDetector(
-                                    onSecondaryTapUp: (d) {
-                                      contextController.showFlyout(
-                                          barrierColor: Colors.black.withOpacity(0.1),
-                                          position: d.globalPosition,
-                                          builder: (context) {
-                                            return MenuFlyout(items: [
-                                              MenuFlyoutItem(
-                                                text: const Text('下单'),
-                                                onPressed: () {
-                                                  EventBusUtil.getInstance().fire(LoginEvent());
-                                                  Flyout.of(context).close();
-                                                },
-                                              ),
-                                              // MenuFlyoutItem(
-                                              //   text: const Text('加入自选'),
-                                              //   onPressed: () {
-                                              //     logic.optionOperate(logic.selectedContractList[widget.index], add: true);
-                                              //     Flyout.of(context).close();
-                                              //   },
-                                              // ),
-                                              MenuFlyoutSubItem(
-                                                  text: const Text('加入自选'),
-                                                  leading: const Icon(
-                                                    FluentIcons.accept,
-                                                    color: Colors.transparent,
-                                                  ),
-                                                  items: (context) => logic.sectorList
-                                                      .map((e) => MenuFlyoutItem(
-                                                            text: Text(e.name ?? "--"),
-                                                            onPressed: () {
-                                                              EventBusUtil.getInstance()
-                                                                  .fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
-                                                            },
-                                                          ))
-                                                      .toList()),
-                                              // MenuFlyoutItem(
-                                              //   text: const Text('取消分屏'),
-                                              //   onPressed: () async {
-                                              //     appTheme.multiScreen = 0;
-                                              //   },
-                                              // ),
-                                              // MenuFlyoutItem(
-                                              //   text: const Text('四分屏'),
-                                              //   onPressed: () async {
-                                              //     appTheme.multiScreen = 1;
-                                              //     EventBusUtil.getInstance().fire(SplitScreen(1));
-                                              //   },
-                                              // ),
-                                              // MenuFlyoutItem(
-                                              //   text: const Text('九分屏'),
-                                              //   onPressed: () async {
-                                              //     appTheme.multiScreen = 2;
-                                              //     EventBusUtil.getInstance().fire(SplitScreen(2));
-                                              //   },
-                                              // ),
-                                            ]);
-                                          });
-                                    },
-                                    onDoubleTap: () {
-                                      EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
-                                    },
-                                    child: FlyoutTarget(
-                                        controller: contextController,
-                                        child: Container(
-                                          height: 35,
-                                          color: logic.selectedContractList[widget.index] == logic.selectedMContractList[widget.index][index]
-                                              ? appTheme.commandBarColor
-                                              : Colors.transparent,
-                                          child: Row(
-                                              children:
-                                                  order.map((i) => getList(logic.selectedMContractList[widget.index][index], index)[i]).toList()),
-                                        )),
-                                  ),
-                                  onPointerDown: (e) {
-                                    logic.selectedContractList[widget.index] = logic.selectedMContractList[widget.index][index];
-                                    EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
-                                    if (mounted) setState(() {}); //提升选中速度
+                                            MenuFlyoutSubItem(
+                                                text: const Text('加入自选'),
+                                                leading: const Icon(
+                                                  FluentIcons.accept,
+                                                  color: Colors.transparent,
+                                                ),
+                                                items: (context) => logic.sectorList
+                                                    .map((e) => MenuFlyoutItem(
+                                                          text: Text(e.name ?? "--"),
+                                                          onPressed: () {
+                                                            EventBusUtil.getInstance()
+                                                                .fire(AddOptionEvent(e, logic.selectedContractList[widget.index], true));
+                                                          },
+                                                        ))
+                                                    .toList()),
+                                          ]);
+                                        });
                                   },
-                                )));
-                      }
-                    },
-                    onReorder: (int oldIndex, int newIndex) async {
-                      if (oldIndex < newIndex) {
-                        newIndex -= 1;
-                      }
-                      if (appTheme.selectIndex == 0) {
-                        logic.homePageList[widget.index].insert(newIndex, logic.homePageList[widget.index].removeAt(oldIndex));
-                        EventBusUtil.getInstance().fire(UpdateOptionEvent());
-                      } else {
-                        var tmp = logic.selectedMContractList[widget.index].removeAt(oldIndex);
-                        logic.selectedMContractList[widget.index].insert(newIndex, tmp);
-                      }
-                    },
-                  );
-                }),
+                                  onDoubleTap: () {
+                                    EventBusUtil.getInstance().fire(GoKChart(true, widget.index));
+                                  },
+                                  child: FlyoutTarget(
+                                      controller: contextController,
+                                      child: Container(
+                                        height: 35,
+                                        color: logic.selectedContractList[widget.index] == logic.selectedMContractList[widget.index][index]
+                                            ? appTheme.commandBarColor
+                                            : Colors.transparent,
+                                        child: Row(
+                                            children: order.map((i) => getList(logic.selectedMContractList[widget.index][index], index)[i]).toList()),
+                                      )),
+                                ),
+                                onPointerDown: (e) {
+                                  logic.selectedContractList[widget.index] = logic.selectedMContractList[widget.index][index];
+                                  EventBusUtil.getInstance().fire(SwitchContract(widget.index, logic.selectedContractList[widget.index]));
+                                  if (mounted) setState(() {}); //提升选中速度
+                                },
+                              )));
+                    }
+                  },
+                  onReorder: (int oldIndex, int newIndex) async {
+                    if (oldIndex < newIndex) {
+                      newIndex -= 1;
+                    }
+                    if (appTheme.selectIndex == 0) {
+                      logic.homePageList[widget.index].insert(newIndex, logic.homePageList[widget.index].removeAt(oldIndex));
+                      EventBusUtil.getInstance().fire(UpdateOptionEvent());
+                    } else {
+                      var tmp = logic.selectedMContractList[widget.index].removeAt(oldIndex);
+                      logic.selectedMContractList[widget.index].insert(newIndex, tmp);
+                    }
+                  },
+                );
+              }),
             ),
           ),
           const SizedBox(
             height: 5,
           ),
         ]),
-        // ),
       ),
     );
   }

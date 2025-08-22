@@ -246,8 +246,8 @@ class PSYEntity {
         textPaint
           ..text = TextSpan(children: [
             TextSpan(text: "PSY($PSYPeriod , $PSYMAPeriod)", style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (psy != null) TextSpan(text: "  psy: $psy", style: TextStyle(color: Port.PSYColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (psyMa != null) TextSpan(text: "  payMa: $psyMa", style: TextStyle(color: Port.PSYMAColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psy != null) TextSpan(text: "  PSY: $psy", style: TextStyle(color: Port.PSYColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psyMa != null) TextSpan(text: "  PSYMA: $psyMa", style: TextStyle(color: Port.PSYMAColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr
           ..layout()

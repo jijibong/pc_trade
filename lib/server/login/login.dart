@@ -85,10 +85,10 @@ class LoginServer {
       } else if (response.data['msg'] != null) {
         return response.data['msg'];
       } else {
-        return "登录失败";
+        return "当前网络不佳，请稍后再试";
       }
     } on DioException {
-      rethrow;
+      return "当前网络不佳，请稍后再试";
     }
   }
 }

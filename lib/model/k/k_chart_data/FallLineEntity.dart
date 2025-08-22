@@ -476,7 +476,7 @@ class FallLineEntity {
             TextSpan(
                 text:
                     "PUBU${pbx1 != null ? "($FallPeriod1" : ""}${pbx2 != null ? ",$FallPeriod2" : ""}${pbx3 != null ? ",$FallPeriod3" : ""}${pbx4 != null ? ",$FallPeriod4" : ""}${pbx5 != null ? ",$FallPeriod5" : ""}${pbx6 != null ? ",$FallPeriod6" : ""}${pbx1 != null ? ")" : ""}  ",
-                style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (pbx1 != null) TextSpan(text: "  PB1:$pbx1", style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (pbx2 != null) TextSpan(text: "  PB2:$pbx2", style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (pbx3 != null) TextSpan(text: "  PB3:$pbx3", style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),

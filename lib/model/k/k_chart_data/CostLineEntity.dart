@@ -493,7 +493,7 @@ class CostLineEntity {
             TextSpan(
                 text:
                     "MA${cost1 != null ? "($CostOnePeriod" : ""}${cost2 != null ? ",$CostTwoPeriod" : ""}${cost3 != null ? ",$CostThreePeriod" : ""}${cost4 != null ? ",$CostFourPeriod" : ""}${cost5 != null ? ",$CostFivePeriod" : ""}${cost1 != null ? ")" : ""}  ",
-                style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost1 != null)
               TextSpan(text: "  MA$CostOnePeriod:$cost1", style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost2 != null)
