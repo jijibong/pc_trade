@@ -2,22 +2,44 @@ import 'package:fluent_ui/fluent_ui.dart';
 
 class CustomLine {
   String? code;
+  int? id;
   int? type;
   int? num;
   int? side;
   double? kPrice;
   String? price;
+  int? orderType;
+  int? timeInForce;
+  String? expireTime;
+  int? orderSide;
+  double? orderPrice;
+  int? orderQty;
+  int? positionEffect;
+  int? priceType;
+  int? conditionType;
+  double? conditionPrice;
   double? lineY;
   Path? path;
   Color color = Colors.white;
 
   CustomLine({
     this.code,
+    this.id,
     this.type,
     this.num,
     this.side,
     this.kPrice,
     this.price,
+    this.orderType,
+    this.timeInForce,
+    this.expireTime,
+    this.orderSide,
+    this.orderPrice,
+    this.orderQty,
+    this.positionEffect,
+    this.priceType,
+    this.conditionType,
+    this.conditionPrice,
     this.lineY,
     this.path,
   });

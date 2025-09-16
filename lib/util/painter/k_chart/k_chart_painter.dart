@@ -1406,9 +1406,9 @@ class ChartPainter extends BaseKChartPainter {
     ///盈损线
     for (PLRecord e in pLRecordList) {
       Path path = Path();
-      Path borderPath = Path(); // 绘制虚线
+      // Path borderPath = Path(); // 绘制虚线
       framePaint
-        ..color = e.selected ? Colors.red : Colors.blue
+        ..color = e.selected ? Colors.red : Colors.white
         ..strokeWidth = 1;
       double Y = 0;
 
@@ -1427,32 +1427,32 @@ class ChartPainter extends BaseKChartPainter {
         canvas.drawPath(
             dashPath(
               path,
-              dashArray: CircularIntervalList<double>([4, 4]),
+              dashArray: CircularIntervalList<double>([20, 4]),
             ),
             framePaint);
 
         double newY = Y - getStringHeight("${e.price}", textPaint);
         textPaint
           ..text = TextSpan(
-            text: "${e.price}多头止${e.win ? "盈" : "损"}${e.RealQty}手",
+            text: "止${e.win ? "盈" : "损"}${e.RealQty}手\n${e.price}",
           )
-          ..textDirection = TextDirection.ltr
+          ..textDirection = TextDirection.rtl
           ..layout();
 
-        borderPath.moveTo(startX, Y);
-        borderPath.lineTo(startX, newY);
-        borderPath.lineTo(startX + textPaint.width, newY);
-        borderPath.lineTo(startX + textPaint.width, Y);
-        borderPath.close();
-        canvas.drawPath(borderPath, framePaint..color = Colors.blue);
-        textPaint.paint(canvas, Offset(startX, newY));
+        // borderPath.moveTo(startX, Y);
+        // borderPath.lineTo(startX, newY);
+        // borderPath.lineTo(startX + textPaint.width, newY);
+        // borderPath.lineTo(startX + textPaint.width, Y);
+        // borderPath.close();
+        // canvas.drawPath(borderPath, framePaint..color = Colors.blue);
+        textPaint.paint(canvas, Offset(startX - textPaint.width - 5, newY));
       }
     }
   }
 
   ///持仓线
   void drawPosLines(Canvas canvas) {
-    Paint framePaint = MethodUntil().getDashPaint(Port.macdUpColor);
+    Paint framePaint = MethodUntil().getDashPaint(Port.macdFastColor);
     TextPainter subTextPaint = MethodUntil().getTextPainter(Utils.dp2px(5));
     double rate = 1; //计算最小单位
     double textBottom = MARGINTOP;
@@ -1478,8 +1478,40 @@ class ChartPainter extends BaseKChartPainter {
       }
       if (dealY(Y)) {
         Path path = Path(); // 绘制虚线
-        Path borderPath = Path(); // 绘制虚线
+        // Path borderPath = Path(); // 绘制虚线
+        double newY = Y -
+            getStringHeight(
+                    "${Utils.d2SBySrc(e.open, e.FutureTickSize)}${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手}", subTextPaint) /
+                2;
+
+        textPaint
+          ..text = TextSpan(
+            children: [
+              TextSpan(
+                text: "${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手${Utils.d2SBySrc(e.open, e.FutureTickSize)}",
+                // style: TextStyle(color: Port.costTwoColor),
+              ),
+              // if (e.floatProfit != null)
+              //   TextSpan(
+              //     text: "${e.floatProfit! < 0 ? "亏" : "盈"}${e.floatProfit.obs.toStringAsFixed(4)}",
+              //     // style: TextStyle(color: e.floatProfit! < 0 ? Port.costFourColor : Port.VR_Color),
+              //   )
+            ],
+          )
+          ..textDirection = TextDirection.rtl
+          ..layout();
+
+        // borderPath.moveTo(startX, Y);
+        // borderPath.lineTo(startX, newY);
+        // borderPath.lineTo(startX + textPaint.width, newY);
+        // borderPath.lineTo(startX + textPaint.width, Y);
+        // borderPath.close();
+        // canvas.drawPath(borderPath, framePaint);
+        textPaint.paint(canvas, Offset(startX + 20, newY));
+
         path.moveTo(startX, Y);
+        path.lineTo(startX + 20, Y);
+        path.moveTo(startX + 22 + textPaint.width, Y);
         path.lineTo(stopX, Y);
         //横线
         canvas.drawPath(
@@ -1489,32 +1521,6 @@ class ChartPainter extends BaseKChartPainter {
           ),
           framePaint,
         );
-
-        double newY = Y -
-            getStringHeight(
-                "${Utils.d2SBySrc(e.open, e.FutureTickSize)}${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手}", subTextPaint);
-
-        textPaint
-          ..text = TextSpan(
-            children: [
-              TextSpan(
-                  text: "${Utils.d2SBySrc(e.open, e.FutureTickSize)}${e.orderSide == SideType.SIDE_BUY ? "买" : "卖"}${e.AvailableQty}手",
-                  style: TextStyle(color: Port.costTwoColor)),
-              if (e.floatProfit != null)
-                TextSpan(
-                    text: "${e.floatProfit! < 0 ? "亏" : "盈"}${e.floatProfit.obs.toStringAsFixed(4)}",
-                    style: TextStyle(color: e.floatProfit! < 0 ? Port.costFourColor : Port.VR_Color))
-            ],
-          )
-          ..textDirection = TextDirection.ltr
-          ..layout();
-        borderPath.moveTo(startX, Y);
-        borderPath.lineTo(startX, newY);
-        borderPath.lineTo(startX + textPaint.width, newY);
-        borderPath.lineTo(startX + textPaint.width, Y);
-        borderPath.close();
-        canvas.drawPath(borderPath, framePaint);
-        textPaint.paint(canvas, Offset(startX, newY));
       }
     }
   }

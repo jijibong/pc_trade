@@ -51,23 +51,26 @@ class QuoteLogic extends GetxController {
 
   StreamSubscription? quoteEventSubscription;
   StreamSubscription? optionEventSubscription;
+  StreamSubscription? subscriptionA;
+  StreamSubscription? subscriptionB;
+  StreamSubscription? subscriptionC;
 
   setListener() {
     ///登录成功
-    EventBusUtil.getInstance().on<LoginSuccess>().listen((event) async {
+    subscriptionA = EventBusUtil.getInstance().on<LoginSuccess>().listen((event) async {
       await queryOption();
       await requestHold();
     });
 
     ///获取合约
-    EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
+    subscriptionB = EventBusUtil.getInstance().on<GetAllContracts>().listen((event) async {
       loadData();
     });
   }
 
   setAllListener() {
     ///切换合约
-    EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
+    subscriptionC = EventBusUtil.getInstance().on<SwitchContract>().listen((event) async {
       String msg = jsonEncode(event.contract);
       if (tradeWindowId != null) {
         await DesktopMultiWindow.invokeMethod(tradeWindowId!, kWindowEventNewContract, msg);
@@ -555,5 +558,8 @@ class QuoteLogic extends GetxController {
   void destroy() {
     quoteEventSubscription?.cancel();
     optionEventSubscription?.cancel();
+    subscriptionA?.cancel();
+    subscriptionB?.cancel();
+    subscriptionC?.cancel();
   }
 }

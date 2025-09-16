@@ -190,7 +190,7 @@ class MarketServer {
         data = await SignData().signData(jsonEncode(map), Config.addOption);
       }
       Response response = await HttpUtils.getInstance().post(Config.addOption, data: data);
-      logger.w(response);
+      // logger.w(response);
       if (response.data["code"] == 0) {
         return true;
       } else {

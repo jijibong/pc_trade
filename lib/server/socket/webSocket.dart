@@ -33,7 +33,6 @@ class WebSocketServer {
   static List<QuoteAddr> quoteAddress = [];
   WebSocket socket = WebSocket(Uri.parse(''));
   StreamSubscription? quoteDataSubscription;
-  static List<CustomLine> drawOrderLines = [];
 
   void initSocket() async {
     const backoff = ConstantBackoff(Duration(seconds: 10));
@@ -225,13 +224,13 @@ class WebSocketServer {
         }
       }
 
-      if (drawOrderLines.isNotEmpty) {
-        for (var element in drawOrderLines) {
-          if ("${contract.exCode}${contract.code}${contract.comType}" == element.code && contract.lastPrice == element.kPrice) {
-            drawOrder(contract, element);
-          }
-        }
-      }
+      // if (drawOrderLines.isNotEmpty) {
+      //   for (var element in drawOrderLines) {
+      //     if ("${contract.exCode}${contract.code}${contract.comType}" == element.code && contract.lastPrice == element.kPrice) {
+      //       drawOrder(contract, element);
+      //     }
+      //   }
+      // }
       MarketUtils.updateVariety(contract);
       EventBusUtil.getInstance().fire(QuoteEvent(contract));
     } catch (e) {
@@ -392,25 +391,25 @@ class WebSocketServer {
     });
   }
 
-  void drawOrder(Contract contract, CustomLine customLine) async {
-    if (customLine.type == 3 && customLine.side == null) {
-      return;
-    }
-    String ExchangeNo = contract.exCode ?? "";
-    String CommodityNo = contract.subComCode ?? "";
-    String ContractNo = contract.subConCode ?? "";
-    int CommodityType = contract.comType ?? 0;
-    int OrderType = Order_Type.ORDER_TYPE_MARKET;
-    int TimeInForce = TimeInForceType.ORDER_TIMEINFORCE_GFD;
-    String ExpireTime = "";
-    int OrderSide = customLine.side ?? (customLine.type == 1 ? SideType.SIDE_BUY : SideType.SIDE_SELL);
-    double OrderPrice = getLimitPrice(customLine.type == 2, customLine.price ?? "市价", contract);
-    double StopPrice = 0;
-    int OrderQty = customLine.num ?? 1;
-    int PositionEffect = customLine.type == 3 ? PositionEffectType.PositionEffect_COVER : PositionEffectType.PositionEffect_OPEN;
-    await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
-        StopPrice, OrderQty, PositionEffect, "");
-  }
+  // void drawOrder(Contract contract, CustomLine customLine) async {
+  //   if (customLine.type == 3 && customLine.side == null) {
+  //     return;
+  //   }
+  //   String ExchangeNo = contract.exCode ?? "";
+  //   String CommodityNo = contract.subComCode ?? "";
+  //   String ContractNo = contract.subConCode ?? "";
+  //   int CommodityType = contract.comType ?? 0;
+  //   int OrderType = Order_Type.ORDER_TYPE_MARKET;
+  //   int TimeInForce = TimeInForceType.ORDER_TIMEINFORCE_GFD;
+  //   String ExpireTime = "";
+  //   int OrderSide = customLine.side ?? (customLine.type == 1 ? SideType.SIDE_BUY : SideType.SIDE_SELL);
+  //   double OrderPrice = getLimitPrice(customLine.type == 2, customLine.price ?? "市价", contract);
+  //   double StopPrice = 0;
+  //   int OrderQty = customLine.num ?? 1;
+  //   int PositionEffect = customLine.type == 3 ? PositionEffectType.PositionEffect_COVER : PositionEffectType.PositionEffect_OPEN;
+  //   await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
+  //       StopPrice, OrderQty, PositionEffect, "");
+  // }
 
   /// 获取限价价格
   double getLimitPrice(bool side, String price, Contract contract) {

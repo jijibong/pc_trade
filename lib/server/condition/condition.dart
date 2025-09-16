@@ -141,7 +141,7 @@ class ConditionServer {
         data = await SignData().signData(jsonEncode(map), Config.addCondition);
       }
       Response response = await HttpUtils.getInstance().post(Config.addCondition, data: data);
-      // logger.w(response);
+      logger.w(response);
       if (response.data["code"] == 0) {
         return true;
       } else {

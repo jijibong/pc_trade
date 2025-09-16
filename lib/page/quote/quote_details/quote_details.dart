@@ -8,7 +8,7 @@ import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:get/get.dart';
+import 'package:get/get.dart' hide Condition;
 import 'package:hexcolor/hexcolor.dart';
 import 'package:multi_split_view/multi_split_view.dart';
 import 'package:provider/provider.dart';
@@ -40,13 +40,17 @@ import '../../../model/k/k_preiod.dart';
 import '../../../model/k/k_time.dart';
 import '../../../model/k/port.dart';
 import '../../../model/k/trade_time.dart';
+import '../../../model/condition/condition.dart';
 import '../../../model/pb/quote/fill.pb.dart';
 import '../../../model/pl/pl.dart';
 import '../../../model/quote/contract.dart';
+import '../../../model/quote/order_type.dart';
+import '../../../model/quote/position_effect_type.dart';
 import '../../../model/quote/side_type.dart';
 import '../../../model/socket_packet/operation.dart';
 import '../../../model/trade/hold_order.dart';
 import '../../../model/trade/res_hold_order.dart';
+import '../../../server/condition/condition.dart';
 import '../../../server/login/login.dart';
 import '../../../server/pl/pl.dart';
 import '../../../server/quote/market.dart';
@@ -189,7 +193,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   int colorValue = 0;
   int widthType = 0;
   int lineType = 0;
-  List<DrawToolLine> drawToolLines = [];
+  List<CustomLine> drawOrderLines = []; //画线下单
+  List<DrawToolLine> drawToolLines = []; //画线工具
   List<KPeriod> periodList = [];
   double lastClose = 0;
 
@@ -320,8 +325,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   StreamSubscription? streamSubscriptionD;
   StreamSubscription? streamSubscriptionE;
   StreamSubscription? streamSubscriptionF;
-  StreamSubscription? streamSubscriptionG;
-  StreamSubscription? streamSubscriptionH;
+  // StreamSubscription? streamSubscriptionG;
+  // StreamSubscription? streamSubscriptionH;
   StreamSubscription? streamSubscriptionI;
   StreamSubscription? streamSubscriptionJ;
   StreamSubscription? streamSubscriptionK;
@@ -1129,18 +1134,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   Future getDrawLines() async {
-    WebSocketServer.drawOrderLines.clear();
     drawToolLines.clear();
-    String? string = await SpUtils.getString(SpKey.drawLines);
     String? lines = await SpUtils.getString(SpKey.drawToolLines);
-    if (string != null) {
-      Map temp = jsonDecode(string);
-      if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
-        WebSocketServer.drawOrderLines = temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"]
-            .map<CustomLine>((json) => CustomLine.fromJson(json))
-            .toList();
-      }
-    }
     if (lines != null) {
       Map temp = jsonDecode(lines);
       if (temp["${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}"] != null) {
@@ -1150,6 +1145,39 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         drawToolLines.addAll(tmp.where((e) => e.period == kPeriod.name));
       }
     }
+    qryCondition();
+  }
+
+  qryCondition() async {
+    selectedLine = -1;
+    drawOrderLines.clear();
+    await ConditionServer.queryTodayCondition().then((value) {
+      if (value != null) {
+        for (var con in value) {
+          if (con.Status == 1) {
+            CustomLine customLine = CustomLine(
+              code: con.ContractNo,
+              id: con.Id,
+              orderType: con.OrderType,
+              timeInForce: con.TimeInForce,
+              expireTime: con.ExpireTime,
+              orderSide: con.OrderSide,
+              orderPrice: con.OrderPrice,
+              orderQty: con.OrderQty,
+              positionEffect: con.PositionEffect,
+              priceType: con.PriceType,
+              conditionType: con.ConditionType,
+              conditionPrice: con.ConditionPrice,
+              type: con.OrderType,
+              num: con.OrderQty,
+              side: con.OrderType,
+              kPrice: con.OrderPrice,
+            );
+            drawOrderLines.add(customLine);
+          }
+        }
+      }
+    });
   }
 
   double calculatePrice(double Y, ChartPainter painter) {
@@ -1686,11 +1714,11 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       }
     });
 
-    ///画线工具
-    streamSubscriptionG = EventBusUtil.getInstance().on<ToolDrawing>().listen((event) async {});
+    // ///画线工具
+    // streamSubscriptionG = EventBusUtil.getInstance().on<ToolDrawing>().listen((event) async {});
 
-    ///画线下单
-    streamSubscriptionH = EventBusUtil.getInstance().on<OrderDrawing>().listen((event) async {});
+    // ///画线下单
+    // streamSubscriptionH = EventBusUtil.getInstance().on<OrderDrawing>().listen((event) async {});
 
     ///持仓变化
     streamSubscriptionI = EventBusUtil.getInstance().on<RefreshHold>().listen((event) async {
@@ -1856,10 +1884,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   ///修改止盈止损
   void modifyPLRecord() async {
+    if (pLRecordList[selectedPLLine].price == null) {
+      queryPLRecord(holdOrder.first);
+      return;
+    }
     showDialog(
         context: context,
         builder: (BuildContext context) {
-          return PLDialog().showPLDialog("${pLRecordList[selectedPLLine].price}", pLRecordList[selectedPLLine].win ? "盈" : "损",
+          return PLDialog().showPLDialog("${pLRecordList[selectedPLLine].price ?? 0}", pLRecordList[selectedPLLine].win ? "盈" : "损",
               functionConfirm: () async {
             await PLServer.modifyPL(
                     holdOrder.first.exCode,
@@ -1882,7 +1914,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             });
           }, functionCancel: () async {
             queryPLRecord(holdOrder.first);
-            if (mounted) setState(() {});
           });
         });
   }
@@ -1948,8 +1979,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     streamSubscriptionD?.cancel();
     streamSubscriptionE?.cancel();
     streamSubscriptionF?.cancel();
-    streamSubscriptionG?.cancel();
-    streamSubscriptionH?.cancel();
+    // streamSubscriptionG?.cancel();
+    // streamSubscriptionH?.cancel();
     streamSubscriptionI?.cancel();
     streamSubscriptionJ?.cancel();
     streamSubscriptionK?.cancel();
@@ -1992,7 +2023,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       mMinPrice: mMinPrice,
       currentX: currentX,
       currentY: currentY,
-      drawOrderLines: WebSocketServer.drawOrderLines,
+      drawOrderLines: drawOrderLines,
       drawToolLines: drawToolLines,
       isDrawBollinger: isDrawBollinger,
       isDrawCost: isDrawCost,
@@ -2626,23 +2657,47 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           if (isDrawTime || e.buttons == kSecondaryMouseButton) return;
           String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
           if (orderDrawing) {
-            if (orderDrawType == 3 && holdOrder.isEmpty) {
-              InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
-              orderDrawing = false;
-              await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
-              return;
-            }
+            // if (orderDrawType == 3 && holdOrder.isEmpty) {
+            //   InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
+            //   orderDrawing = false;
+            //   await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+            //   return;
+            // }
+            orderDrawing = false;
+            await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
             double kPrice = calculatePrice(e.localPosition.dy, painter);
             CustomLine cus = CustomLine(code: name, type: orderDrawType, num: num, price: price, lineY: e.localPosition.dy, kPrice: kPrice);
             if (orderDrawType == 3) {
               cus.side = holdOrder.first.orderSide == SideType.SIDE_SELL ? SideType.SIDE_BUY : SideType.SIDE_SELL;
             }
-            WebSocketServer.drawOrderLines.add(cus);
-            orderDrawing = false;
-            List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
-            String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}$name": temp});
-            await SpUtils.set(SpKey.drawLines, tmp);
-            await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
+            await ConditionServer.addCondition(
+              contract?.exCode,
+              contract?.subComCode,
+              contract?.comType,
+              contract?.code,
+              Order_Type.ORDER_TYPE_MARKET, //下单类型:市价/限价
+              2, //永久有效
+              "",
+              (orderDrawType == 1 || (orderDrawType == 3 && holdOrder.first.orderSide == SideType.SIDE_SELL))
+                  ? SideType.SIDE_BUY
+                  : SideType.SIDE_SELL,
+              kPrice,
+              num,
+              orderDrawType == 3 ? PositionEffectType.PositionEffect_COVER : PositionEffectType.PositionEffect_OPEN,
+              1, //触发价格["最新价", "买价", "卖价"]
+              ((orderDrawType == 3 && holdOrder.isEmpty) || orderDrawType == 1) ? 1 : 2, //条件类型1>=;2<=
+              kPrice, //触发价
+            ).then((value) async {
+              if (value) {
+                InfoBarUtils.showSuccessBar("画线下单成功");
+                qryCondition();
+                // qryCondition(0);
+                // drawOrderLines.add(cus);
+                // List temp = drawOrderLines.map((e) => e.toJson()).toList();
+                // String tmp = jsonEncode({"${UserUtils.currentUser?.id ?? ""}$name": temp});
+                // await SpUtils.set(SpKey.drawLines, tmp);
+              }
+            });
           } else if (startDrawTool) {
             double firstPointY = calculatePrice(e.localPosition.dy, painter);
             int index = calculateIndex(e.localPosition.dx);
@@ -2716,12 +2771,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 drawToolLines.last.thirdPointX = thirdPointX;
                 drawToolLines.last.thirdPointY = thirdPointY;
               } else {
-                if (WebSocketServer.drawOrderLines.isNotEmpty) {
-                  for (var element in WebSocketServer.drawOrderLines) {
+                if (drawOrderLines.isNotEmpty) {
+                  for (var element in drawOrderLines) {
                     if (element.path != null && _checkHit(element.path!, e.localPosition)) {
                       element.color = Colors.red;
                       cursor = SystemMouseCursors.click;
-                      selectedLine = WebSocketServer.drawOrderLines.indexOf(element);
+                      selectedLine = drawOrderLines.indexOf(element);
                       break;
                     }
                     element.color = Colors.white;
@@ -2813,8 +2868,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             return;
           }
           if (selectedLine != -1) {
-            WebSocketServer.drawOrderLines[selectedLine].kPrice = null;
-            WebSocketServer.drawOrderLines[selectedLine].lineY = e.localPosition.dy;
+            drawOrderLines[selectedLine].kPrice = null;
+            drawOrderLines[selectedLine].lineY = e.localPosition.dy;
           } else if (selectedIndex != -1) {
             if (selectedPoint == 1) {
               int index = calculateIndex(e.localPosition.dx);
@@ -2862,9 +2917,25 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           }
           if (mounted) setState(() {});
         },
-        onPointerUp: (e) {
+        onPointerUp: (e) async {
           if (selectedPLLine != -1) {
             modifyPLRecord();
+          } else if (selectedLine != -1) {
+            await ConditionServer.updateCondition(
+              drawOrderLines[selectedLine].id,
+              drawOrderLines[selectedLine].orderType!,
+              drawOrderLines[selectedLine].timeInForce!,
+              drawOrderLines[selectedLine].expireTime!,
+              drawOrderLines[selectedLine].orderSide!,
+              drawOrderLines[selectedLine].orderPrice!,
+              drawOrderLines[selectedLine].orderQty!,
+              drawOrderLines[selectedLine].positionEffect!,
+              drawOrderLines[selectedLine].priceType!,
+              drawOrderLines[selectedLine].conditionType!,
+              drawOrderLines[selectedLine].conditionPrice!,
+            ).then((value) {
+              if (value) qryCondition();
+            });
           }
         },
         child: MouseRegion(
@@ -2888,16 +2959,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           MenuFlyoutItem(
                             text: const Text('画线属性'),
                             onPressed: () {
-                              CustomLine customLine = WebSocketServer.drawOrderLines[selectedLine].copyWith();
+                              CustomLine customLine = drawOrderLines[selectedLine].copyWith();
                               showDialog(
                                   context: context,
                                   builder: (BuildContext context) {
                                     return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
-                                      WebSocketServer.drawOrderLines[selectedLine] = customLine;
-                                      List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
-                                      String tmp = jsonEncode(
-                                          {"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
-                                      await SpUtils.set(SpKey.drawLines, tmp);
+                                      drawOrderLines[selectedLine] = customLine;
                                       if (mounted) setState(() {});
                                     });
                                   });
@@ -2906,25 +2973,27 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           MenuFlyoutItem(
                               text: const Text('删除画线'),
                               onPressed: () async {
-                                WebSocketServer.drawOrderLines.removeAt(selectedLine);
+                                await ConditionServer.delCondition(drawOrderLines[selectedLine].id ?? 0).then((value) {
+                                  if (value) {
+                                    qryCondition();
+                                  }
+                                });
                                 selectedLine = -1;
                                 cursor = SystemMouseCursors.basic;
-                                List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
-                                String tmp =
-                                    jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
-                                await SpUtils.set(SpKey.drawLines, tmp);
                                 if (mounted) setState(() {});
                               }),
                           MenuFlyoutItem(
                               text: const Text('全部删除'),
                               onPressed: () async {
-                                WebSocketServer.drawOrderLines.clear();
                                 selectedLine = -1;
                                 cursor = SystemMouseCursors.basic;
-                                List temp = WebSocketServer.drawOrderLines.map((e) => e.toJson()).toList();
-                                String tmp =
-                                    jsonEncode({"${UserUtils.currentUser?.id ?? ""}${contract?.exCode}${contract?.code}${contract?.comType}": temp});
-                                await SpUtils.set(SpKey.drawLines, tmp);
+                                for (var e in drawOrderLines) {
+                                  await ConditionServer.delCondition(e.id ?? 0).then((value) {
+                                    if (value) {
+                                      qryCondition();
+                                    }
+                                  });
+                                }
                                 if (mounted) setState(() {});
                               }),
                         ]);

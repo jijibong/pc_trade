@@ -3765,7 +3765,16 @@ class _TradeState extends State<Trade> with MultiWindowListener, AutomaticKeepAl
                       margin: const EdgeInsets.fromLTRB(8, 8, 0, 8),
                       child: NumberBox(
                         value: wtPrice,
-                        onChanged: (v) {},
+                        onChanged: (v) {
+                          price = v?.toString() ?? "0";
+                          tradeSalePrice = getLimitPrice(true).toString();
+                          tradeBuyPrice = getLimitPrice(false).toString();
+                        },
+                        onTextChange: (v) {
+                          price = v.toString();
+                          tradeSalePrice = getLimitPrice(true).toString();
+                          tradeBuyPrice = getLimitPrice(false).toString();
+                        },
                         smallChange: 0.1,
                         clearButton: false,
                       ),

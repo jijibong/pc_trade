@@ -22,7 +22,7 @@ class SpKey {
   static String comCloseToday = "ComCloseToday";
   static String defaultTradeType = "defaultTradeType";
   static String defaultTradeMenu = "defaultTradeMenu";
-  static String drawLines = "drawLines";
+  // static String drawLines = "drawLines";
   static String drawToolLines = "drawToolLines";
 
   ///合约搜索历史记录
