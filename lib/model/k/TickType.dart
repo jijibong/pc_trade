@@ -1,7 +1,5 @@
 /**
  * @Descrption 逐笔成交tick数据性质
- * @Author hexuejian
- * @Time 2019/5/17 14:10
  */
  class TickType {
    static const int OPENLONG = 0; //多开

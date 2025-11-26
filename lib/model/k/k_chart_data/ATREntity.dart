@@ -10,8 +10,6 @@ import 'CalcIndexData.dart';
 
 /**
  * ATR真实波幅指标线绘制，数据计算
- * @author hexuejian
- *
  */
  class ATREntity {
   /**ATR数据集合*/

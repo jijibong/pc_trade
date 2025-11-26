@@ -3,11 +3,11 @@ import 'package:get/get.dart';
 
 import '../../config/common.dart';
 import '../../model/user/user.dart';
-import '../log/log.dart';
 import '../theme/theme.dart';
 
 class InfoBarUtils {
   static bool _isDialogVisible = false;
+  static final ThemeController themeController = Get.find<ThemeController>();
 
   static showWarningBar(String text) async {
     if (UserUtils.appContext != null) {
@@ -72,86 +72,65 @@ class InfoBarUtils {
   static showWarningDialog(String text) async {
     if (UserUtils.appContext != null) {
       if (!_isDialogVisible) {
-        final appTheme = AppTheme();
         _isDialogVisible = true;
-        showDialog(
-            context: UserUtils.appContext!,
-            builder: (BuildContext context) {
-              return ContentDialog(
-                style: ContentDialogThemeData(
-                    padding: EdgeInsets.zero,
-                    bodyPadding: EdgeInsets.zero,
-                    decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
-                content: Container(
-                  height: 200,
-                  color: Common.dialogContentColor,
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      Container(
-                        color: Common.dialogTitleColor,
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: Row(
-                          children: [
-                            Image.asset(
-                              "assets/images/jmaster.ico",
-                              width: 20,
-                            ),
-                            Expanded(
-                              child: Text(
-                                Common.appName,
-                                style: TextStyle(color: appTheme.color),
-                              ),
-                            ),
-                            IconButton(
-                                onPressed: () {
-                                  _isDialogVisible = false;
-                                  Get.back();
-                                },
-                                icon: const Icon(FluentIcons.cancel))
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FluentIcons.warning,
-                                  size: 36,
-                                  color: Colors.yellow,
-                                ),
-                                const SizedBox(
-                                  width: 15,
-                                ),
-                                Flexible(child: Text(text)),
-                              ],
-                            )),
-                      ),
-                      Button(
-                        style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text(
-                          "确定",
-                          style: TextStyle(color: Colors.white),
-                        ),
+        Get.dialog(ContentDialog(
+          style: themeController.theme.dialogTheme,
+          content: Container(
+            height: 180,
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
                         onPressed: () {
                           _isDialogVisible = false;
                           Get.back();
                         },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      )
-                    ],
-                  ),
+                        icon: Icon(FluentIcons.cancel, color: themeController.theme.acrylicBackgroundColor))
+                  ],
+                ).marginOnly(bottom: 15),
+                Expanded(
+                  child: Container(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            FluentIcons.warning,
+                            size: 36,
+                            color: Colors.yellow,
+                          ),
+                          const SizedBox(
+                            width: 15,
+                          ),
+                          Flexible(
+                              child: Text(
+                            text,
+                            style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+                          )),
+                        ],
+                      )),
                 ),
-              );
-            });
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                  child: const Text(
+                    "确定",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () {
+                    _isDialogVisible = false;
+                    Get.back();
+                  },
+                ).marginOnly(bottom: 15),
+              ],
+            ),
+          ),
+        ));
       }
     } else {
       InfoBarUtils.showWarningBar(text);
@@ -161,86 +140,65 @@ class InfoBarUtils {
   static showSuccessDialog(String text) async {
     if (UserUtils.appContext != null) {
       if (!_isDialogVisible) {
-        final appTheme = AppTheme();
         _isDialogVisible = true;
-        showDialog(
-            context: UserUtils.appContext!,
-            builder: (BuildContext context) {
-              return ContentDialog(
-                style: ContentDialogThemeData(
-                    padding: EdgeInsets.zero,
-                    bodyPadding: EdgeInsets.zero,
-                    decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
-                content: Container(
-                  height: 200,
-                  color: Common.dialogContentColor,
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      Container(
-                        color: Common.dialogTitleColor,
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: Row(
-                          children: [
-                            Image.asset(
-                              "assets/images/jmaster.ico",
-                              width: 20,
-                            ),
-                            Expanded(
-                              child: Text(
-                                Common.appName,
-                                style: TextStyle(color: appTheme.color),
-                              ),
-                            ),
-                            IconButton(
-                                onPressed: () {
-                                  _isDialogVisible = false;
-                                  Get.back();
-                                },
-                                icon: const Icon(FluentIcons.cancel))
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FluentIcons.accept,
-                                  size: 36,
-                                  color: Colors.green,
-                                ),
-                                const SizedBox(
-                                  width: 15,
-                                ),
-                                Flexible(child: Text(text)),
-                              ],
-                            )),
-                      ),
-                      Button(
-                        style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text(
-                          "确定",
-                          style: TextStyle(color: Colors.white),
-                        ),
+        Get.dialog(ContentDialog(
+          style: themeController.theme.dialogTheme,
+          content: Container(
+            height: 180,
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
                         onPressed: () {
                           _isDialogVisible = false;
                           Get.back();
                         },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      )
-                    ],
-                  ),
+                        icon: Icon(FluentIcons.cancel, color: themeController.theme.acrylicBackgroundColor))
+                  ],
+                ).marginOnly(bottom: 15),
+                Expanded(
+                  child: Container(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            FluentIcons.accept,
+                            size: 36,
+                            color: Colors.green,
+                          ),
+                          const SizedBox(
+                            width: 15,
+                          ),
+                          Flexible(
+                              child: Text(
+                            text,
+                            style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+                          )),
+                        ],
+                      )),
                 ),
-              );
-            });
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                  child: const Text(
+                    "确定",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () {
+                    _isDialogVisible = false;
+                    Get.back();
+                  },
+                ).marginOnly(bottom: 15),
+              ],
+            ),
+          ),
+        ));
       }
     } else {
       InfoBarUtils.showSuccessBar(text);
@@ -250,86 +208,65 @@ class InfoBarUtils {
   static showErrorDialog(String text) async {
     if (UserUtils.appContext != null) {
       if (!_isDialogVisible) {
-        final appTheme = AppTheme();
         _isDialogVisible = true;
-        showDialog(
-            context: UserUtils.appContext!,
-            builder: (BuildContext context) {
-              return ContentDialog(
-                style: ContentDialogThemeData(
-                    padding: EdgeInsets.zero,
-                    bodyPadding: EdgeInsets.zero,
-                    decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
-                content: Container(
-                  height: 200,
-                  color: Common.dialogContentColor,
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      Container(
-                        color: Common.dialogTitleColor,
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: Row(
-                          children: [
-                            Image.asset(
-                              "assets/images/jmaster.ico",
-                              width: 20,
-                            ),
-                            Expanded(
-                              child: Text(
-                                Common.appName,
-                                style: TextStyle(color: appTheme.color),
-                              ),
-                            ),
-                            IconButton(
-                                onPressed: () {
-                                  _isDialogVisible = false;
-                                  Get.back();
-                                },
-                                icon: const Icon(FluentIcons.cancel))
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FluentIcons.error,
-                                  size: 36,
-                                  color: Colors.red,
-                                ),
-                                const SizedBox(
-                                  width: 15,
-                                ),
-                                Flexible(child: Text(text)),
-                              ],
-                            )),
-                      ),
-                      Button(
-                        style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text(
-                          "确定",
-                          style: TextStyle(color: Colors.white),
-                        ),
+        Get.dialog(ContentDialog(
+          style: themeController.theme.dialogTheme,
+          content: Container(
+            height: 180,
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
                         onPressed: () {
                           _isDialogVisible = false;
                           Get.back();
                         },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      )
-                    ],
-                  ),
+                        icon: Icon(FluentIcons.cancel, color: themeController.theme.acrylicBackgroundColor))
+                  ],
+                ).marginOnly(bottom: 15),
+                Expanded(
+                  child: Container(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            FluentIcons.error,
+                            size: 36,
+                            color: Colors.red,
+                          ),
+                          const SizedBox(
+                            width: 15,
+                          ),
+                          Flexible(
+                              child: Text(
+                            text,
+                            style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+                          )),
+                        ],
+                      )),
                 ),
-              );
-            });
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                  child: const Text(
+                    "确定",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () {
+                    _isDialogVisible = false;
+                    Get.back();
+                  },
+                ).marginOnly(bottom: 15),
+              ],
+            ),
+          ),
+        ));
       }
     } else {
       InfoBarUtils.showErrorBar(text);
@@ -339,86 +276,65 @@ class InfoBarUtils {
   static showInfoDialog(String text) async {
     if (UserUtils.appContext != null) {
       if (!_isDialogVisible) {
-        final appTheme = AppTheme();
         _isDialogVisible = true;
-        showDialog(
-            context: UserUtils.appContext!,
-            builder: (BuildContext context) {
-              return ContentDialog(
-                style: ContentDialogThemeData(
-                    padding: EdgeInsets.zero,
-                    bodyPadding: EdgeInsets.zero,
-                    decoration: BoxDecoration(color: appTheme.color, borderRadius: BorderRadius.zero)),
-                content: Container(
-                  height: 200,
-                  color: Common.dialogContentColor,
-                  alignment: Alignment.center,
-                  child: Column(
-                    children: [
-                      Container(
-                        color: Common.dialogTitleColor,
-                        margin: const EdgeInsets.only(bottom: 15),
-                        child: Row(
-                          children: [
-                            Image.asset(
-                              "assets/images/jmaster.ico",
-                              width: 20,
-                            ),
-                            Expanded(
-                              child: Text(
-                                Common.appName,
-                                style: TextStyle(color: appTheme.color),
-                              ),
-                            ),
-                            IconButton(
-                                onPressed: () {
-                                  _isDialogVisible = false;
-                                  Get.back();
-                                },
-                                icon: const Icon(FluentIcons.cancel))
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 15),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  FluentIcons.info,
-                                  size: 36,
-                                  color: appTheme.color,
-                                ),
-                                const SizedBox(
-                                  width: 15,
-                                ),
-                                Flexible(child: Text(text)),
-                              ],
-                            )),
-                      ),
-                      Button(
-                        style: ButtonStyle(
-                            backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                            shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                        child: const Text(
-                          "确定",
-                          style: TextStyle(color: Colors.white),
-                        ),
+        Get.dialog(ContentDialog(
+          style: themeController.theme.dialogTheme,
+          content: Container(
+            height: 180,
+            alignment: Alignment.center,
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    IconButton(
                         onPressed: () {
                           _isDialogVisible = false;
                           Get.back();
                         },
-                      ),
-                      const SizedBox(
-                        height: 15,
-                      )
-                    ],
-                  ),
+                        icon: Icon(FluentIcons.cancel, color: themeController.theme.acrylicBackgroundColor))
+                  ],
+                ).marginOnly(bottom: 15),
+                Expanded(
+                  child: Container(
+                      padding: const EdgeInsets.only(bottom: 15),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            FluentIcons.info,
+                            size: 36,
+                            color: themeController.theme.focusTheme.glowColor,
+                          ),
+                          const SizedBox(
+                            width: 15,
+                          ),
+                          Flexible(
+                              child: Text(
+                            text,
+                            style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+                          )),
+                        ],
+                      )),
                 ),
-              );
-            });
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                  child: const Text(
+                    "确定",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                  onPressed: () {
+                    _isDialogVisible = false;
+                    Get.back();
+                  },
+                ).marginOnly(bottom: 15),
+              ],
+            ),
+          ),
+        ));
       }
     } else {
       InfoBarUtils.showInfoBar(text);

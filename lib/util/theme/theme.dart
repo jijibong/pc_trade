@@ -1,210 +1,98 @@
-import 'package:flutter_acrylic/flutter_acrylic.dart';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:get/get.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
+import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 
 import '../../config/common.dart';
 
-enum NavigationIndicators { sticky, end }
+class ThemeController extends GetxController {
+  // 当前主题模式
+  var isDarkMode = false.obs;
+  var multiScreen = 1.obs; // 当前分屏
+  var selectIndex = 1.obs; // 首页/自选
+  var selectCommandBarIndex = 0.obs; // 工具栏
 
-class AppTheme extends ChangeNotifier {
-  Color _color = Colors.white;
-  Color get color => _color;
-  Color _unColor = Colors.black;
-  Color get unColor => _unColor;
-  Color _commandBarColor = Common.darkCommandBarColor;
-  Color get commandBarColor => _commandBarColor;
-  // Color _quoteColor = Common.darkCommandBarColor;
-  // Color get quoteColor => _quoteColor;
-  colorRefresh(ThemeMode mode) {
-    if (mode == ThemeMode.light) {
-      _color = Colors.black;
-      _unColor = Colors.white;
-      _commandBarColor = Common.lightCommandBarColor;
-    } else {
-      _color = Colors.white;
-      _unColor = Colors.black;
-      _commandBarColor = Common.darkCommandBarColor;
-    }
+  @override
+  void onInit() {
+    super.onInit();
+    _initPrefs(); // 初始化本地存储并读取状态
   }
 
-  Color _exchangeTextColor = Common.exchangeTextColor;
-  Color get exchangeTextColor => _exchangeTextColor;
-  Color _lightExchangeTextColor = Common.lightExchangeTextColor;
-  Color get lightExchangeTextColor => _lightExchangeTextColor;
-  Color _exchangeBgColor = Common.exchangeBgColor;
-  Color get exchangeBgColor => _exchangeBgColor;
-  set exchangeTextColor(Color exchangeTextColor) {
-    _exchangeTextColor = exchangeTextColor;
-    notifyListeners();
+  // 初始化SharedPreferences并读取保存的主题状态
+  Future<void> _initPrefs() async {
+    final savedMode = await SpUtils.getBool(SpKey.isDarkMode);
+    isDarkMode.value = savedMode ?? Get.isDarkMode;
+    // update();
   }
 
-  set lightExchangeTextColor(Color lightExchangeTextColor) {
-    _lightExchangeTextColor = lightExchangeTextColor;
-    notifyListeners();
+  // 切换主题
+  void toggleTheme() {
+    isDarkMode.value = !isDarkMode.value;
+    update();
+    Get.changeThemeMode(isDarkMode.value ? ThemeMode.dark : ThemeMode.light);
+    SpUtils.set(SpKey.isDarkMode, isDarkMode.value);
   }
 
-  set exchangeBgColor(Color exchangeBgColor) {
-    _exchangeBgColor = exchangeBgColor;
-    notifyListeners();
-  }
+  // 获取当前主题
+  FluentThemeData get theme => isDarkMode.value ? darkTheme : lightTheme;
 
-  Color _drawColor = Colors.white;
-  Color get drawColor => _drawColor;
-  set drawColor(Color drawColor) {
-    _drawColor = drawColor;
-    notifyListeners();
-  }
+  // 浅色主题
+  static final FluentThemeData lightTheme = FluentThemeData(
+      brightness: Brightness.light,
+      activeColor: Colors.white,
+      inactiveColor: Colors.black,
+      inactiveBackgroundColor: Common.lightBgColor, //TabBg
+      scaffoldBackgroundColor: Common.contentLightBgColor,
+      acrylicBackgroundColor: Common.contentDarkBgColor,
+      cardColor: Common.lightCommandBarBgColor, //commandBarBg
+      selectionColor: Common.lightExchangeTextColor, //exchangeText
+      micaBackgroundColor: Common.lightExchangeBgColor, //exchangeBg
+      menuColor: Common.checkBoxBorderLightColor,
+      navigationPaneTheme: NavigationPaneThemeData(
+        backgroundColor: Common.selectTabLightBgColor,
+        highlightColor: Common.unSelectTabLightBgColor,
+      ),
+      focusTheme: FocusThemeData(
+        glowColor: Common.lightDownColor,
+      ),
+      bottomNavigationTheme: BottomNavigationThemeData(
+        backgroundColor: Common.unSelectTabLightBgColor,
+        selectedColor: Common.contentDarkBgColor,
+        inactiveColor: Common.inActiveCommodityTextColor,
+      ),
+      scrollbarTheme: ScrollbarThemeData(thickness: 5, backgroundColor: Common.lightScrollBarColor),
+      dialogTheme: ContentDialogThemeData(
+          padding: EdgeInsets.all(Common.dialogPadding),
+          barrierColor: Common.contentDarkBgColor,
+          decoration: BoxDecoration(color: Common.dialogLightBgColor, borderRadius: BorderRadius.circular(Common.dialogBorderRadius))));
 
-  ThemeMode _mode = ThemeMode.dark;
-  ThemeMode get mode => _mode;
-  set mode(ThemeMode mode) {
-    _mode = mode;
-    colorRefresh(mode);
-    notifyListeners();
-  }
-
-  ///k线周期
-  int _selectCommandBarIndex = 0;
-  int get selectCommandBarIndex => _selectCommandBarIndex;
-  set selectCommandBarIndex(int selectCommandBarIndex) {
-    _selectCommandBarIndex = selectCommandBarIndex;
-    notifyListeners();
-  }
-
-  ///自选
-  int _selectIndex = 1;
-  int get selectIndex => _selectIndex;
-  set selectIndex(int selectIndex) {
-    _selectIndex = selectIndex;
-    notifyListeners();
-  }
-
-  ///分屏
-  int _multiScreen = 1;
-  int get multiScreen => _multiScreen;
-  set multiScreen(int multiScreen) {
-    _multiScreen = multiScreen;
-    notifyListeners();
-  }
-  // List<int> _selectIndex = List.filled(Common.screenCount, 1);
-  // List<int> get selectIndex => _selectIndex;
-  // void setSelectIndex(int index, int value) {
-  //   if (index >= 0 && index < _selectIndex.length) {
-  //     _selectIndex[index] = value;
-  //     _selectIndex = [..._selectIndex.take(index), value, ..._selectIndex.skip(index + 1)];
-  //   }
-  //   notifyListeners();
-  // }
-
-  // ///成交报表\K线图
-  // List<bool> _showChart = List.filled(Common.screenCount, true);
-  // List<bool> get showChart => _showChart;
-  // void setShowChart(int index, bool value) {
-  //   if (index >= 0 && index < _showChart.length) {
-  //     _showChart[index] = value;
-  //     _showChart = [..._showChart.take(index), value, ..._showChart.skip(index + 1)];
-  //   }
-  //   notifyListeners();
-  // }
-
-  // ///首页\详情页
-  // List<int> _viewIndex = List.filled(Common.screenCount, 0);
-  // List<int> get viewIndex => _viewIndex;
-  // void setViewIndex(int index, int value) {
-  //   if (index >= 0 && index < _viewIndex.length) {
-  //     _viewIndex[index] = value;
-  //     _viewIndex = [..._viewIndex.take(index), value, ..._viewIndex.skip(index + 1)];
-  //   }
-  //   notifyListeners();
-  // }
-
-  int _tradeIndex = 0;
-  int get tradeIndex => _tradeIndex;
-  set tradeIndex(int tradeIndex) {
-    _tradeIndex = tradeIndex;
-    notifyListeners();
-  }
-
-  int _tradeDetailIndex = 0;
-  int get tradeDetailIndex => _tradeDetailIndex;
-  set tradeDetailIndex(int tradeDetailIndex) {
-    _tradeDetailIndex = tradeDetailIndex;
-    notifyListeners();
-  }
-
-  int _tradeAllIndex = 0;
-  int get tradeAllIndex => _tradeAllIndex;
-  set tradeAllIndex(int tradeAllIndex) {
-    _tradeAllIndex = tradeAllIndex;
-    notifyListeners();
-  }
-
-  PaneDisplayMode _displayMode = PaneDisplayMode.auto;
-  PaneDisplayMode get displayMode => _displayMode;
-  set displayMode(PaneDisplayMode displayMode) {
-    _displayMode = displayMode;
-    notifyListeners();
-  }
-
-  CommandBarItemDisplayMode _commandBarItemDisplayMode = CommandBarItemDisplayMode.inPrimaryCompact;
-  CommandBarItemDisplayMode get commandBarItemDisplayMode => _commandBarItemDisplayMode;
-  set commandBarItemDisplayMode(CommandBarItemDisplayMode commandBarItemDisplayMode) {
-    _commandBarItemDisplayMode = commandBarItemDisplayMode;
-    notifyListeners();
-  }
-
-  NavigationIndicators _indicator = NavigationIndicators.sticky;
-  NavigationIndicators get indicator => _indicator;
-  set indicator(NavigationIndicators indicator) {
-    _indicator = indicator;
-    notifyListeners();
-  }
-
-  WindowEffect _windowEffect = WindowEffect.disabled;
-  WindowEffect get windowEffect => _windowEffect;
-  set windowEffect(WindowEffect windowEffect) {
-    _windowEffect = windowEffect;
-    notifyListeners();
-  }
-
-  void setEffect(WindowEffect effect, BuildContext context) {
-    Window.setEffect(
-      effect: effect,
-      color: [
-        WindowEffect.solid,
-        WindowEffect.acrylic,
-      ].contains(effect)
-          ? FluentTheme.of(context).micaBackgroundColor.withOpacity(0.05)
-          : Colors.transparent,
-      dark: FluentTheme.of(context).brightness.isDark,
-    );
-  }
-
-  TextDirection _textDirection = TextDirection.ltr;
-  TextDirection get textDirection => _textDirection;
-  set textDirection(TextDirection direction) {
-    _textDirection = direction;
-    notifyListeners();
-  }
-
-  Locale _locale = const Locale('zh', 'CN');
-  Locale get locale => _locale;
-  set locale(Locale locale) {
-    _locale = locale;
-    notifyListeners();
-  }
+  // 深色主题
+  static final FluentThemeData darkTheme = FluentThemeData(
+      brightness: Brightness.dark,
+      activeColor: Colors.black,
+      inactiveColor: Colors.white,
+      inactiveBackgroundColor: Common.darkBgColor,
+      scaffoldBackgroundColor: Common.contentDarkBgColor,
+      acrylicBackgroundColor: Common.contentLightBgColor,
+      cardColor: Common.darkCommandBarBgColor,
+      selectionColor: Common.darkExchangeTextColor,
+      micaBackgroundColor: Common.darkExchangeBgColor,
+      menuColor: Common.checkBoxBorderDarkColor,
+      navigationPaneTheme: NavigationPaneThemeData(
+        backgroundColor: Common.selectTabDarkBgColor,
+        highlightColor: Common.unSelectTabDarkBgColor,
+      ),
+      focusTheme: FocusThemeData(
+        glowColor: Common.darkDownColor,
+      ),
+      bottomNavigationTheme: BottomNavigationThemeData(
+        backgroundColor: Common.selectTabDarkBgColor,
+        selectedColor: Colors.white,
+        inactiveColor: Common.commandTextColor,
+      ),
+      scrollbarTheme: ScrollbarThemeData(thickness: 5, backgroundColor: Common.darkScrollBarColor),
+      dialogTheme: ContentDialogThemeData(
+          padding: EdgeInsets.all(Common.dialogPadding),
+          barrierColor: Common.dialogContentBorderBgColor,
+          decoration: BoxDecoration(color: Common.dialogDarkBgColor, borderRadius: BorderRadius.circular(Common.dialogBorderRadius))));
 }
-
-// AccentColor get systemAccentColor {
-//   if ((defaultTargetPlatform == TargetPlatform.windows || defaultTargetPlatform == TargetPlatform.android) && !kIsWeb) {
-//     return AccentColor.swatch({
-//       'darkest': SystemTheme.accentColor.darkest,
-//       'darker': SystemTheme.accentColor.darker,
-//       'dark': SystemTheme.accentColor.dark,
-//       'normal': SystemTheme.accentColor.accent,
-//       'light': SystemTheme.accentColor.light,
-//       'lighter': SystemTheme.accentColor.lighter,
-//       'lightest': SystemTheme.accentColor.lightest,
-//     });
-//   }
-//   return Colors.yellow;
-// }

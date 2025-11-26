@@ -12,15 +12,16 @@ import '../log/log.dart';
 import '../theme/theme.dart';
 
 class PeriodDialog {
+  final ThemeController themeController = Get.find<ThemeController>();
+
   Widget showPeriodDialog(KPFlag mKPFlag, String name) {
-    final appTheme = AppTheme();
     final QuoteLogic logic = Get.put(QuoteLogic());
     TextEditingController controller = TextEditingController(text: "1");
     return ContentDialog(
       style: ContentDialogThemeData(
           padding: EdgeInsets.zero,
           bodyPadding: EdgeInsets.zero,
-          decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
+          decoration: BoxDecoration(color: themeController.theme.inactiveColor, borderRadius: BorderRadius.zero)),
       content: Container(
         height: 200,
         color: Common.dialogContentColor,
@@ -31,14 +32,10 @@ class PeriodDialog {
               margin: const EdgeInsets.only(bottom: 15),
               child: Row(
                 children: [
-                  Image.asset(
-                    "assets/images/jmaster.ico",
-                    width: 20,
-                  ),
                   Expanded(
                     child: Text(
                       "任意$name技术分析",
-                      style: TextStyle(color: appTheme.color),
+                      style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
                     ),
                   ),
                   IconButton(
@@ -79,7 +76,7 @@ class PeriodDialog {
                       String str = "周期设置不合理，最小1，最大${mKPFlag.max}";
                       InfoBarUtils.showErrorDialog(str);
                     } else {
-                      KPeriod fs = KPeriod(name: "$result${mKPFlag.name!}", period: result, cusType: 2, kpFlag: mKPFlag.flag, isDel: false);
+                      KPeriod fs = KPeriod(name: "$result${mKPFlag.name!}", period: result, cusType: 2, kpFlag: mKPFlag.flag);
                       if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
                         if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
                           return;

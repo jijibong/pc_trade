@@ -6,6 +6,7 @@ import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:get/get.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../config/common.dart';
 import '../../main.dart';
 import '../../model/delegation/res_del_order.dart';
 import '../../model/quote/order_type.dart';
@@ -93,11 +94,13 @@ class _LocalNotificationState extends State<LocalNotification> with MultiWindowL
 
   @override
   Widget build(BuildContext context) {
-    return NavigationView(
-      appBar: NavigationAppBar(
-          automaticallyImplyLeading: false,
-          height: 30,
-          title: GestureDetector(
+    return Container(
+      color: Common.contentLightBgColor,
+      padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          GestureDetector(
               onPanStart: (_) => startDragging(false),
               onPanCancel: () {
                 if (isMacOS) {
@@ -109,106 +112,95 @@ class _LocalNotificationState extends State<LocalNotification> with MultiWindowL
                   setMovable(false, false);
                 }
               },
-              child: Container(
-                color: Colors.transparent,
-                child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                  Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
-                  const Text(
-                    "  提示  ",
-                    style: TextStyle(fontSize: 13, color: Colors.white),
-                  ),
-                  Expanded(child: Container())
-                ]),
-              )),
-          actions: IconButton(
-              icon: const Icon(
-                FluentIcons.chrome_close,
-                color: Colors.white,
-              ),
-              onPressed: () {
-                Future.delayed(Duration.zero, () async {
-                  resDelOrderList.clear();
-                  await WindowController.fromWindowId(kWindowId!).hide();
-                });
-              })),
-      content: Stack(
-        alignment: AlignmentDirectional.topEnd,
-        children: [
-          Column(
-            children: [
-              Expanded(
-                child: PageView.builder(
-                  controller: controller,
-                  itemCount: resDelOrderList.length,
-                  onPageChanged: (index) {
-                    pageIndex = index + 1;
-                    if (mounted) setState(() {});
-                  },
-                  itemBuilder: (_, index) {
-                    return Column(
-                      children: [
-                        Image.asset(resDelOrderList[index].ErrorText == "成功" ? "assets/images/success.png" : "assets/images/warning.png"),
-                        Text(resDelOrderList[index].ErrorText == "成功" ? "完全成交" : resDelOrderList[index].ErrorText ?? "",
-                                style: TextStyle(color: Colors.yellow))
-                            .marginOnly(top: 8),
-                        const Spacer(),
-                        Container(
-                          padding: const EdgeInsets.symmetric(vertical: 28),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("${resDelOrderList[index].CommodityNo ?? "--"}${resDelOrderList[index].ContractNo ?? "--"}")
-                                      .marginOnly(bottom: 10),
-                                  Text(resDelOrderList[index].CreateTime?.substring(11) ?? "--"),
-                                ],
-                              ),
-                              Column(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text("${resDelOrderList[index].OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : resDelOrderList[index].OrderPrice}")
-                                      .marginOnly(bottom: 10),
-                                  Text(
-                                      "${resDelOrderList[index].OrderSide == SideType.SIDE_SELL ? "卖" : "买"}${PositionEffectType.getShortName(resDelOrderList[index].PositionEffect)}${resDelOrderList[index].OrderQty}手"),
-                                ],
-                              ),
-                            ],
-                          ),
-                        )
-                      ],
-                    );
-                  },
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.end,
                 children: [
-                  Button(
-                      child: const Text("上一条"),
-                      onPressed: () {
-                        if (controller.page == 0) return;
-                        controller.jumpToPage(max(0, (controller.page ?? 0).toInt() - 1));
-                      }),
-                  Button(
-                      child: const Text("下一条"),
-                      onPressed: () {
-                        if ((controller.page ?? 0) + 1 == resDelOrderList.length) return;
-                        controller.jumpToPage(min(resDelOrderList.length, (controller.page ?? 0).toInt() + 1));
-                      })
+                  IconButton(
+                      onPressed: () async {
+                        await WindowController.fromWindowId(kWindowId!).hide();
+                      },
+                      icon: const Icon(FluentIcons.cancel))
                 ],
-              ),
-              const SizedBox(
-                height: 10,
-              )
-            ],
+              ).paddingOnly(top: 5)),
+          Expanded(
+            child: PageView.builder(
+              controller: controller,
+              itemCount: resDelOrderList.length,
+              onPageChanged: (index) {
+                pageIndex = index + 1;
+                if (mounted) setState(() {});
+              },
+              itemBuilder: (_, index) {
+                return Column(
+                  children: [
+                    Image.asset(
+                      resDelOrderList[index].ErrorText == "成功" ? "assets/images/pic_yipaidui@3x.png" : "assets/images/pic_fail@3x.png",
+                      width: 115,
+                    ),
+                    Text(resDelOrderList[index].ErrorText == "成功" ? "完全成交" : resDelOrderList[index].ErrorText ?? "",
+                            style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.bold))
+                        .marginOnly(top: 8),
+                    const Spacer(),
+                    Container(
+                      decoration: BoxDecoration(
+                          color: Common.tradeButtonColor,
+                          border: Border.all(color: Common.dialogContentBorderBgColor),
+                          borderRadius: BorderRadius.circular(10)),
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          Text(
+                            resDelOrderList[index].CreateTime?.substring(11) ?? "--",
+                            style: TextStyle(color: Common.commandTextColor),
+                          ),
+                          Text(
+                            "${resDelOrderList[index].CommodityNo ?? "--"}${resDelOrderList[index].ContractNo ?? "--"}",
+                            style: TextStyle(color: Common.commandTextColor),
+                          ),
+                          Text(
+                            "${resDelOrderList[index].OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : resDelOrderList[index].OrderPrice}",
+                            style: TextStyle(color: Common.contentDarkBgColor),
+                          ),
+                          Text(
+                            "${resDelOrderList[index].OrderSide == SideType.SIDE_SELL ? "卖" : "买"}${PositionEffectType.getShortName(resDelOrderList[index].PositionEffect)}${resDelOrderList[index].OrderQty}手",
+                            style: TextStyle(color: Common.contentDarkBgColor),
+                          ),
+                        ],
+                      ),
+                    )
+                  ],
+                );
+              },
+            ),
           ),
-          Positioned(
-            child: Text("$pageIndex/${resDelOrderList.length}"),
-          )
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.contentLightBgColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 30)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20), side: BorderSide(color: Common.dialogContentBorderBgColor)))),
+                  child: const Text("上一条"),
+                  onPressed: () {
+                    if (controller.page == 0) return;
+                    controller.jumpToPage(max(0, (controller.page ?? 0).toInt() - 1));
+                  }),
+              Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.contentLightBgColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 30)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20), side: BorderSide(color: Common.dialogContentBorderBgColor)))),
+                  child: const Text("下一条"),
+                  onPressed: () {
+                    if ((controller.page ?? 0) + 1 == resDelOrderList.length) return;
+                    controller.jumpToPage(min(resDelOrderList.length, (controller.page ?? 0).toInt() + 1));
+                  })
+            ],
+          ).marginOnly(top: 20)
         ],
       ),
     );

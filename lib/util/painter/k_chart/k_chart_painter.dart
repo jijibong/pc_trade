@@ -1,7 +1,4 @@
-import 'dart:convert';
 import 'dart:math';
-import 'dart:ui';
-
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
 import 'package:path_drawing/path_drawing.dart';
@@ -28,8 +25,7 @@ import '../../../model/k/trade_time.dart';
 import '../../../model/pl/pl.dart';
 import '../../../model/quote/side_type.dart';
 import '../../../model/trade/hold_order.dart';
-import '../../log/log.dart';
-import '../../utils/k_util.dart';
+import '../../theme/theme.dart';
 import '../../utils/utils.dart';
 import 'base_k_chart_painter.dart';
 import 'crossLine_view.dart';
@@ -54,18 +50,18 @@ class ChartPainter extends BaseKChartPainter {
   double timeMarginRight = 0;
   double timeMarginLeft = 0;
   static double leftMarginSpace = 80;
-  static double timeLeftMarginSpace = getStringWidth("000.000", TextPainter(), size: Port.ChartTextSize);
   static double rightMarginSpace = getStringWidth("+0.00%", TextPainter(), size: Port.ChartTextSize);
-  static double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
+
   int mPreSize = 0;
   int mOrder = 0;
   double lastClose = 0;
   String chartExCode = "";
   String chartCode = "";
   List<double> CUSTOM_DASH_EFFECT = [5, 5];
+  final ThemeController themeController = Get.find<ThemeController>();
 
   /// 十字线辅助绘制
-  late CrossLineView mCrossLineView;
+  CrossLineView? mCrossLineView;
   // 下部表的数据
   /// MACD数据
   MACDEntity? mMACDData;
@@ -196,14 +192,14 @@ class ChartPainter extends BaseKChartPainter {
 
   Paint yangPaint = Paint();
   Paint yingPaint = Paint();
-  TextPainter redPaint = TextPainter();
-  TextPainter greenPaint = TextPainter();
-  Paint cursorPaint = MethodUntil().getDrawPaint(Port.cursorYellowColor); //游标画笔
-  Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor); //网格画笔
-  Paint whitePaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 255, 255, 1)); //白色画笔
-  Paint bluePaint = MethodUntil().getDrawPaint(const Color.fromRGBO(28, 220, 255, 1)); //蓝色画笔
-  Paint yellowPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(255, 240, 0, 1)); //黄色画笔
   TextPainter textPaint = TextPainter();
+  TextPainter redPaint = TextPainter();
+  TextPainter greenPainter = TextPainter();
+  TextPainter sizePaint = TextPainter();
+  Paint cursorPaint = MethodUntil().getDrawPaint(Port.cursorYellowColor); //游标画笔
+  Paint whitePaint = MethodUntil().getDrawPaint(Colors.white); //白色画笔
+  Paint yellowPaint = MethodUntil().getDrawPaint(Port.averageColor); //黄色画笔
+
   bool SWITHING_TIME = false;
   bool SWITHING_CODE = false;
   bool SWITHING_INDEX = false;
@@ -307,6 +303,7 @@ class ChartPainter extends BaseKChartPainter {
     super.paint(canvas, size);
     kChartViewHeight = size.height;
     kChartViewWidth = size.width;
+    mCrossLineView = CrossLineView(isDrawTime: isDrawTime);
     if (mOHLCData.isEmpty) {
       return;
     }
@@ -345,19 +342,23 @@ class ChartPainter extends BaseKChartPainter {
 
   void _drawLatitudes(Canvas canvas, double latitudeSpacing) {
     girdPaint
-      ..strokeWidth = 1
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
       ..style = PaintingStyle.stroke;
     for (int i = 1; i <= DEFAULT_TIME_LATITUDE_NUM; i++) {
       Path path = Path(); // 绘制虚线
       path.moveTo(timeMarginLeft + timeLeftMarginSpace, MARGINTOP + latitudeSpacing * i);
       path.lineTo(kChartViewWidth - timeMarginRight - rightMarginSpace, MARGINTOP + latitudeSpacing * i);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        girdPaint,
-      );
+      if (i == (DEFAULT_TIME_LATITUDE_NUM / 2).ceil()) {
+        canvas.drawPath(
+          dashPath(
+            path,
+            dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+          ),
+          girdPaint,
+        );
+      } else {
+        canvas.drawPath(path, girdPaint);
+      }
     }
 
     lastClose = lastClose == 0 ? (mMaxPrice + mMinPrice) / 2 : lastClose;
@@ -367,67 +368,67 @@ class ChartPainter extends BaseKChartPainter {
       String text = Utils.getPointNum(lastClose + perPrice * (4 - i), length: 2);
       double percent = (perPrice * (4 - i)) / lastClose * 100;
       String textPercent = "${Utils.getLimitNum(percent, 2)}%";
-      double leftX = 0, leftY = 0, rightX = 0;
-      leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(text, redPaint) - 1;
-      leftY = MARGINTOP + latitudeSpacing * i - halfTextHeight;
+      double leftX = 0, Y = 0, rightX = 0;
+      leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(text, redPaint) - 5;
+      Y = MARGINTOP + latitudeSpacing * i - halfTextHeight;
       rightX = kChartViewWidth - getStringWidth(textPercent, redPaint, size: DEFAULT_AXIS_TITLE_SIZE);
       redPaint
-        ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(230, 56, 89, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text = TextSpan(text: text, style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(leftX, leftY));
+        ..paint(canvas, Offset(leftX, Y));
       redPaint
-        ..text = TextSpan(text: textPercent, style: TextStyle(color: const Color.fromRGBO(230, 56, 89, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text = TextSpan(text: textPercent, style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(rightX, leftY));
+        ..paint(canvas, Offset(rightX, Y));
     }
 
     for (int i = 7; i > 4; i--) {
       String text = Utils.getPointNum(lastClose - perPrice * (i - 4), length: 2);
       double percent = (perPrice * (i - 4)) / lastClose * 100;
       String textPercent = "-${Utils.getLimitNum(percent, 2)}%";
-      double leftX = 0, leftY = 0, rightX = 0;
+      double leftX = 0, Y = 0, rightX = 0;
 
-      leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(text, redPaint) - 1;
-      leftY = MARGINTOP + latitudeSpacing * i - halfTextHeight;
-      rightX = kChartViewWidth - getStringWidth(textPercent, greenPaint, size: DEFAULT_AXIS_TITLE_SIZE);
-      greenPaint
-        ..text = TextSpan(text: text, style: TextStyle(color: const Color.fromRGBO(58, 255, 32, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(text, redPaint) - 5;
+      Y = MARGINTOP + latitudeSpacing * i - halfTextHeight;
+      rightX = kChartViewWidth - getStringWidth(textPercent, greenPainter, size: DEFAULT_AXIS_TITLE_SIZE);
+      greenPainter
+        ..text = TextSpan(text: text, style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(leftX, leftY));
-      greenPaint
-        ..text = TextSpan(text: textPercent, style: TextStyle(color: const Color.fromRGBO(58, 255, 32, 1), fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..paint(canvas, Offset(leftX, Y));
+      greenPainter
+        ..text = TextSpan(text: textPercent, style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
-        ..paint(canvas, Offset(rightX, leftY));
+        ..paint(canvas, Offset(rightX, Y));
     }
-    double leftX = 0, leftY = 0, rightX = 0;
-    leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(Utils.getPointNum(lastClose, length: 2), redPaint) - 1;
-    leftY = MARGINTOP + latitudeSpacing * 4 - halfTextHeight;
+    double leftX = 0, Y = 0, rightX = 0;
+    leftX = timeMarginLeft + timeLeftMarginSpace - getStringWidth(Utils.getPointNum(lastClose, length: 2), redPaint) - 5;
+    Y = MARGINTOP + latitudeSpacing * 4 - halfTextHeight;
     rightX = kChartViewWidth - getStringWidth("0.00%", textPaint, size: DEFAULT_AXIS_TITLE_SIZE);
     redPaint
-      ..text = TextSpan(text: Utils.getPointNum(lastClose, length: 2), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: Utils.getPointNum(lastClose, length: 2), style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(leftX, leftY));
+      ..paint(canvas, Offset(leftX, Y));
     redPaint
-      ..text = TextSpan(text: "0.00%", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: "0.00%", style: TextStyle(color: Port.textColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(rightX, leftY));
+      ..paint(canvas, Offset(rightX, Y));
   }
 
   void _drawLongitudes(Canvas canvas, double longitudeSpacing) {
     Paint paint = Paint()
-      ..color = Port.girdColor
+      ..color = Port.borderColor
       ..style = PaintingStyle.stroke
       ..isAntiAlias = true
       ..strokeWidth = 1;
 
     if (mFsTimes.isNotEmpty) {
-      drawTime(canvas, paint, textPaint);
+      drawTime(canvas, paint);
     } else {
       for (int i = 1; i <= DEFAULT_TIME_LOGITUDE_NUM; i++) {
         Path path = Path(); // 绘制虚线
@@ -439,7 +440,9 @@ class ChartPainter extends BaseKChartPainter {
   }
 
   void _drawTimeUpper(Canvas canvas, double longitudeSpacing) {
-    bluePaint.strokeWidth = 1;
+    Paint greenPaint = MethodUntil().getDrawPaint(themeController.theme.focusTheme.glowColor!); //绿色画笔
+    Paint fillPaint = MethodUntil().getFillPaint(themeController.theme.focusTheme.glowColor!.withOpacity(0.1)); //黄色画笔
+    greenPaint.strokeWidth = 2;
     yellowPaint.strokeWidth = 1;
     double closeY = 0.0;
     double averageY = 0.0;
@@ -450,43 +453,63 @@ class ChartPainter extends BaseKChartPainter {
     lastClose = lastClose == 0 ? (mMaxPrice + mMinPrice) / 2 : lastClose;
     double max = mMaxPrice;
     double min = mMinPrice;
+    int showNum = (kChartViewWidth - timeMarginLeft - timeMarginRight - timeLeftMarginSpace - rightMarginSpace) ~/ mPointWidth;
     double maxHeight = (max - lastClose) > (lastClose - min) ? (max - lastClose) : (lastClose - min); //最大价差
     max = lastClose + maxHeight;
     min = lastClose - maxHeight;
     double rate = (kChartViewHeight - MARGINTOP - timeDownChartHeight) / (max - min); //计算最小单位
-    if (rate.isInfinite) {
-      logger.d("rate.isInfinite  max:$max   min:$max   lastClose:$lastClose");
-      return;
-    }
-    int showNum = 0;
-    showNum = (kChartViewWidth - timeMarginLeft - timeMarginRight - timeLeftMarginSpace - rightMarginSpace) ~/ mPointWidth;
-    for (int i = 0; i < showNum; i++) {
-      int num = (i + 1) >= showNum ? showNum - 1 : i + 1;
-      startX = mPointWidth * i + timeMarginLeft + timeLeftMarginSpace;
-      nextX = mPointWidth * num + timeMarginLeft + rightMarginSpace;
-      if (i >= mOHLCData.length) break;
-      if (i < mOHLCData.length) {
-        int next = (i + 1) >= mOHLCData.length ? mOHLCData.length - 1 : i + 1;
-        closeY = (max - (mOHLCData[i].close ?? 0)) * rate;
-        averageY = (max - (mOHLCData[i].average ?? 0)) * rate;
-        nextCloseY = (max - (mOHLCData[next].close ?? 0)) * rate;
-        nextAverageY = (max - (mOHLCData[next].average ?? 0)) * rate;
-        canvas.drawLine(Offset(startX, closeY), Offset(nextX, nextCloseY), bluePaint); //绘制收盘价
-        canvas.drawLine(Offset(startX, averageY), Offset(nextX, nextAverageY), yellowPaint); //绘制收盘价
+    if (rate.isFinite) {
+      // logger.d("rate.isInfinite  max:$max   min:$max   lastClose:$lastClose");
+      final fillPath = Path();
+      final shouPanPath = Path();
+      final averagePath = Path();
+      for (int i = 0; i < showNum; i++) {
+        int num = (i + 1) >= showNum ? showNum - 1 : i + 1;
+        startX = mPointWidth * i + timeMarginLeft + timeLeftMarginSpace;
+        nextX = mPointWidth * num + timeMarginLeft + timeLeftMarginSpace;
+        if (i >= mOHLCData.length) break;
+        if (i < mOHLCData.length) {
+          int next = (i + 1) >= mOHLCData.length ? mOHLCData.length - 1 : i + 1;
+          closeY = (max - (mOHLCData[i].close ?? 0)) * rate;
+          averageY = (max - (mOHLCData[i].average ?? 0)) * rate;
+          nextCloseY = (max - (mOHLCData[next].close ?? 0)) * rate;
+          nextAverageY = (max - (mOHLCData[next].average ?? 0)) * rate;
+          canvas.drawLine(Offset(startX, averageY), Offset(nextX, nextAverageY), yellowPaint); //绘制均价
+          if (i == 0) {
+            fillPath.moveTo(startX, TIME_UPER_CHART_BOTTOM);
+            shouPanPath.moveTo(startX, closeY);
+            averagePath.moveTo(startX, averageY);
+          } else {
+            fillPath.lineTo(startX, closeY);
+            shouPanPath.lineTo(startX, closeY);
+            averagePath.lineTo(startX, averageY);
+          }
+          fillPath.lineTo(nextX, nextCloseY);
+          shouPanPath.lineTo(nextX, nextCloseY);
+          averagePath.lineTo(nextX, nextAverageY);
+          if (i == mOHLCData.length - 1 || i == showNum - 1) {
+            fillPath.lineTo(nextX, TIME_UPER_CHART_BOTTOM);
+          }
+        }
       }
-    }
-    //绘制成交量
-    if (mVolData != null && isDrawTimeDown) {
-      mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, timeLeftMarginSpace,
-          rightMarginSpace, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
-    }
+      fillPath.close();
+      canvas.drawPath(fillPath, fillPaint);
+      canvas.drawPath(shouPanPath, greenPaint);
+      canvas.drawPath(averagePath, yellowPaint);
 
-    drawPosLines(canvas);
-    //绘制十字线
-    if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
-      double lowerHeight = kChartViewHeight - TIME_LOWER_CHART_TOP;
-      CrossLineView.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, lowerHeight, currentX, currentY, mPointWidth, MARGINTOP, timeMarginLeft,
-          timeLeftMarginSpace, rightMarginSpace, showNum, 0, mOHLCData, isDrawTime, lastClose, hoverIndex, mKPeriod);
+      //绘制成交量
+      if (mVolData != null && isDrawTimeDown) {
+        mVolData?.drawFenshiVol(canvas, kChartViewHeight, kChartViewWidth, mPointWidth, BaseKChartPainter.TimeMarginLeft, timeLeftMarginSpace,
+            rightMarginSpace, TIME_LOWER_CHART_TOP, BaseKChartPainter.TimeMarginRight, halfTextHeight);
+      }
+
+      drawPosLines(canvas);
+      //绘制十字线
+      if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
+        double lowerHeight = kChartViewHeight - TIME_LOWER_CHART_TOP;
+        mCrossLineView?.drawCrossLine(canvas, kChartViewHeight, kChartViewWidth, lowerHeight, currentX, currentY, mPointWidth, MARGINTOP,
+            timeMarginLeft, timeLeftMarginSpace, rightMarginSpace, showNum, 0, mOHLCData, isDrawTime, lastClose, hoverIndex, mKPeriod);
+      }
     }
   }
 
@@ -496,17 +519,16 @@ class ChartPainter extends BaseKChartPainter {
       ..strokeWidth = Port.StrokeWidth
       ..style = PaintingStyle.stroke;
     yingPaint
-      ..color = Port.yingCandleColor
+      ..color = themeController.theme.focusTheme.glowColor!
       ..strokeWidth = Port.StrokeWidth;
-    whitePaint.color = Colors.white;
 
     // logger.f((mUperChartHeight - MARGINTOP + Port.text_check - getStringHeight("0", TextPainter(), size: Port.ChartTextSize));
     double rate = mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
     // double rate = (mUperChartHeight - MARGINTOP + Port.text_check - getStringHeight("0", TextPainter(), size: Port.ChartTextSize)) /
     //     (mMaxPrice - mMinPrice); //计算最小单位
     // double textBottom = MARGINTOP - Port.text_check + getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
-    double textBottom = MARGINTOP;
-    canvas.drawLine(Offset(leftMarginSpace, 0), Offset(leftMarginSpace, kChartViewHeight), girdPaint);
+    double textBottom = MARGINTOP + textHeight;
+    canvas.drawLine(Offset(leftMarginSpace, 0), Offset(leftMarginSpace, kChartViewHeight), forePaint);
     for (int i = 0; i < mShowDataNum && mDataStartIndext + i < mOHLCData.length; i++) {
       OHLCEntity entity = mOHLCData[mDataStartIndext + i];
       double startX = BaseKChartPainter.MARGINLEFT + mCandleWidth * i + mCandleWidth + leftMarginSpace;
@@ -535,7 +557,8 @@ class ChartPainter extends BaseKChartPainter {
 
     //绘制价格指示线
     double closeHigh = (mMaxPrice - (mOHLCData[mOHLCData.length - 1].close ?? 0)) * rate + textBottom;
-    if (closeHigh <= mUperChartHeight + MARGINTOP && closeHigh >= 0) {
+    double limit = mUperChartHeight + MARGINTOP + textHeight;
+    if (closeHigh <= limit && closeHigh >= 0) {
       if (mDataStartIndext + mShowDataNum < mOHLCData.length) {
         cursorPaint.color = Port.cursorGrayColor;
       } else {
@@ -550,7 +573,6 @@ class ChartPainter extends BaseKChartPainter {
       canvas.drawPath(path, cursorPaint);
     }
     drawHighLowPoint(canvas, rate, textBottom);
-
     //绘制瀑布线
     if (isDrawFall && isSmartFall == false && mFallData != null) {
       mFallData?.drawFall(
@@ -563,7 +585,7 @@ class ChartPainter extends BaseKChartPainter {
           CANDLE_INTERVAL,
           BaseKChartPainter.MARGINLEFT,
           leftMarginSpace,
-          MARGINTOP,
+          MARGINTOP + textHeight,
           mUperChartHeight,
           FallPeriod1,
           FallPeriod2,
@@ -587,7 +609,7 @@ class ChartPainter extends BaseKChartPainter {
           CANDLE_INTERVAL,
           BaseKChartPainter.MARGINLEFT,
           leftMarginSpace,
-          MARGINTOP,
+          MARGINTOP + textHeight,
           mUperChartHeight,
           CostOnePeriod,
           CostTwoPeriod,
@@ -605,125 +627,137 @@ class ChartPainter extends BaseKChartPainter {
 
     //绘制布林线
     if (isDrawBollinger && mBollingerData != null) {
-      mBollingerData?.drawBollinger(canvas, mDataStartIndext, mShowDataNum, mCandleWidth, mMaxPrice, mMinPrice, CANDLE_INTERVAL,
-          BaseKChartPainter.MARGINLEFT, leftMarginSpace, MARGINTOP, mUperChartHeight, BollingerPeriod, BollingerSD, isDrawCrossLine, currentIndex());
+      mBollingerData?.drawBollinger(
+          canvas,
+          mDataStartIndext,
+          mShowDataNum,
+          mCandleWidth,
+          mMaxPrice,
+          mMinPrice,
+          CANDLE_INTERVAL,
+          BaseKChartPainter.MARGINLEFT,
+          leftMarginSpace,
+          MARGINTOP + textHeight,
+          mUperChartHeight,
+          BollingerPeriod,
+          BollingerSD,
+          isDrawCrossLine,
+          currentIndex());
     }
   }
 
   void _drawAssistLine(Canvas canvas) {
-    Paint paintT = MethodUntil().getDrawPaint(Port.transLineColor);
-    paintT
-      ..strokeWidth = 2.0
-      ..isAntiAlias = false;
-
-    Paint paintV = MethodUntil().getDrawPaint(Port.verticalColor);
-    paintV
-      ..strokeWidth = 2.0
-      ..isAntiAlias = false;
-
-    Paint paintO = MethodUntil().getDrawPaint(Port.obliqueLineColor);
-    paintO
-      ..strokeWidth = 2.0
-      ..isAntiAlias = false;
-
-    Paint paintG = MethodUntil().getDrawPaint(Port.goldenLineColor);
-    paintG
-      ..strokeWidth = 2.0
-      ..isAntiAlias = false;
-
-    Paint redTPaint = MethodUntil().getDrawPaint(Port.transLineColor);
-    Paint redVPaint = MethodUntil().getDrawPaint(Port.verticalColor);
-    TextPainter redGPaint = TextPainter();
-
-    // 绘制横线
-    for (int i = 0; i < Port.transverseList.length; i++) {
-      bool isShow = KUtils.isShowTrans(Port.transverseList[i], this, mMaxPrice, mMinPrice); //是否在当前屏幕内
-      String code = Port.transverseList[i].code;
-      if (Port.transverseList[i].isSelect == false && isShow && code == chartCode) {
-        double Y = KUtils.getTransY(Port.transverseList[i], this, mMaxPrice, mMinPrice);
-        String price = Utils.getPointNum(Port.transverseList[i].price, length: 2);
-        //画横线
-        canvas.drawLine(Offset(BaseKChartPainter.MARGINLEFT, Y), Offset(BaseKChartPainter.MARGINLEFT + mChartWidth, Y), paintT);
-        //绘制价格
-        // double left, top, right, bottom, priceX, priceY;
-        // priceX = BaseKChartPainter.MARGINLEFT + mChartWidth + 5;
-        // priceY = Y + getStringHeight(price, textPaint) / 2;
-        // left = BaseKChartPainter.MARGINLEFT + mChartWidth;
-        // top = Y - getStringHeight(price, textPaint) / 2 - 5;
-        // right = left + getStringWidth(price, textPaint) + 15;
-        // bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
-
-        double priceX = BaseKChartPainter.MARGINLEFT + -getStringWidth(price, textPaint) - 15;
-        double priceY = Y + getStringHeight(price, textPaint) / 2;
-        double left = BaseKChartPainter.MARGINLEFT + mChartWidth - getStringWidth(price, textPaint) - 15;
-        double top = Y - getStringHeight(price, textPaint) / 2 - 5;
-        double right = left + getStringWidth(price, textPaint) + 15;
-        double bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
-
-        canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redTPaint);
-        redPaint
-          ..text = TextSpan(text: price, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(priceX, priceY));
-      }
+    girdPaint.strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5;
+    for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
+      Path path = Path(); // 绘制虚线
+      path.moveTo(BaseKChartPainter.MARGINLEFT + ChartPainter.leftMarginSpace, latitudeSpacing * i + MARGINTOP + textHeight);
+      path.lineTo(kChartViewWidth, latitudeSpacing * i + MARGINTOP + textHeight);
+      canvas.drawPath(path, girdPaint);
     }
-
-    // 绘制竖线
-    for (int i = 0; i < Port.verticalList.length; i++) {
-      bool isShow = KUtils.isShowX(Port.verticalList[i], this, mDataStartIndext, mShowDataNum); //是否在当前屏幕内
-      String code = Port.verticalList[i].code;
-      if (Port.verticalList[i].isSelect == false && isShow && code == chartCode) {
-        double X = KUtils.getVerticalX(Port.verticalList[i], this, mDataStartIndext, mShowDataNum, mCandleWidth);
-        String date = Port.verticalList[i].date;
-        //画竖线
-        canvas.drawLine(Offset(X, MARGINTOP), Offset(X, kChartViewHeight), paintV);
-        //绘制时间
-        double dateX = X - getStringWidth(date, textPaint) / 2;
-        double dateY = kChartViewHeight + getStringHeight(date, textPaint) + 5;
-        double left = X - getStringWidth(date, textPaint) / 2 - 10;
-        double top = kChartViewHeight;
-        double right = X + getStringWidth(date, textPaint) / 2 + 10;
-        double bottom = top + getStringHeight(date, textPaint) + 10;
-
-        canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redVPaint);
-        redPaint
-          ..text = TextSpan(text: date, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
-          ..textDirection = TextDirection.ltr
-          ..layout()
-          ..paint(canvas, Offset(dateX, dateY));
-      }
-    }
-
-    // 绘制斜线
-    for (int i = 0; i < Port.ObliqueList.length; i++) {
-      bool isShow = KUtils.isShowOblique(Port.ObliqueList[i], this, mStartIndex, mShowDataNum, mMaxPrice, mMinPrice); //是否在当前屏幕内
-      String code = Port.ObliqueList[i].code;
-      if (Port.ObliqueList[i].isSelect == false && isShow && code == chartCode) {
-        double startY = KUtils.getChartObliqueY(Port.ObliqueList[i], Port.ObliqueList[i].startPrice, this, mMaxPrice, mMinPrice);
-        double endY = KUtils.getChartObliqueY(Port.ObliqueList[i], Port.ObliqueList[i].endPrice, this, mMaxPrice, mMinPrice);
-        double startX = (KUtils.getKNumber(Port.ObliqueList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth);
-        double endX = (KUtils.getKNumber(Port.ObliqueList[i].endDate, this, mStartIndex, mShowDataNum) * mCandleWidth);
-
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paintO);
-      }
-    }
-
-    // 绘制黄金分割线
-    for (int i = 0; i < Port.GoldenList.length; i++) {
-      bool isShow = KUtils.isShowGolden(Port.GoldenList[i], this, mStartIndex, mShowDataNum, mMaxPrice, mMinPrice); //是否在当前屏幕内
-      String code = Port.GoldenList[i].code;
-      if (Port.GoldenList[i].isSelect == false && isShow && code == chartCode) {
-        double startY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].startPrice, this, mMaxPrice, mMinPrice);
-        double endY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].endPrice, this, mMaxPrice, mMinPrice);
-        double startX =
-            (KUtils.getKNumber(Port.GoldenList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
-        double endX = (KUtils.getKNumber(Port.GoldenList[i].endDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
-
-        canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paintG);
-        KUtils.drawGolden(canvas, Port.GoldenList[i], this, redGPaint, paintG, mCandleWidth, mMaxPrice, mMinPrice, mStartIndex, mShowDataNum);
-      }
-    }
+    // Paint paintT = MethodUntil().getDrawPaint(Port.transLineColor);
+    // paintT
+    //   ..strokeWidth = 2.0
+    //   ..isAntiAlias = false;
+    //
+    // Paint paintV = MethodUntil().getDrawPaint(Port.verticalColor);
+    // paintV
+    //   ..strokeWidth = 2.0
+    //   ..isAntiAlias = false;
+    //
+    // Paint paintO = MethodUntil().getDrawPaint(Port.obliqueLineColor);
+    // paintO
+    //   ..strokeWidth = 2.0
+    //   ..isAntiAlias = false;
+    //
+    // Paint paintG = MethodUntil().getDrawPaint(Port.goldenLineColor);
+    // paintG
+    //   ..strokeWidth = 2.0
+    //   ..isAntiAlias = false;
+    //
+    // Paint redTPaint = MethodUntil().getDrawPaint(Port.transLineColor);
+    // Paint redVPaint = MethodUntil().getDrawPaint(Port.verticalColor);
+    // TextPainter redGPaint = TextPainter();
+    //
+    // // 绘制横线
+    // for (int i = 0; i < Port.transverseList.length; i++) {
+    //   bool isShow = KUtils.isShowTrans(Port.transverseList[i], this, mMaxPrice, mMinPrice); //是否在当前屏幕内
+    //   String code = Port.transverseList[i].code;
+    //   if (Port.transverseList[i].isSelect == false && isShow && code == chartCode) {
+    //     double Y = KUtils.getTransY(Port.transverseList[i], this, mMaxPrice, mMinPrice);
+    //     String price = Utils.getPointNum(Port.transverseList[i].price, length: 2);
+    //     //画横线
+    //     canvas.drawLine(Offset(BaseKChartPainter.MARGINLEFT, Y), Offset(BaseKChartPainter.MARGINLEFT + mChartWidth, Y), paintT);
+    //     double priceX = BaseKChartPainter.MARGINLEFT + -getStringWidth(price, textPaint) - 15;
+    //     double priceY = Y + getStringHeight(price, textPaint) / 2;
+    //     double left = BaseKChartPainter.MARGINLEFT + mChartWidth - getStringWidth(price, textPaint) - 15;
+    //     double top = Y - getStringHeight(price, textPaint) / 2 - 5;
+    //     double right = left + getStringWidth(price, textPaint) + 15;
+    //     double bottom = Y + getStringHeight(price, textPaint) / 2 + 5;
+    //
+    //     canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redTPaint);
+    //     redPaint
+    //       ..text = TextSpan(text: price, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+    //       ..textDirection = TextDirection.ltr
+    //       ..layout()
+    //       ..paint(canvas, Offset(priceX, priceY));
+    //   }
+    // }
+    //
+    // // 绘制竖线
+    // for (int i = 0; i < Port.verticalList.length; i++) {
+    //   bool isShow = KUtils.isShowX(Port.verticalList[i], this, mDataStartIndext, mShowDataNum); //是否在当前屏幕内
+    //   String code = Port.verticalList[i].code;
+    //   if (Port.verticalList[i].isSelect == false && isShow && code == chartCode) {
+    //     double X = KUtils.getVerticalX(Port.verticalList[i], this, mDataStartIndext, mShowDataNum, mCandleWidth);
+    //     String date = Port.verticalList[i].date;
+    //     //画竖线
+    //     canvas.drawLine(Offset(X, MARGINTOP), Offset(X, kChartViewHeight), paintV);
+    //     //绘制时间
+    //     double dateX = X - getStringWidth(date, textPaint) / 2;
+    //     double dateY = kChartViewHeight + getStringHeight(date, textPaint) + 5;
+    //     double left = X - getStringWidth(date, textPaint) / 2 - 10;
+    //     double top = kChartViewHeight;
+    //     double right = X + getStringWidth(date, textPaint) / 2 + 10;
+    //     double bottom = top + getStringHeight(date, textPaint) + 10;
+    //
+    //     canvas.drawRect(Rect.fromLTRB(left, top, right, bottom), redVPaint);
+    //     redPaint
+    //       ..text = TextSpan(text: date, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+    //       ..textDirection = TextDirection.ltr
+    //       ..layout()
+    //       ..paint(canvas, Offset(dateX, dateY));
+    //   }
+    // }
+    //
+    // // 绘制斜线
+    // for (int i = 0; i < Port.ObliqueList.length; i++) {
+    //   bool isShow = KUtils.isShowOblique(Port.ObliqueList[i], this, mStartIndex, mShowDataNum, mMaxPrice, mMinPrice); //是否在当前屏幕内
+    //   String code = Port.ObliqueList[i].code;
+    //   if (Port.ObliqueList[i].isSelect == false && isShow && code == chartCode) {
+    //     double startY = KUtils.getChartObliqueY(Port.ObliqueList[i], Port.ObliqueList[i].startPrice, this, mMaxPrice, mMinPrice);
+    //     double endY = KUtils.getChartObliqueY(Port.ObliqueList[i], Port.ObliqueList[i].endPrice, this, mMaxPrice, mMinPrice);
+    //     double startX = (KUtils.getKNumber(Port.ObliqueList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth);
+    //     double endX = (KUtils.getKNumber(Port.ObliqueList[i].endDate, this, mStartIndex, mShowDataNum) * mCandleWidth);
+    //
+    //     canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paintO);
+    //   }
+    // }
+    //
+    // // 绘制黄金分割线
+    // for (int i = 0; i < Port.GoldenList.length; i++) {
+    //   bool isShow = KUtils.isShowGolden(Port.GoldenList[i], this, mStartIndex, mShowDataNum, mMaxPrice, mMinPrice); //是否在当前屏幕内
+    //   String code = Port.GoldenList[i].code;
+    //   if (Port.GoldenList[i].isSelect == false && isShow && code == chartCode) {
+    //     double startY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].startPrice, this, mMaxPrice, mMinPrice);
+    //     double endY = KUtils.getChartGoldenY(Port.GoldenList[i], Port.GoldenList[i].endPrice, this, mMaxPrice, mMinPrice);
+    //     double startX =
+    //         (KUtils.getKNumber(Port.GoldenList[i].startDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
+    //     double endX = (KUtils.getKNumber(Port.GoldenList[i].endDate, this, mStartIndex, mShowDataNum) * mCandleWidth + BaseKChartPainter.MARGINLEFT);
+    //
+    //     canvas.drawLine(Offset(startX, startY), Offset(endX, endY), paintG);
+    //     KUtils.drawGolden(canvas, Port.GoldenList[i], this, redGPaint, paintG, mCandleWidth, mMaxPrice, mMinPrice, mStartIndex, mShowDataNum);
+    //   }
+    // }
   }
 
   void _drawTitles(Canvas canvas) {
@@ -731,18 +765,18 @@ class ChartPainter extends BaseKChartPainter {
     for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
       String text = Utils.getPointNum(mMinPrice + perPrice * i, length: 2);
       textPaint
-        ..text = TextSpan(text: text, style: TextStyle(color: Colors.white, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+        ..text = TextSpan(text: text, style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
         ..paint(
             canvas,
-            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - getStringWidth(text, textPaint) - 5,
-                UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP + getStringHeight(text, textPaint) / 2));
+            Offset(BaseKChartPainter.MARGINLEFT + leftMarginSpace - getStringWidth(text, sizePaint) - 5,
+                UPER_CHART_BOTTOM - latitudeSpacing * i - MARGINTOP - textHeight + halfTextHeight));
     }
 
     // 绘制十字线
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
-      CrossLineView.drawCrossLine(
+      mCrossLineView?.drawCrossLine(
           canvas,
           kChartViewHeight,
           kChartViewWidth,
@@ -750,7 +784,7 @@ class ChartPainter extends BaseKChartPainter {
           currentX,
           currentY,
           mCandleWidth,
-          MARGINTOP,
+          MARGINTOP + textHeight,
           BaseKChartPainter.MARGINLEFT,
           leftMarginSpace,
           rightMarginSpace,
@@ -770,7 +804,7 @@ class ChartPainter extends BaseKChartPainter {
   }
 
   void drawHighLowPoint(Canvas canvas, double rate, double textBottom) {
-    yangPaint.style = PaintingStyle.fill;
+    yangPaint.style = PaintingStyle.stroke;
     double minPrice = mOHLCData[mDataStartIndext].low ?? 0;
     double maxPrice = mOHLCData[mDataStartIndext].high ?? 0;
     int minLoc = mDataStartIndext;
@@ -837,22 +871,22 @@ class ChartPainter extends BaseKChartPainter {
       ..layout()
       ..paint(canvas, Offset(maxX, high));
     textPaint
-      ..text = TextSpan(text: minText, style: TextStyle(color: Port.yingCandleColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: minText, style: TextStyle(color: themeController.theme.focusTheme.glowColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(minX, low));
   }
 
-  void drawTime(Canvas canvas, Paint linePaint, TextPainter textPaint) {
+  void drawTime(Canvas canvas, Paint linePaint) {
     double x, y;
     String startStr = mFsTimes[0].substring(0, 16);
     String timeStr = Utils.getHourTime(mFsTimes[mFsTimes.length - 1]);
     //第一个时间
     timeStr = Utils.getHourTime(Utils.timeMillisToString(Utils.StringToTime10(startStr)));
-    x = timeMarginLeft + timeLeftMarginSpace - getStringWidth(timeStr, textPaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
+    x = timeMarginLeft + timeLeftMarginSpace - getStringWidth(timeStr, sizePaint, size: DEFAULT_AXIS_TITLE_SIZE) / 2;
     y = kChartViewHeight;
     canvas.drawLine(Offset(timeMarginLeft + timeLeftMarginSpace, 0), Offset(timeMarginLeft + timeLeftMarginSpace, kChartViewHeight),
-        girdPaint..strokeWidth = 1.5);
+        girdPaint..strokeWidth = 0.5);
     textPaint
       ..text = TextSpan(text: timeStr, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE + 2))
       ..textDirection = TextDirection.ltr
@@ -876,7 +910,7 @@ class ChartPainter extends BaseKChartPainter {
     double rate = mUperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
     // double rate =
     //     (mUperChartHeight - MARGINTOP + Port.text_check - getStringHeight("0", TextPainter(), size: Port.ChartTextSize)) / (mMaxPrice - mMinPrice);
-    double textBottom = MARGINTOP;
+    double textBottom = MARGINTOP + textHeight;
     double startX = BaseKChartPainter.MARGINLEFT + leftMarginSpace;
     double stopX = kChartViewWidth;
     double Y = 0;
@@ -950,7 +984,7 @@ class ChartPainter extends BaseKChartPainter {
         ///竖线
         if (dateTOIndex(e.firstPointX!) >= mDataStartIndext) {
           double X = BaseKChartPainter.MARGINLEFT + mCandleWidth * (dateTOIndex(e.firstPointX!) - mDataStartIndext) + leftMarginSpace;
-          path.moveTo(X, MARGINTOP);
+          path.moveTo(X, MARGINTOP + textHeight);
           path.lineTo(X, kChartViewHeight);
           e.path = path;
           _paintLines(canvas, e.lineType, path, framePaint);
@@ -963,8 +997,8 @@ class ChartPainter extends BaseKChartPainter {
         canvas.save();
         canvas.clipPath(tmp);
         path.moveTo(X, Y);
-        if (kChartViewWidth - X > Y - MARGINTOP) {
-          path.lineTo(X + Y - MARGINTOP, MARGINTOP);
+        if (kChartViewWidth - X > Y - MARGINTOP + textHeight) {
+          path.lineTo(X + Y - MARGINTOP + textHeight, MARGINTOP + textHeight);
         } else {
           path.lineTo(kChartViewWidth, Y - kChartViewWidth + X);
         }
@@ -1455,7 +1489,7 @@ class ChartPainter extends BaseKChartPainter {
     Paint framePaint = MethodUntil().getDashPaint(Port.macdFastColor);
     TextPainter subTextPaint = MethodUntil().getTextPainter(Utils.dp2px(5));
     double rate = 1; //计算最小单位
-    double textBottom = MARGINTOP;
+    double textBottom = MARGINTOP + textHeight;
     double startX = BaseKChartPainter.MARGINLEFT + leftMarginSpace;
     double stopX = kChartViewWidth;
     double Y = 0;
@@ -1469,7 +1503,7 @@ class ChartPainter extends BaseKChartPainter {
       if (e.open != null) {
         if (isDrawTime) {
           double maxHeight = (mMaxPrice - lastClose) > (lastClose - mMinPrice) ? (mMaxPrice - lastClose) : (lastClose - mMinPrice); //最大价差
-          rate = (kChartViewHeight - MARGINTOP - timeDownChartHeight) / (maxHeight * 2); //计算最小单位
+          rate = (kChartViewHeight - textBottom - timeDownChartHeight) / (maxHeight * 2); //计算最小单位
           Y = (lastClose + maxHeight - e.open!) * rate;
         } else {
           rate = mUperChartHeight / (mMaxPrice - mMinPrice);
@@ -1609,7 +1643,7 @@ class ChartPainter extends BaseKChartPainter {
     // double positionY = Y;
     // positionY = positionY > kChartViewHeight - MARGINBOTTOM ? kChartViewHeight - MARGINBOTTOM : positionY;
     // positionY = positionY < MARGINTOP ? MARGINTOP : positionY;
-    return Y < kChartViewHeight && Y > MARGINTOP;
+    return Y < kChartViewHeight && Y > (MARGINTOP + textHeight);
   }
 
   int dateTOIndex(String date) {

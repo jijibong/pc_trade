@@ -7,7 +7,7 @@ class KPeriod {
   int? period;
   int? cusType; //周期类型，1-可订阅周期，2-自定义周期
   int? kpFlag; //周期标识，1-分钟，2-小时，3-天，4-周，5-月，6-年
-  bool? isDel; //是否已删除
+  String? periodType;
 
   KPeriod({
     this.id,
@@ -15,7 +15,7 @@ class KPeriod {
     this.period,
     this.cusType,
     this.kpFlag,
-    this.isDel,
+    this.periodType,
   });
 
   KPeriod.fromJson(Map<String, dynamic> json) {
@@ -24,7 +24,7 @@ class KPeriod {
     period = json['period'];
     cusType = json['cusType'];
     kpFlag = json['kpFlag'];
-    isDel = json['isDel'];
+    periodType = json['periodType'];
   }
 
   Map<String, dynamic> toJson() {
@@ -34,8 +34,22 @@ class KPeriod {
       'period': period,
       'cusType': cusType,
       'kpFlag': kpFlag,
-      'isDel': isDel,
+      'periodType': periodType,
     };
+  }
+
+  static getDefaultKPeriodList() {
+    return [
+      KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, periodType: "分钟"),
+      KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, periodType: "分钟"),
+      KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, periodType: "分钟"),
+      KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, periodType: "分钟"),
+      KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, periodType: "小时"),
+      KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, periodType: "日"),
+      KPeriod(name: "周", period: 1, cusType: 2, kpFlag: KPFlag.Week, periodType: "周"),
+      KPeriod(name: "月", period: 1, cusType: 2, kpFlag: KPFlag.Month, periodType: "月"),
+      KPeriod(name: "年", period: 1, cusType: 2, kpFlag: KPFlag.Year, periodType: "年"),
+    ];
   }
 
   static bool isCusPeriod(int flag, int period) {

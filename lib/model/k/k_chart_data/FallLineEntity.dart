@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
 
-import '../../../util/painter/k_chart/base_k_chart_painter.dart';
-import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -10,8 +10,6 @@ import 'CalcIndexData.dart';
 
 /**
  * 瀑布线指标线绘制，数据计算
- *
- * @author hexuejian
  */
 class FallLineEntity {
   /**
@@ -46,6 +44,7 @@ class FallLineEntity {
    * 增加数据类
    */
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   FallLineEntity() {
     PBX1 = [];
@@ -327,11 +326,11 @@ class FallLineEntity {
       int currentIndex,
       bool isDrawCrossLine) {
     double rate = 0.0; //每单位像素价格
-    Paint onePaint = MethodUntil().getDrawPaint(Port.fall1Color);
-    Paint twoPaint = MethodUntil().getDrawPaint(Port.fall2Color);
-    Paint threePaint = MethodUntil().getDrawPaint(Port.fall3Color);
-    Paint fourPaint = MethodUntil().getDrawPaint(Port.fall4Color);
-    Paint fivePaint = MethodUntil().getDrawPaint(Port.fall5Color);
+    Paint onePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor);
+    Paint twoPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor);
+    Paint threePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor);
+    Paint fourPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma40DarkColor : Port.ma40LightColor);
+    Paint fivePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma60DarkColor : Port.ma60LightColor);
     Paint sixPaint = MethodUntil().getDrawPaint(Port.fall6Color);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.foreGroundColor);
     onePaint.strokeWidth = Port.fallWidth[0];
@@ -422,23 +421,23 @@ class FallLineEntity {
         String? pbx1, pbx2, pbx3, pbx4, pbx5, pbx6;
 
         if (isDrawCrossLine) {
-          if (currentIndex - (FallPeriod1 * 4 - 1) > 0) {
+          if (currentIndex - (FallPeriod1 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX1.length) {
             pbx1 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod1 * 4 - 1)]);
           }
-          if (currentIndex - (FallPeriod2 * 4 - 1) > 0) {
-            pbx2 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod2 * 4 - 1)]);
+          if (currentIndex - (FallPeriod2 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX2.length) {
+            pbx2 = Utils.getPointNum(PBX2[currentIndex - (FallPeriod2 * 4 - 1)]);
           }
-          if (currentIndex - (FallPeriod3 * 4 - 1) > 0) {
-            pbx3 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod3 * 4 - 1)]);
+          if (currentIndex - (FallPeriod3 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX3.length) {
+            pbx3 = Utils.getPointNum(PBX3[currentIndex - (FallPeriod3 * 4 - 1)]);
           }
-          if (currentIndex - (FallPeriod4 * 4 - 1) > 0) {
-            pbx4 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod4 * 4 - 1)]);
+          if (currentIndex - (FallPeriod4 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX4.length) {
+            pbx4 = Utils.getPointNum(PBX4[currentIndex - (FallPeriod4 * 4 - 1)]);
           }
-          if (currentIndex - (FallPeriod5 * 4 - 1) > 0) {
-            pbx5 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod5 * 4 - 1)]);
+          if (currentIndex - (FallPeriod5 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX5.length) {
+            pbx5 = Utils.getPointNum(PBX5[currentIndex - (FallPeriod5 * 4 - 1)]);
           }
-          if (currentIndex - (FallPeriod6 * 4 - 1) > 0) {
-            pbx6 = Utils.getPointNum(PBX1[currentIndex - (FallPeriod6 * 4 - 1)]);
+          if (currentIndex - (FallPeriod6 * 4 - 1) >= 0 && currentIndex - (FallPeriod1 * 4 - 1) < PBX6.length) {
+            pbx6 = Utils.getPointNum(PBX6[currentIndex - (FallPeriod6 * 4 - 1)]);
           }
         } else {
           //瀑布线1数据
@@ -476,12 +475,32 @@ class FallLineEntity {
             TextSpan(
                 text:
                     "PUBU${pbx1 != null ? "($FallPeriod1" : ""}${pbx2 != null ? ",$FallPeriod2" : ""}${pbx3 != null ? ",$FallPeriod3" : ""}${pbx4 != null ? ",$FallPeriod4" : ""}${pbx5 != null ? ",$FallPeriod5" : ""}${pbx6 != null ? ",$FallPeriod6" : ""}${pbx1 != null ? ")" : ""}  ",
-                style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx1 != null) TextSpan(text: "  PB1:$pbx1", style: TextStyle(color: Port.fall1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx2 != null) TextSpan(text: "  PB2:$pbx2", style: TextStyle(color: Port.fall2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx3 != null) TextSpan(text: "  PB3:$pbx3", style: TextStyle(color: Port.fall3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx4 != null) TextSpan(text: "  PB4:$pbx4", style: TextStyle(color: Port.fall4Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (pbx5 != null) TextSpan(text: "  PB5:$pbx5", style: TextStyle(color: Port.fall5Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx1 != null)
+              TextSpan(
+                  text: "  PB1:$pbx1",
+                  style:
+                      TextStyle(color: themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx2 != null)
+              TextSpan(
+                  text: "  PB2:$pbx2",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx3 != null)
+              TextSpan(
+                  text: "  PB3:$pbx3",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx4 != null)
+              TextSpan(
+                  text: "  PB4:$pbx4",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma40DarkColor : Port.ma40LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (pbx5 != null)
+              TextSpan(
+                  text: "  PB5:$pbx5",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma60DarkColor : Port.ma60LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (pbx6 != null) TextSpan(text: "  PB6:$pbx6", style: TextStyle(color: Port.fall6Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr

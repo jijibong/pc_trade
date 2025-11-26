@@ -128,6 +128,8 @@ class NumberBox<T extends num> extends StatefulWidget {
   /// {@macro flutter.widgets.editableText.inputFormatters}
   final List<TextInputFormatter>? inputFormatters;
 
+  final WidgetStateProperty<BoxDecoration>? decoration;
+
   /// The text shown when the text box is empty
   ///
   /// See also:
@@ -239,6 +241,7 @@ class NumberBox<T extends num> extends StatefulWidget {
     super.key,
     required this.value,
     required this.onChanged,
+    this.decoration,
     this.onTextChange,
     this.focusNode,
     this.mode = SpinButtonPlacementMode.inline,
@@ -467,6 +470,7 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
     final child = TextBox(
       key: _textBoxKey,
       autofocus: widget.autofocus,
+      decoration: widget.decoration ?? WidgetStateProperty.all(const BoxDecoration(color: Colors.transparent)),
       inputFormatters: widget.inputFormatters,
       placeholder: widget.placeholder,
       placeholderStyle: widget.placeholderStyle,
@@ -481,23 +485,24 @@ class NumberBoxState<T extends num> extends State<NumberBox<T>> {
       controller: controller,
       keyboardType: widget.keyboardType,
       enabled: widget.onChanged != null,
-      decoration: WidgetStateProperty.all(const BoxDecoration(color: Colors.transparent)),
       suffix: Column(
         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
         children: [
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               FluentIcons.chevron_up,
               size: 10,
+              color: widget.style?.color ?? Colors.white,
             ),
             style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
             onPressed: incrementSmall,
             iconButtonMode: IconButtonMode.small,
           ),
           IconButton(
-            icon: const Icon(
+            icon:  Icon(
               FluentIcons.chevron_down,
               size: 10,
+              color: widget.style?.color ?? Colors.white,
             ),
             style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
             onPressed: decrementSmall,

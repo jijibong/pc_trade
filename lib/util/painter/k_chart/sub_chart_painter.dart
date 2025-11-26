@@ -1,16 +1,11 @@
-import 'dart:convert';
 import 'dart:math';
 
 import 'package:fluent_ui/fluent_ui.dart';
-import 'package:path_drawing/path_drawing.dart';
+import 'package:get/get.dart';
 
 import '../../../model/k/OHLCEntity.dart';
-import '../../../model/k/k_chart_data/AlligatorEntity.dart';
 import '../../../model/k/k_chart_data/BIASEntity.dart';
-import '../../../model/k/k_chart_data/BollingerEntity.dart';
 import '../../../model/k/k_chart_data/CCIEntity.dart';
-import '../../../model/k/k_chart_data/CostLineEntity.dart';
-import '../../../model/k/k_chart_data/FallLineEntity.dart';
 import '../../../model/k/k_chart_data/KDJEntity.dart';
 import '../../../model/k/k_chart_data/MACDEntity.dart';
 import '../../../model/k/k_chart_data/PSYEntity.dart';
@@ -20,10 +15,7 @@ import '../../../model/k/k_chart_data/VolEntity.dart';
 import '../../../model/k/k_chart_data/WREntity.dart';
 import '../../../model/k/k_preiod.dart';
 import '../../../model/k/port.dart';
-import '../../../model/k/trade_time.dart';
-import '../../log/log.dart';
-import '../../utils/k_util.dart';
-import '../../utils/utils.dart';
+import '../../theme/theme.dart';
 import 'base_k_chart_painter.dart';
 import 'crossLine_view.dart';
 import 'k_chart_painter.dart';
@@ -110,8 +102,11 @@ class SubChartPainter extends CustomPainter {
   double timeDownChartHeight = 1;
   List<OHLCEntity> mOHLCData = [];
   static double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
+  final ThemeController themeController = Get.find<ThemeController>();
+  CrossLineView? mCrossLineView;
   TextPainter textPaint = TextPainter();
-  Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
+  Paint dividerPaint = MethodUntil().getDrawPaint(Port.dividerColor);
+  Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
   bool isDrawVOL = false;
   bool isDrawVR = false;
   bool isDrawMACD = false;
@@ -173,6 +168,7 @@ class SubChartPainter extends CustomPainter {
     if (mOHLCData.isEmpty) {
       return;
     }
+    mCrossLineView = CrossLineView(isDrawTime: false);
     drawUpperRegion(canvas, size);
     drawBorders(canvas, size.height, size.width);
   }
@@ -180,7 +176,7 @@ class SubChartPainter extends CustomPainter {
   void drawUpperRegion(Canvas canvas, Size size) {
     // 绘制十字线
     if (currentX != -1 && currentY != -1 && isDrawCrossLine) {
-      CrossLineView.drawSubCrossLine(
+      mCrossLineView?.drawSubCrossLine(
         canvas,
         size.height,
         size.width,
@@ -256,8 +252,9 @@ class SubChartPainter extends CustomPainter {
   }
 
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
-    canvas.drawLine(Offset(ChartPainter.leftMarginSpace, 0), Offset(ChartPainter.leftMarginSpace, viewHeight), girdPaint);
-    canvas.drawLine(Offset(0, viewHeight), Offset(viewWidth, viewHeight), girdPaint);
+    canvas.drawLine(Offset(ChartPainter.leftMarginSpace, 0), Offset(ChartPainter.leftMarginSpace, viewHeight), dividerPaint);
+    canvas.drawLine(Offset(ChartPainter.leftMarginSpace, viewHeight), Offset(viewWidth, viewHeight), dividerPaint);
+    canvas.drawLine(Offset(ChartPainter.leftMarginSpace, 0), Offset(viewWidth, 0), dividerPaint..strokeWidth = 2);
   }
 
   int currentIndex() {

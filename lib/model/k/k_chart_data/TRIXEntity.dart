@@ -9,8 +9,6 @@ import 'CalcIndexData.dart';
 
 /**
  * TRIX三重指数指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class TRIXEntity {
   /**TRIX数据集合*/

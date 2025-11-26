@@ -6,14 +6,15 @@ import '../info_bar/info_bar.dart';
 import '../theme/theme.dart';
 
 class AddSectorDialog {
+  final ThemeController themeController = Get.find<ThemeController>();
+
   Widget addSectorDialog(Function(String text) fun) {
-    final appTheme = AppTheme();
     TextEditingController controller = TextEditingController(text: "");
     return ContentDialog(
       style: ContentDialogThemeData(
           padding: EdgeInsets.zero,
           bodyPadding: EdgeInsets.zero,
-          decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
+          decoration: BoxDecoration(color: themeController.theme.inactiveColor, borderRadius: BorderRadius.zero)),
       content: Container(
         height: 200,
         color: Common.dialogContentColor,
@@ -24,14 +25,10 @@ class AddSectorDialog {
               margin: const EdgeInsets.only(bottom: 15),
               child: Row(
                 children: [
-                  Image.asset(
-                    "assets/images/jmaster.ico",
-                    width: 20,
-                  ),
                   Expanded(
                     child: Text(
                       "新建板块",
-                      style: TextStyle(color: appTheme.color),
+                      style: TextStyle(color: themeController.theme.activeColor),
                     ),
                   ),
                   IconButton(

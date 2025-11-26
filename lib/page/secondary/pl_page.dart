@@ -4,12 +4,9 @@ import 'dart:math' as math;
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../config/common.dart';
 import '../../config/config.dart';
 import '../../main.dart';
 import '../../model/pl/pl.dart';
@@ -20,7 +17,6 @@ import '../../model/user/user.dart';
 import '../../server/pl/pl.dart';
 import '../../util/http/http.dart';
 import '../../util/info_bar/info_bar.dart';
-import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -40,6 +36,7 @@ class PlPage extends StatefulWidget {
 }
 
 class _PlPageState extends State<PlPage> with MultiWindowListener {
+  final ThemeController themeController = Get.find<ThemeController>();
   int mSelPosition = -1;
   int maxQty = 1;
   List<PLRecord> mPlRecordList = [];
@@ -51,7 +48,6 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   final contextController = FlyoutController();
   final itemController = FlyoutController();
   final contextAttachKey = GlobalKey();
-  late AppTheme appTheme;
 
   int windowId() {
     return widget.params["windowId"];
@@ -278,10 +274,9 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     // UserUtils.appContext = context;
     return Container(
-        color: appTheme.commandBarColor,
+        color: themeController.theme.cardColor,
         child: NavigationView(
           appBar: NavigationAppBar(
               automaticallyImplyLeading: false,
@@ -299,7 +294,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                   }
                 },
                 child: Row(children: [
-                  Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
+                  // Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
                   Expanded(
                       child: const Text(
                     "止盈止损设置",
@@ -472,7 +467,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
                             shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
                         child: Text(
                           "取消",
-                          style: TextStyle(color: Common.exchangeTextColor),
+                          style: TextStyle(color: themeController.theme.selectionColor),
                         ),
                         onPressed: () async {
                           WindowController.fromWindowId(windowId()).hide();
@@ -500,7 +495,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   Widget tableItem(String? text) {
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      // decoration: BoxDecoration(border: Border.all(color:  themeController.theme.focusColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: Text(
@@ -514,7 +509,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   Widget numItem(int index, int num) {
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      // decoration: BoxDecoration(border: Border.all(color:  themeController.theme.focusColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: numberSelect(index, 0, num, 1, minimum: 1),
@@ -523,7 +518,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   Widget priceItem(int index, double num) {
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      // decoration: BoxDecoration(border: Border.all(color:  themeController.theme.focusColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: numberSelect(index, 1, num, 0.01),
@@ -533,7 +528,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
   Widget typeItem(int index, double stopLoss, double floatLoss) {
     bool loss = stopLoss != 0 || (stopLoss == 0 && floatLoss == 0);
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+      // decoration: BoxDecoration(border: Border.all(color:  themeController.theme.focusColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: StatefulBuilder(builder: (context, setter) {
@@ -572,7 +567,7 @@ class _PlPageState extends State<PlPage> with MultiWindowListener {
 
   Widget validItem(int index, int type, int? state) {
     return Container(
-        decoration: BoxDecoration(border: Border.all(color: Common.exchangeBgColor)),
+        // decoration: BoxDecoration(border: Border.all(color:  themeController.theme.focusColor)),
         padding: const EdgeInsets.symmetric(vertical: 5),
         alignment: Alignment.center,
         child: StatefulBuilder(builder: (context, setter) {

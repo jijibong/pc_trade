@@ -39,6 +39,7 @@ const String kAppTypeMain = "main";
 const String kAppTypeConnectionManager = "cm";
 
 const String kAppTypeDesktopRemote = "remote";
+const String kAppTypeDesktopOrder = "order";
 const String kAppTypeDesktopPL = "pl";
 const String kAppTypeDesktopCondition = "condition";
 const String kAppTypeDesktopDraw = "draw";
@@ -46,7 +47,6 @@ const String kAppTypeDesktopLineSetting = "line_setting";
 const String kAppTypeDesktopColorPicker = "color_picker";
 const String kAppTypeDesktopDrawOrder = "draw_order";
 const String kAppTypeDesktopNotification = "notification";
-const String kAppTypeDesktopSubWindow = "subWindow";
 const String kAppTypeDesktopSectorManage = "sector_manage";
 
 const String kWindowMainWindowOnTop = "main_window_on_top";
@@ -65,6 +65,8 @@ const String kPositionFloatEvent = "kPositionFloatEvent";
 const String kFillUpdateEvent = "kFillUpdateEvent";
 const String kOrderEvent = "kOrderEvent";
 const String kDrawEvent = "kDrawEvent";
+const String toggleTheme = "toggleTheme";
+const String delLines = "delLines";
 
 const String kWindowEventNewRemoteDesktop = "new_remote_desktop";
 const String kWindowEventNewPL = "new_pl";
@@ -77,6 +79,7 @@ const String kWindowEventNewNotification = "new_notification";
 const String kWindowEventDrawOrder = "draw_order";
 const String kWindowEventSubWindow = "sub_window";
 const String kWindowEventSectorManage = "sector_manage";
+const String kWindowEventAdvancedOrder = "advanced_order";
 
 const String kWindowEventSwitchMode = "switch_mode";
 const String kWindowEventNewContract = "contract_event";

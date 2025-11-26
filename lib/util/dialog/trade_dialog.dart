@@ -22,40 +22,27 @@ class TradeDialog {
         mPrice = "触发价：${order.OrderPrice}止损价：${order.StopPrice}";
         break;
     }
-    final appTheme = AppTheme();
     return ContentDialog(
       style: ContentDialogThemeData(
-          padding: EdgeInsets.zero,
+          padding: const EdgeInsets.all(5),
           bodyPadding: EdgeInsets.zero,
-          decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
-      content: Container(
-        height: 300,
-        color: Common.dialogContentColor,
+          decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20))),
+      content: SizedBox(
+        height: 380,
+        width: 280,
         child: Column(
           children: [
-            Container(
-              color: Common.dialogTitleColor,
-              margin: const EdgeInsets.only(bottom: 15),
-              child: Row(
-                children: [
-                  Image.asset(
-                    "assets/images/jmaster.ico",
-                    width: 20,
-                  ),
-                  Expanded(
-                    child: Text(
-                      Common.appName,
-                      style: TextStyle(color: appTheme.color),
-                    ),
-                  ),
-                  IconButton(
-                      onPressed: () {
-                        Get.back();
-                      },
-                      icon: const Icon(FluentIcons.cancel))
-                ],
-              ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                    onPressed: () {
+                      Get.back();
+                    },
+                    icon: const Icon(FluentIcons.cancel))
+              ],
             ),
+            const Spacer(),
             dialogItem("合约代码", order.code),
             dialogItem("合约名称", order.name),
             dialogItem("买卖", type),
@@ -63,23 +50,31 @@ class TradeDialog {
             dialogItem("下单类型", order.OrderType == Order_Type.ORDER_TYPE_MARKET ? "市价" : "限价"),
             if (order.OrderType != Order_Type.ORDER_TYPE_MARKET) dialogItem("下单价格", mPrice),
             dialogItem("下单数量", order.OrderQty.toString()),
-            const SizedBox(height: 20),
+            const Spacer(
+              flex: 2,
+            ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 Button(
                   style: ButtonStyle(
-                      backgroundColor: WidgetStatePropertyAll(Common.dialogButtonTextColor),
-                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                      shape: const WidgetStatePropertyAll(RoundedRectangleBorder())),
-                  child: const Text(
-                    "下单",
-                    style: TextStyle(color: Colors.black),
-                  ),
+                      backgroundColor: WidgetStatePropertyAll(Common.contentLightBgColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20), side: BorderSide(color: Common.dialogContentBorderBgColor)))),
+                  onPressed: () async {
+                    Get.back();
+                  },
+                  child: Text('取消', style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.w500)),
+                ),
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 6, horizontal: 28)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
                   onPressed: () {
                     Get.back();
                     addOrder(
-                        order.name ?? '',
                         order.ExchangeNo ?? '',
                         order.CommodityNo ?? '',
                         order.ContractNo ?? '',
@@ -91,24 +86,15 @@ class TradeDialog {
                         order.OrderPrice ?? 0,
                         order.StopPrice ?? 0,
                         order.OrderQty ?? 0,
-                        order.PositionEffect ?? 0,
-                        order.needBackHand);
+                        order.PositionEffect ?? 0);
                   },
-                ),
-                Button(
-                  style: const ButtonStyle(
-                      padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3)),
-                      shape: WidgetStatePropertyAll(RoundedRectangleBorder())),
-                  child: const Text(
-                    "取消",
-                    style: TextStyle(color: Colors.white),
+                  child: Text(
+                    '确定',
+                    style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.w500),
                   ),
-                  onPressed: () {
-                    Get.back();
-                  },
                 ),
               ],
-            )
+            ).marginOnly(bottom: 28)
           ],
         ),
       ),
@@ -162,43 +148,26 @@ class TradeDialog {
 
   Widget dialogItem(String title, String? content) {
     return Container(
-      padding: const EdgeInsets.only(top: 6),
+      padding: const EdgeInsets.only(top: 18),
       child: Row(children: [
         Expanded(
             child: Text(
           title,
           textAlign: TextAlign.end,
-          style: const TextStyle(color: Colors.white, fontSize: 16),
+          style: TextStyle(color: Common.commandTextColor),
         )),
         const SizedBox(
-          width: 15,
+          width: 32,
         ),
-        Expanded(child: Text(content ?? "--", textAlign: TextAlign.start, style: const TextStyle(color: Colors.white, fontSize: 16)))
+        Expanded(child: Text(content ?? "--", textAlign: TextAlign.start, style: TextStyle(color: Common.contentDarkBgColor)))
       ]),
     );
   }
 
   /// 下单
-  void addOrder(String name, String ExchangeNo, String CommodityNo, String ContractNo, int CommodityType, int OrderType, int TimeInForce,
-      String ExpireTime, int OrderSide, double OrderPrice, double StopPrice, int OrderQty, int PositionEffect, bool needBackHand) async {
-    String str = name;
-    str += OrderSide == SideType.SIDE_SELL ? "卖" : "买";
-    str += PositionEffect == PositionEffectType.PositionEffect_OPEN ? "开" : "平";
-
-    int qty = 0;
-    //正常操作开仓，平仓
-    qty = OrderQty;
-    final String msg = "$str$qty手";
-    // String localOrderId = DeviceUtil.createLocalOrderId();
-    // if (needBackHand) {
-    //   await SpUtils.set(localOrderId, TradeOperation.BackHand);
-    // }
+  void addOrder(String ExchangeNo, String CommodityNo, String ContractNo, int CommodityType, int OrderType, int TimeInForce, String ExpireTime,
+      int OrderSide, double OrderPrice, double StopPrice, int OrderQty, int PositionEffect) async {
     await DealServer.addOrder(ExchangeNo, CommodityNo, ContractNo, CommodityType, OrderType, TimeInForce, ExpireTime, OrderSide, OrderPrice,
-            StopPrice, OrderQty, PositionEffect, "")
-        .then((value) {
-      if (value) {
-        // InfoBarUtils.showSuccessBar("$msg服务器已接收订单");
-      }
-    });
+        StopPrice, OrderQty, PositionEffect, "");
   }
 }

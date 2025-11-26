@@ -21,7 +21,6 @@ class ColorPickerPage extends StatefulWidget {
 }
 
 class _ColorPickerPageState extends State<ColorPickerPage> with MultiWindowListener {
-  late AppTheme appTheme;
   Color selectedColor = Colors.white;
 
   int windowId() {
@@ -78,12 +77,10 @@ class _ColorPickerPageState extends State<ColorPickerPage> with MultiWindowListe
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return NavigationView(
         appBar: NavigationAppBar(
             automaticallyImplyLeading: false,
             height: 30,
-            backgroundColor: appTheme.commandBarColor,
             title: GestureDetector(
               onPanStart: (_) => startDragging(false),
               onPanCancel: () {
@@ -97,12 +94,11 @@ class _ColorPickerPageState extends State<ColorPickerPage> with MultiWindowListe
                 }
               },
               child: Row(children: [
-                Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
-                Expanded(
-                    child: const Text(
+                // Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
+                const Text(
                   "颜色",
                   style: TextStyle(fontSize: 13, color: Colors.white),
-                ).marginOnly(left: 2))
+                ).marginOnly(left: 2)
               ]).marginOnly(
                 left: 2,
                 right: 2,
@@ -135,7 +131,8 @@ class _ColorPickerPageState extends State<ColorPickerPage> with MultiWindowListe
                     Future.delayed(Duration.zero, () async {
                       await WindowController.fromWindowId(kWindowId!).hide();
                       if (widget.params["windowId"] != null) {
-                        await DesktopMultiWindow.invokeMethod(widget.params["preWindowId"], kWindowEventSelectColor, {"color": selectedColor.colorValue});
+                        await DesktopMultiWindow.invokeMethod(
+                            widget.params["preWindowId"], kWindowEventSelectColor, {"color": selectedColor.colorValue});
                       }
                     });
                   },

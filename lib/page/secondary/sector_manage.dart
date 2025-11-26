@@ -3,32 +3,17 @@ import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:get/get.dart' hide Condition;
-import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../../config/common.dart';
-import '../../config/config.dart';
 import '../../main.dart';
-import '../../model/condition/condition.dart';
 import '../../model/option/sector.dart';
-import '../../model/quote/contract.dart';
-import '../../model/quote/order_type.dart';
-import '../../model/quote/position_effect_type.dart';
-import '../../model/quote/side_type.dart';
-import '../../model/user/user.dart';
-import '../../server/condition/condition.dart';
 import '../../util/dialog/add_sector_dialog.dart';
-import '../../util/http/http.dart';
-import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
-import '../../util/shared_preferences/shared_preferences_key.dart';
-import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/utils/utils.dart';
-import '../../util/widget/number_box.dart';
 
 class SectorManage extends StatefulWidget {
   final Map<String, dynamic> params;
@@ -40,7 +25,7 @@ class SectorManage extends StatefulWidget {
 }
 
 class _SectorManageState extends State<SectorManage> with MultiWindowListener {
-  late AppTheme appTheme;
+  final ThemeController themeController = Get.find<ThemeController>();
   List<Sector> sectorList = [];
 
   int windowId() {
@@ -107,12 +92,11 @@ class _SectorManageState extends State<SectorManage> with MultiWindowListener {
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return NavigationView(
       appBar: NavigationAppBar(
           automaticallyImplyLeading: false,
           height: 30,
-          backgroundColor: appTheme.commandBarColor,
+          backgroundColor:  themeController.theme.cardColor,
           title: GestureDetector(
             onPanStart: (_) => startDragging(false),
             onPanCancel: () {
@@ -126,7 +110,7 @@ class _SectorManageState extends State<SectorManage> with MultiWindowListener {
               }
             },
             child: Row(children: [
-              Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
+              // Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
               Expanded(
                   child: const Text(
                 "管理板块",

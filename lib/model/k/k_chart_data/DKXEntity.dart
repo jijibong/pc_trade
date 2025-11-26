@@ -9,8 +9,6 @@ import 'CalcIndexData.dart';
 
 /**
  * DKX指标线绘制，数据计算
- * @author hexuejian
- *
  */
  class DKXEntity {
   /**DKX数据集合*/

@@ -22,6 +22,7 @@ class SpKey {
   static String comCloseToday = "ComCloseToday";
   static String defaultTradeType = "defaultTradeType";
   static String defaultTradeMenu = "defaultTradeMenu";
+  static String defaultTradeNumber = "defaultTradeNumber";
   // static String drawLines = "drawLines";
   static String drawToolLines = "drawToolLines";
 
@@ -33,4 +34,5 @@ class SpKey {
 
   ///设置
   static String closeAll = "closeAll";
+  static String isDarkMode = "isDarkMode"; //是否深色主题
 }

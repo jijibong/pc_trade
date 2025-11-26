@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:hexcolor/hexcolor.dart';
 import 'package:trade/model/k/transverse_line.dart';
 import 'package:trade/model/k/vertical_line.dart';
 
@@ -47,7 +48,7 @@ class Port {
   /** 默认画笔线宽*/
   static const double StrokeWidth = 1;
 
-  static int TIME_UPER_LOWER_INTERVAL = 20;
+  static int TIME_UPER_LOWER_INTERVAL = 0;
 
   ///////////////指标线属性////////////////////
   /**MACD	长周期*/
@@ -228,12 +229,40 @@ class Port {
   static bool type_changed = false;
 
   //////////////////////////////界面风格////////////////////////////////////
+  ///边框
+  static Color borderColor = HexColor('#D9DADD');
+
+  ///Divdier
+  static Color dividerColor = HexColor('#949CB3');
+
+  ///均价
+  static Color averageColor = HexColor('#E5AF00');  //黄色
+
+  ///文字
+  static Color textColor = HexColor('#777E90');
+
   /**引线Color颜色*/
   static Color downLeadColor = const Color.fromRGBO(115, 137, 138, 1);
   /**阳烛上涨Color,默认红色*/
-  static Color yangCandleColor = const Color.fromRGBO(255, 32, 74, 1);
+  static Color yangCandleColor = HexColor('#FF4242');
   /**阴烛下跌Color,默认绿色*/
   static Color yingCandleColor = const Color.fromRGBO(115, 248, 250, 1);
+  /**MA5*/
+  static Color ma5DarkColor = HexColor('#FFFFFF');
+  static Color ma5LightColor = HexColor('#00B06C');
+  static Color ma10DarkColor = HexColor('#EBCA11');
+  static Color ma10LightColor = HexColor('#E5AF00');
+  static Color ma20DarkColor = HexColor('#FF6CD4');
+  static Color ma20LightColor = HexColor('#FF6CD4');
+  static Color ma40DarkColor = HexColor('#8C87FF');
+  static Color ma40LightColor = HexColor('#8C87FF');
+  static Color ma60DarkColor = HexColor('#08BCE8');
+  static Color ma60LightColor = HexColor('#00A8D1');
+
+  ///对话框
+  static Color dialogDarkBgColor = HexColor('#292B33');
+  static Color dialogLightBgColor = HexColor('#FFFFFF');
+
   /**网格Color,默认黑色*/
   // static Color girdColor = const Color.fromRGBO(110, 0, 0, 1);
   static Color girdColor = const Color.fromRGBO(255, 32, 74, 1);
@@ -329,7 +358,13 @@ class Port {
   /**瀑布线6颜色*/
   static Color fall6Color = const Color.fromRGBO(255, 120, 0, 1);
   /**MACD快速线颜色*/
-  static Color macdFastColor = const Color.fromRGBO(255, 255, 255, 1);
+  static Color macdFastColor = HexColor('#E5AF00');
+
+  ///MACD指标颜色
+  static Color deaLightColor = HexColor('#E5AF00');
+  static Color deaDarkColor = HexColor('#EBCA11');
+  static Color diffLightColor = HexColor('#00A8D1');
+  static Color diffDarkColor = HexColor('#08BCE8');
   /**MACD慢速线颜色*/
   static Color macdSlowColor = const Color.fromRGBO(255, 240, 0, 1);
   /**MACD柱状线上颜色*/
@@ -433,7 +468,7 @@ class Port {
   /**RSI宽度*/
   static double rsiWidth = 1;
   /**图表字体大小，单位dp,需要适配转化为px使用*/
-  static double ChartTextSize = 16;
+  static double ChartTextSize = 13;
   static double defult_margin_top = 5;
   static double text_top = BaseKChartPainter.getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
   static double defult_icon_width = 25;

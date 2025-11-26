@@ -35,7 +35,7 @@ dependencies:
     sdk: flutter
 
   #ui https://pub-web.flutter-io.cn/packages/fluent_ui
-  fluent_ui: ^4.12.0
+  fluent_ui: 4.12.0
   #路由 https://pub-web.flutter-io.cn/packages/go_router
 #  go_router: ^14.2.0
   #主题 https://pub-web.flutter-io.cn/packages/system_theme
@@ -45,7 +45,7 @@ dependencies:
   #状态管理 https://pub-web.flutter-io.cn/packages/get
   get: ^4.6.6
   #数据更新 https://pub-web.flutter-io.cn/packages/provider
-  provider: ^6.1.2
+#  provider: ^6.1.2
   #屏幕适配 https://pub-web.flutter-io.cn/packages/flutter_screenutil
   flutter_screenutil: ^5.9.3
   #分屏 https://pub.dev/packages/multi_split_view

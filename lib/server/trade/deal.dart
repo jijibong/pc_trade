@@ -30,7 +30,7 @@ class DealServer {
         data = await SignData().signData(jsonEncode(map), Config.queryContractMargin);
       }
       Response response = await HttpUtils.getInstance().post(Config.queryContractMargin, data: data);
-      // logger.i(response);
+      logger.i(response);
       if (response.data["code"] == 0) {
         ResInitMargin resInitMargin = ResInitMargin.fromJson(response.data["data"]);
         return resInitMargin;
@@ -44,8 +44,8 @@ class DealServer {
   }
 
   /// 下单
-  static Future<bool> addOrder(String ExchangeNo, String CommodityNo, String ContractNo, int CommodityType, int OrderType, int TimeInForce,
-      String ExpireTime, int OrderSide, double OrderPrice, double StopPrice, int OrderQty, int PositionEffect, String ClientOrderId) async {
+  static Future<bool> addOrder(String? ExchangeNo, String? CommodityNo, String? ContractNo, int? CommodityType, int? OrderType, int? TimeInForce,
+      String? ExpireTime, int? OrderSide, double? OrderPrice, double? StopPrice, int? OrderQty, int? PositionEffect, String? ClientOrderId) async {
     try {
       String? data;
       if (Common.signData) {

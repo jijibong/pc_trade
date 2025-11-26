@@ -1,17 +1,15 @@
-import 'package:path_drawing/path_drawing.dart';
 import 'package:fluent_ui/fluent_ui.dart';
-import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
 import 'CalcIndexData.dart';
+import 'package:get/get.dart';
 
 /**
  * WR指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class WREntity {
   /**WR数据集合*/
@@ -32,6 +30,7 @@ class WREntity {
   static const Color DEFAULT_DOTTED_COLOR = Colors.grey;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   WREntity() {
     WR1 = [];
@@ -148,13 +147,13 @@ class WREntity {
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double latitudeSpacing = lowerHight / 2; //每格高度
     double rate = 0.0; //每单位像素价格
-    Paint greenPaint = MethodUntil().getDrawPaint(Port.WR1Color);
-    Paint yellowPaint = MethodUntil().getDrawPaint(Port.WR2Color);
+    Paint greenPaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
+    Paint yellowPaint = MethodUntil().getDrawPaint(Port.averageColor);
     TextPainter textPaint = TextPainter(); //MethodUntil().getDrawPaint(Port.chartTxtColor);
-    Paint dottedPaint = MethodUntil().getDrawPaint(Port.girdColor); //虚线画笔
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     yellowPaint.strokeWidth = Port.WRWidth[0];
     greenPaint.strokeWidth = Port.WRWidth[1];
 
@@ -169,17 +168,17 @@ class WREntity {
     path.moveTo(leftMarginSpace, latitudeSpacing + textBottom);
     path.lineTo(viewWidth - leftMarginSpace, latitudeSpacing + textBottom);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
+      girdPaint,
     );
     //绘制价格
     double perPrice = (maxPrice - minPrice) / 2; //计算每一格纬线框所占有的价格
     double textWidth1 = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice)} ", textPaint);
     textPaint
-      ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: Utils.getPointNum(minPrice + perPrice), style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth1, latitudeSpacing + textBottom - halfTextHeight));
@@ -216,10 +215,10 @@ class WREntity {
         String? wr1, wr2;
 
         if (isDrawCrossLine) {
-          if (currentIndex - Wr1Period + 1 > 0 && currentIndex - Wr1Period + 1 < WR1.length) {
+          if (currentIndex - Wr1Period + 1 >= 0 && currentIndex - Wr1Period + 1 < WR1.length) {
             wr1 = Utils.getPointNum(WR1[currentIndex - Wr1Period + 1]);
           }
-          if (currentIndex - Wr2Period + 1 > 0 && currentIndex - Wr2Period + 1 < WR2.length) {
+          if (currentIndex - Wr2Period + 1 >= 0 && currentIndex - Wr2Period + 1 < WR2.length) {
             wr2 = Utils.getPointNum(WR2[currentIndex - Wr2Period + 1]);
           }
         } else {
@@ -234,8 +233,9 @@ class WREntity {
         textPaint
           ..text = TextSpan(children: [
             TextSpan(text: "WR($Wr1Period , $Wr2Period)", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (wr1 != null) TextSpan(text: "  WR1: $wr1", style: TextStyle(color: Port.WR1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (wr2 != null) TextSpan(text: "  WR2: $wr2", style: TextStyle(color: Port.WR2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+            if (wr1 != null)
+              TextSpan(text: "  WR1: $wr1", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (wr2 != null) TextSpan(text: "  WR2: $wr2", style: TextStyle(color: Port.averageColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ])
           ..textDirection = TextDirection.ltr
           ..layout()

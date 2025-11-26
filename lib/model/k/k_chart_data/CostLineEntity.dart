@@ -1,8 +1,8 @@
 import 'package:flutter/cupertino.dart';
+import 'package:get/get.dart';
 import '../../../util/log/log.dart';
-import '../../../util/painter/k_chart/base_k_chart_painter.dart';
-import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -10,8 +10,6 @@ import 'CalcIndexData.dart';
 
 /**
  * DKX指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class CostLineEntity {
   /**CostLine数据集合一*/
@@ -28,6 +26,7 @@ class CostLineEntity {
   static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   CostLineEntity() {
     CostOne = [];
@@ -49,7 +48,7 @@ class CostLineEntity {
     CostFour.clear();
     CostFive.clear();
 
-    if (OHLCData == null || OHLCData.length == 0) {
+    if (OHLCData.isEmpty) {
       return;
     }
 
@@ -367,17 +366,12 @@ class CostLineEntity {
       bool isDrawCrossLine,
       int currentIndex) {
     double rate = 0.0; //每单位像素价格
-    Paint onePaint = MethodUntil().getDrawPaint(Port.costOneColor);
-    Paint twoPaint = MethodUntil().getDrawPaint(Port.costTwoColor);
-    Paint threePaint = MethodUntil().getDrawPaint(Port.costThreeColor);
-    Paint fourPaint = MethodUntil().getDrawPaint(Port.costFourColor);
-    Paint fivePaint = MethodUntil().getDrawPaint(Port.costFiveColor);
+    Paint onePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor);
+    Paint twoPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor);
+    Paint threePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor);
+    Paint fourPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma40DarkColor : Port.ma40LightColor);
+    Paint fivePaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma60DarkColor : Port.ma60LightColor);
     TextPainter textPaint = TextPainter(); //MethodUntil().getDrawPaint(Port.foreGroundColor);
-    onePaint.strokeWidth = Port.costWidth[0];
-    twoPaint.strokeWidth = Port.costWidth[1];
-    threePaint.strokeWidth = Port.costWidth[2];
-    fourPaint.strokeWidth = Port.costWidth[3];
-    fivePaint.strokeWidth = Port.costWidth[4];
     // textPaint.setTextSize(DEFAULT_AXIS_TITLE_SIZE);
 
     rate = uperChartHeight / (mMaxPrice - mMinPrice); //计算最小单位
@@ -450,19 +444,19 @@ class CostLineEntity {
         String? cost1, cost2, cost3, cost4, cost5;
 
         if (isDrawCrossLine) {
-          if (currentIndex - (CostOnePeriod - 1) > 0) {
+          if (currentIndex - (CostOnePeriod - 1) >= 0 && currentIndex - (CostOnePeriod - 1) < CostOne.length) {
             cost1 = Utils.getPointNum(CostOne[currentIndex - (CostOnePeriod - 1)]);
           }
-          if (currentIndex - (CostTwoPeriod - 1) > 0) {
+          if (currentIndex - (CostTwoPeriod - 1) >= 0 && currentIndex - (CostOnePeriod - 1) < CostTwo.length) {
             cost2 = Utils.getPointNum(CostTwo[currentIndex - (CostTwoPeriod - 1)]);
           }
-          if (currentIndex - (CostThreePeriod - 1) > 0) {
+          if (currentIndex - (CostThreePeriod - 1) >= 0 && currentIndex - (CostOnePeriod - 1) < CostThree.length) {
             cost3 = Utils.getPointNum(CostThree[currentIndex - (CostThreePeriod - 1)]);
           }
-          if (currentIndex - (CostFourPeriod - 1) > 0) {
+          if (currentIndex - (CostFourPeriod - 1) >= 0 && currentIndex - (CostOnePeriod - 1) < CostFour.length) {
             cost4 = Utils.getPointNum(CostFour[currentIndex - (CostFourPeriod - 1)]);
           }
-          if (currentIndex - (CostFivePeriod - 1) > 0) {
+          if (currentIndex - (CostFivePeriod - 1) >= 0 && currentIndex - (CostOnePeriod - 1) < CostFive.length) {
             cost5 = Utils.getPointNum(CostFive[currentIndex - (CostFivePeriod - 1)]);
           }
         } else {
@@ -493,17 +487,32 @@ class CostLineEntity {
             TextSpan(
                 text:
                     "MA${cost1 != null ? "($CostOnePeriod" : ""}${cost2 != null ? ",$CostTwoPeriod" : ""}${cost3 != null ? ",$CostThreePeriod" : ""}${cost4 != null ? ",$CostFourPeriod" : ""}${cost5 != null ? ",$CostFivePeriod" : ""}${cost1 != null ? ")" : ""}  ",
-                style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost1 != null)
-              TextSpan(text: "  MA$CostOnePeriod:$cost1", style: TextStyle(color: Port.costOneColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "  MA$CostOnePeriod:$cost1",
+                  style:
+                      TextStyle(color: themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost2 != null)
-              TextSpan(text: "  MA$CostTwoPeriod:$cost2", style: TextStyle(color: Port.costTwoColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "  MA$CostTwoPeriod:$cost2",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost3 != null)
-              TextSpan(text: "  MA$CostThreePeriod:$cost3", style: TextStyle(color: Port.costThreeColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "  MA$CostThreePeriod:$cost3",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost4 != null)
-              TextSpan(text: "  MA$CostFourPeriod:$cost4", style: TextStyle(color: Port.costFourColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "  MA$CostFourPeriod:$cost4",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma40DarkColor : Port.ma40LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (cost5 != null)
-              TextSpan(text: "  MA$CostFivePeriod:$cost5", style: TextStyle(color: Port.costFiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "  MA$CostFivePeriod:$cost5",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma60DarkColor : Port.ma60LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr
           ..layout()

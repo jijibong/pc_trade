@@ -51,11 +51,13 @@ class RayLine extends BasePainter {
 
 class HorizontalLine extends BasePainter {
   double? width;
-  HorizontalLine({this.width});
+  Color? color;
+  HorizontalLine({this.width, this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
     _painter.strokeWidth = width ?? 1;
+    if (color != null) _painter.color = color!;
     canvas.drawLine(Offset(0, size.height / 2), Offset(size.width, size.height / 2), _painter);
   }
 }
@@ -257,10 +259,12 @@ class MultipleArcsPainter extends BasePainter {
 
 class DashedLinePainter extends BasePainter {
   List<double>? list;
-  DashedLinePainter({this.list});
+  Color? color;
+  DashedLinePainter({this.list,this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (color != null) _painter.color = color!;
     Path path = Path();
     path.moveTo(0, size.height / 2);
     path.lineTo(size.width, size.height / 2); // 右侧直线

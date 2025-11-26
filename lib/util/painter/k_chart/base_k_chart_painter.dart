@@ -13,13 +13,17 @@ abstract class BaseKChartPainter extends CustomPainter {
   bool isDrawTimeDown = true;
   double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   static double MARGINLEFT = 2;
-  double MARGINTOP = getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
+  // double MARGINTOP = getStringHeight("0", TextPainter(), size: Port.ChartTextSize);
+  double timeLeftMarginSpace = getStringWidth("000.000", TextPainter(), size: Port.ChartTextSize);
+  double halfTextHeight = getStringHeight("0", TextPainter(), size: Port.ChartTextSize) / 2;
+  double textHeight = getStringHeight("MA", TextPainter(), size: Port.ChartTextSize);
+  double MARGINTOP = 0;
   int UPER_LOWER_INTERVAL = 5;
   Color DEFAULT_AXIS_COLOR = Colors.black;
   Color DEFAULT_BORDER_COLOR = Colors.black;
   Color DEFAULT_LONGI_LAITUDE_COLOR = Colors.black;
-  List<double> DEFAULT_DASH_EFFECT = [0.8, 5];
-  int DEFAULT_UPER_LATITUDE_NUM = 3;
+  List<double> DEFAULT_DASH_EFFECT = [7, 5];
+  int DEFAULT_UPER_LATITUDE_NUM = 7;
   int DEFAULT_MID_LATITUDE_NUM = 0;
   int DEFAULT_LOWER_LATITUDE_NUM = 0;
   int DEFAULT_LOGITUDE_NUM = 3;
@@ -30,8 +34,8 @@ abstract class BaseKChartPainter extends CustomPainter {
   double TIME_UPER_CHART_BOTTOM = 0;
   double mUperChartHeight = 0;
   double? longitudeSpacing;
-  Paint forePaint = MethodUntil().getDrawPaint(Port.foreGroundColor);
-  Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
+  Paint forePaint = MethodUntil().getDrawPaint(Port.dividerColor);
+  Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
   bool isDrawTime = true;
 
   BaseKChartPainter({
@@ -48,58 +52,35 @@ abstract class BaseKChartPainter extends CustomPainter {
       timeDownChartHeight = isDrawTimeDown == true ? (viewHeight - MARGINTOP) ~/ (DEFAULT_TIME_LATITUDE_NUM + 1) * 3 : 0;
       TIME_UPER_CHART_BOTTOM = viewHeight - timeDownChartHeight;
       TIME_LOWER_CHART_TOP = viewHeight - timeDownChartHeight + Port.TIME_UPER_LOWER_INTERVAL;
-      drawTimeBorders(canvas, viewHeight, viewWidth);
+      // drawTimeBorders(canvas, viewHeight, viewWidth);
       drawTimeRegions(canvas, viewHeight, viewWidth);
     } else {
       longitudeSpacing = (viewWidth - 2 * MARGINLEFT) / (DEFAULT_LOGITUDE_NUM + 1);
-      latitudeSpacing = ((viewHeight - MARGINTOP) ~/ (DEFAULT_UPER_LATITUDE_NUM + 1)).toDouble();
+      latitudeSpacing = (viewHeight - MARGINTOP - textHeight) / (DEFAULT_UPER_LATITUDE_NUM + 1);
       mUperChartHeight = latitudeSpacing * (DEFAULT_UPER_LATITUDE_NUM + 1);
-      UPER_CHART_BOTTOM = MARGINTOP + latitudeSpacing * (DEFAULT_UPER_LATITUDE_NUM + 1);
-      drawBorders(canvas, viewHeight, viewWidth);
-      drawLatitudes(canvas, viewWidth, latitudeSpacing);
+      UPER_CHART_BOTTOM = MARGINTOP + textHeight + latitudeSpacing * (DEFAULT_UPER_LATITUDE_NUM + 1);
+      // drawBorders(canvas, viewHeight, viewWidth);
+      // drawLatitudes(canvas, viewWidth, latitudeSpacing);
     }
   }
 
-  void drawTimeBorders(Canvas canvas, double viewHeight, double viewWidth) {
-    canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(viewWidth - TimeMarginRight, MARGINTOP), forePaint);
-    canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(TimeMarginLeft, viewHeight), forePaint);
-    canvas.drawLine(Offset((viewWidth - TimeMarginLeft), viewHeight), Offset((viewWidth - TimeMarginRight), MARGINTOP.toDouble()), forePaint);
-    canvas.drawLine(Offset((viewWidth - TimeMarginRight), viewHeight), Offset(TimeMarginLeft, viewHeight), forePaint);
-  }
+  // void drawTimeBorders(Canvas canvas, double viewHeight, double viewWidth) {
+  //   canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(viewWidth - TimeMarginRight, MARGINTOP), forePaint);
+  //   canvas.drawLine(Offset(TimeMarginLeft, MARGINTOP), Offset(TimeMarginLeft, viewHeight), forePaint);
+  //   canvas.drawLine(Offset((viewWidth - TimeMarginLeft), viewHeight), Offset((viewWidth - TimeMarginRight), MARGINTOP.toDouble()), forePaint);
+  //   canvas.drawLine(Offset((viewWidth - TimeMarginRight), viewHeight), Offset(TimeMarginLeft, viewHeight), forePaint);
+  // }
 
   void drawTimeRegions(Canvas canvas, double viewHeight, double viewWidth) {
     if (isDrawTimeDown) {
       forePaint
-        ..strokeWidth = 2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(Offset(0, TIME_UPER_CHART_BOTTOM), Offset((viewWidth - TimeMarginRight), TIME_UPER_CHART_BOTTOM), forePaint);
+        .strokeWidth = 0.5;
+      canvas.drawLine(Offset(timeLeftMarginSpace, TIME_UPER_CHART_BOTTOM), Offset((viewWidth - TimeMarginRight), TIME_UPER_CHART_BOTTOM), forePaint);
     }
   }
 
   void drawBorders(Canvas canvas, double viewHeight, double viewWidth) {
     canvas.drawLine(Offset(viewWidth - MARGINLEFT, viewHeight), Offset(MARGINLEFT, viewHeight), girdPaint);
-  }
-
-  void drawLatitudes(Canvas canvas, double viewWidth, double latitudeSpacing) {
-    girdPaint
-      ..strokeWidth = 1
-      ..style = PaintingStyle.stroke;
-    for (int i = 1; i <= DEFAULT_UPER_LATITUDE_NUM; i++) {
-      Path path = Path(); // 绘制虚线
-      // path.moveTo(MARGINLEFT + ChartPainter.leftMarginSpace,
-      //     latitudeSpacing * i + MARGINTOP - Port.text_check + getStringHeight("0", TextPainter(), size: Port.ChartTextSize));
-      // path.lineTo(viewWidth - MARGINLEFT - mRightArea,
-      //     latitudeSpacing * i + MARGINTOP - Port.text_check + getStringHeight("0", TextPainter(), size: Port.ChartTextSize));
-      path.moveTo(MARGINLEFT + ChartPainter.leftMarginSpace, latitudeSpacing * i + MARGINTOP);
-      path.lineTo(viewWidth, latitudeSpacing * i + MARGINTOP);
-      canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        girdPaint,
-      );
-    }
   }
 
   static double getStringHeight(String text, TextPainter paint, {double? size}) {
@@ -108,6 +89,14 @@ abstract class BaseKChartPainter extends CustomPainter {
       ..textDirection = TextDirection.ltr
       ..layout();
     return paint.height;
+  }
+
+  static double getStringWidth(String text, TextPainter paint, {double? size}) {
+    paint
+      ..text = TextSpan(text: text, style: TextStyle(fontSize: size ?? Port.ChartTextSize))
+      ..textDirection = TextDirection.ltr
+      ..layout();
+    return paint.width;
   }
 
   @override

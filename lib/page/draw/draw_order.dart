@@ -1,18 +1,19 @@
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
+import 'package:fluent_ui/fluent_ui.dart' hide NumberBox, ComboBox, ComboBoxItem;
 import 'package:get/get.dart' hide Condition;
-import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../config/common.dart';
 import '../../main.dart';
+import '../../model/quote/contract.dart';
 import '../../util/multi_windows_manager/common.dart';
 import '../../util/multi_windows_manager/consts.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
 import '../../util/widget/number_box.dart';
+import '../../util/widget/combo_box.dart';
 
 ///画线下单
 class DrawOrder extends StatefulWidget {
@@ -25,11 +26,9 @@ class DrawOrder extends StatefulWidget {
 }
 
 class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
-  late AppTheme appTheme;
+  final ThemeController themeController = Get.find<ThemeController>();
   Color selectedColor = Colors.white;
   ScrollController scrollController = ScrollController();
-  double boxWidth = 88;
-  double padWidth = 18;
   int num = 1;
   int type = 1;
   Color color = Colors.white;
@@ -38,6 +37,7 @@ class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
   Color selectClose = Colors.yellow;
   String selectedPrice = "市价";
   List priceList = ["画线价", "对手价", "超价", "市价"];
+  Contract? contract; //合约
 
   int windowId() {
     return widget.params["windowId"];
@@ -66,8 +66,16 @@ class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
       } else if (call.method == drawDoneEvent) {
         type = 0;
         if (mounted) setState(() {});
+      } else if (call.method == toggleTheme) {
+        if (call.arguments == themeController.isDarkMode.value) return;
+        themeController.toggleTheme();
+        if (mounted) setState(() {});
       }
     });
+
+    if (widget.params['contract'] != null) {
+      contract = Contract.fromJson(jsonDecode(widget.params['contract']));
+    }
 
     await DesktopMultiWindow.invokeMethod(kMainWindowId, drawOrderWindowId, {"id": kWindowId});
     notifyOrder();
@@ -81,13 +89,8 @@ class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
 
   @override
   void onWindowClose() async {
-    notMainWindowClose(WindowController windowController) async {
-      await windowController.hide();
-      // await rustDeskWinManager.call(WindowType.Main, kWindowEventHide, {"id": kWindowId!});
-    }
-
-    final controller = WindowController.fromWindowId(kWindowId!);
-    await notMainWindowClose(controller);
+    await WindowController.fromWindowId(kWindowId!).hide();
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, kWindowEventHide, {"id": kWindowId});
     super.onWindowClose();
   }
 
@@ -106,143 +109,189 @@ class _DrawOrderState extends State<DrawOrder> with MultiWindowListener {
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return NavigationView(
-      appBar: NavigationAppBar(
-          automaticallyImplyLeading: false,
-          height: 30,
-          backgroundColor: appTheme.commandBarColor,
-          title: GestureDetector(
-            onPanStart: (_) => startDragging(false),
-            onPanCancel: () {
-              if (isMacOS) {
-                setMovable(false, false);
-              }
-            },
-            onPanEnd: (_) {
-              if (isMacOS) {
-                setMovable(false, false);
-              }
-            },
-            child: Row(children: [
-              Expanded(
-                  child: const Text(
-                "画线下单",
-                style: TextStyle(fontSize: 13, color: Colors.white),
-              ).marginOnly(left: 2))
-            ]),
-          ),
-          actions: IconButton(
-              icon: const Icon(
-                FluentIcons.chrome_close,
-                color: Colors.white,
+        appBar: NavigationAppBar(
+            automaticallyImplyLeading: false,
+            height: 30,
+            backgroundColor: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
+            title: GestureDetector(
+              onPanStart: (_) => startDragging(false),
+              onPanCancel: () {
+                if (isMacOS) {
+                  setMovable(false, false);
+                }
+              },
+              onPanEnd: (_) {
+                if (isMacOS) {
+                  setMovable(false, false);
+                }
+              },
+              child: Container(
+                color: Colors.transparent,
               ),
-              onPressed: () {
-                Future.delayed(Duration.zero, () async {
-                  await WindowController.fromWindowId(kWindowId!).hide();
-                });
-              })),
-      content: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
+            ),
+            actions: IconButton(
+                icon: Icon(
+                  FluentIcons.chrome_close,
+                  color: Common.commandTextColor,
+                ),
+                onPressed: () {
+                  Future.delayed(Duration.zero, () async {
+                    await WindowController.fromWindowId(kWindowId!).hide();
+                  });
+                })),
+        content: Container(
+          padding: const EdgeInsets.only(left: 20),
+          color: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
+          child: Column(
             children: [
-              const Text("数量"),
-              Container(
-                width: boxWidth,
-                height: 35,
-                margin: EdgeInsets.symmetric(horizontal: padWidth),
-                child: NumberBox(
-                  value: num,
-                  min: 1,
-                  max: 10000000,
-                  clearButton: false,
-                  onChanged: (v) => setState(() {
-                    num = max(1, v ?? 1);
-                    notifyOrder();
-                  }),
-                ),
+              Text("画线下单", style: TextStyle(fontSize: 16, color: themeController.theme.acrylicBackgroundColor, fontWeight: FontWeight.bold)),
+              Row(
+                children: [
+                  titleWidget("合约"),
+                  Text(
+                    contract?.name ?? "--",
+                    style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+                  )
+                ],
+              ).marginSymmetric(vertical: 12),
+              Row(
+                children: [
+                  titleWidget("手数"),
+                  SizedBox(
+                    height: 34,
+                    width: 88,
+                    child: NumberBox(
+                      decoration: WidgetStatePropertyAll(BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          color: themeController.isDarkMode.value ? Common.comboDarkColor : Common.contentLightBgColor)),
+                      style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor),
+                      value: num,
+                      min: 1,
+                      clearButton: false,
+                      onChanged: (v) => setState(() => num = v ?? 1),
+                    ),
+                  ),
+                ],
               ),
-              GestureDetector(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: type == 1 ? selectBuy : color),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
-                  child: Text(
-                    "买",
-                    style: TextStyle(color: type == 1 ? selectBuy : color),
-                  ),
-                ),
-                onTap: () async {
-                  type = type == 1 ? 0 : 1;
-                  notifyOrder();
-                  if (mounted) setState(() {});
-                },
-              ).marginOnly(right: 10),
-              GestureDetector(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: type == 2 ? selectSale : color),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
-                  child: Text(
-                    "卖",
-                    style: TextStyle(color: type == 2 ? selectSale : color),
-                  ),
-                ),
-                onTap: () {
-                  type = type == 2 ? 0 : 2;
-                  notifyOrder();
-                  if (mounted) setState(() {});
-                },
-              ).marginOnly(right: 10),
-              GestureDetector(
-                child: Container(
-                  decoration: BoxDecoration(
-                    border: Border.all(color: type == 3 ? selectClose : color),
-                  ),
-                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 5),
-                  child: Text(
-                    "平",
-                    style: TextStyle(color: type == 3 ? selectClose : color),
-                  ),
-                ),
-                onTap: () {
-                  type = type == 3 ? 0 : 3;
-                  notifyOrder();
-                  if (mounted) setState(() {});
-                },
-              ),
+              Row(
+                children: [
+                  titleWidget("方向"),
+                  RadioButton(
+                      checked: type == 0,
+                      style: radioButtonThemeData(),
+                      onChanged: (checked) {
+                        if (checked) {
+                          type = 0;
+                          setState(() {});
+                        }
+                      }),
+                  Text("  买", style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor)),
+                  RadioButton(
+                      checked: type == 1,
+                      style: radioButtonThemeData(),
+                      onChanged: (checked) {
+                        if (checked) {
+                          type = 1;
+                          if (mounted) setState(() {});
+                        }
+                      }).marginOnly(left: 15),
+                  Text("  卖", style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor)),
+                  RadioButton(
+                      checked: type == 2,
+                      style: radioButtonThemeData(),
+                      onChanged: (checked) {
+                        if (checked) {
+                          type = 2;
+                          if (mounted) setState(() {});
+                        }
+                      }).marginOnly(left: 15),
+                  Text("  平", style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor)),
+                  RadioButton(
+                      checked: type == 3,
+                      style: radioButtonThemeData(),
+                      onChanged: (checked) {
+                        if (checked) {
+                          type = 3;
+                          if (mounted) setState(() {});
+                        }
+                      }).marginOnly(left: 15),
+                  Text("  反", style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor)),
+                ],
+              ).marginSymmetric(vertical: 12),
+              Row(children: [
+                titleWidget("价格"),
+                SizedBox(
+                    height: 34,
+                    width: 88,
+                    child: ComboBox<String>(
+                      value: selectedPrice,
+                      focusColor: Colors.transparent,
+                      backgroundColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.contentLightBgColor,
+                      iconEnabledColor: themeController.theme.acrylicBackgroundColor,
+                      popupColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.contentLightBgColor,
+                      items: priceList.map((e) {
+                        return ComboBoxItem<String>(
+                          value: e,
+                          child: Text(
+                            e,
+                            style: TextStyle(fontSize: 12, color: themeController.theme.acrylicBackgroundColor),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (v) => setState(() {
+                        selectedPrice = v!;
+                        notifyOrder();
+                      }),
+                    )),
+                IconButton(
+                    icon: Image.asset(
+                      "assets/images/icon_eraser@3x.png",
+                      width: Common.iconImageWidth - 5,
+                    ),
+                    onPressed: () async {
+                      await DesktopMultiWindow.invokeMethod(kMainWindowId, delLines);
+                    }).marginOnly(left: 5),
+              ]),
             ],
           ),
-          Row(children: [
-            const Text("下单价"),
-            Flexible(
-                child: Container(
-              height: 35,
-              margin: EdgeInsets.symmetric(horizontal: padWidth),
-              child: ComboBox<String>(
-                value: selectedPrice,
-                // isExpanded: true,
-                items: priceList.map((e) {
-                  return ComboBoxItem<String>(
-                    value: e,
-                    child: Text(e),
-                  );
-                }).toList(),
-                onChanged: (v) => setState(() {
-                  selectedPrice = v!;
-                  notifyOrder();
-                }),
-              ),
-            )),
-          ]).marginOnly(bottom: padWidth),
-          const Text("说明：画线下单为本地条件单，需要保持在线")
-        ],
-      ).paddingOnly(left: padWidth),
+        ));
+  }
+
+  Widget titleWidget(String text) {
+    return SizedBox(
+      width: 50,
+      child: Text(
+        text,
+        style: TextStyle(color: Common.commandTextColor, fontSize: 12),
+      ),
+    );
+  }
+
+  RadioButtonThemeData radioButtonThemeData() {
+    return RadioButtonThemeData(
+      checkedDecoration: WidgetStateProperty.resolveWith((states) {
+        return BoxDecoration(
+          border: Border.all(
+            color: Common.tradeCloseButtonColor,
+            width: !states.isDisabled
+                ? states.isHovered && !states.isPressed
+                    ? 4.4
+                    : 6.0
+                : 5.0,
+          ),
+          color: Common.dialogLightBgColor,
+          shape: BoxShape.circle,
+        );
+      }),
+      uncheckedDecoration: WidgetStateProperty.resolveWith((states) {
+        return BoxDecoration(
+          border: Border.all(
+            color: themeController.isDarkMode.value ? Common.radioBorderDarkColor : Common.radioBorderLightColor,
+          ),
+          shape: BoxShape.circle,
+        );
+      }),
     );
   }
 }

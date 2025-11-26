@@ -10,7 +10,7 @@ import '../../util/http/sign_data.dart';
 import '../../util/log/log.dart';
 
 class TransactionServer {
-  ///查询当日委托记录
+  ///查询当日成交记录
   static Future<List<ResComOrder>?> queryComOrder() async {
     try {
       String? data;
@@ -27,7 +27,7 @@ class TransactionServer {
         }
         return resComOrder;
       } else {
-        logger.e("暂无委托记录：$response");
+        logger.e("暂无成交记录：$response");
       }
     } on DioException {
       rethrow;
@@ -35,7 +35,7 @@ class TransactionServer {
     return null;
   }
 
-  ///查询历史委托记录
+  ///查询历史成交记录
   static Future<List<ResComOrder>?> queryHisComOrder(String startTime, String endTime) async {
     try {
       String? data;
@@ -56,7 +56,7 @@ class TransactionServer {
         }
         return resDelOrder;
       } else {
-        logger.e("暂无委托记录：$response");
+        logger.e("暂无成交记录：$response");
       }
     } on DioException {
       rethrow;

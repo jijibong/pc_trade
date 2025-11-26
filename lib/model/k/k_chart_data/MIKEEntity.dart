@@ -8,8 +8,6 @@ import 'CalcIndexData.dart';
 
 /**
  * MIKE指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class MIKEEntity {
   /**MIKE数据集合*/

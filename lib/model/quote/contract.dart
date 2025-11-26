@@ -23,10 +23,10 @@ class Contract {
   num? timeStamps; //行情时间戳
   num? lastPrice; //最新价
   String? lastPriceString = "--"; //最新价String
-  Color? lastPriceColor;
+  bool? lastPriceUp;
   num? change; //涨跌
   String? changeString = "0"; //涨跌String
-  Color? changeColor;
+  bool? changeUp;
   num? changePer; //涨跌幅
   String? changePerString = "0%"; //涨跌幅String
   num? buyPrice; //买价
@@ -43,8 +43,8 @@ class Contract {
   num? lowPrice; //最低价
   String? high = "0.0"; //最高价String
   String? low = "0.0"; //最低价String
-  Color? highColor;
-  Color? lowColor;
+  bool? highUp;
+  bool? lowUp;
   num? prePrice; //昨日收盘价
   num? preSettlePrice; //昨日结算价
   num? settlePrice; //结算价
@@ -82,7 +82,8 @@ class Contract {
   num? contractSize; //合约乘数
   num? initial; //合约单笔初始保证金
   int? trCount; //合约上日成交量，计算主力合约
-  int? orderNum; //排序字段
+  String? canOpenBuy; //买可开
+  String? canOpenSale; //卖可开
   // List<ContractItem>? contractItems;
   List<Contract>? contractItems; //子合约集合
   List<Level2>? level2List; //深度行情
@@ -155,7 +156,8 @@ class Contract {
     this.contractSize,
     this.initial,
     this.trCount,
-    this.orderNum,
+    this.canOpenBuy,
+    this.canOpenSale,
     this.contractItems,
     this.level2List,
     this.itemType,
@@ -238,7 +240,8 @@ class Contract {
     contractSize = json['contractSize'];
     initial = json['initial'];
     trCount = json['trCount'];
-    orderNum = json['orderNum'];
+    canOpenBuy = json['canOpenBuy'];
+    canOpenSale = json['canOpenSale'];
     contractItems = json['contractItems'] != null ? (json['contractItems'] as List).map((e) => Contract.fromJson(e)).toList() : [];
     level2List = json['level2List'] != null ? (json['level2List'] as List).map((e) => Level2.fromJson(e)).toList() : [];
     itemType = json['itemType'];
@@ -311,7 +314,8 @@ class Contract {
       'contractSize': contractSize,
       'initial': initial,
       'trCount': trCount,
-      'orderNum': orderNum,
+      'canOpenBuy': canOpenBuy,
+      'canOpenSale': canOpenSale,
       'contractItems': contractItems != null ? contractItems?.map((e) => e.toJson()).toList() : [],
       'level2List': level2List != null ? level2List?.map((e) => e.toJson()).toList() : [],
       'itemType': itemType,

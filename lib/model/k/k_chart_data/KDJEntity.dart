@@ -1,18 +1,16 @@
-import 'package:path_drawing/path_drawing.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
-import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
 import 'CalcIndexData.dart';
+import 'package:get/get.dart';
 
 /**
  * RSI指标线绘制，数据计算
- *
- * @author hexuejian
  */
 class KDJEntity {
   /**
@@ -47,6 +45,7 @@ class KDJEntity {
    * 增加数据类
    */
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   KDJEntity() {
     Ks = [];
@@ -192,14 +191,14 @@ class KDJEntity {
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double latitudeSpacing = lowerHight / 3; //每格高度
     double rate = 0.0; //每单位像素价格
-    Paint yellowPaint = MethodUntil().getDrawPaint(Port.KDJ_KColor);
-    Paint purplePaint = MethodUntil().getDrawPaint(Port.KDJ_DColor);
+    TextPainter textPaint = TextPainter();
+    Paint yellowPaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
+    Paint purplePaint = MethodUntil().getDrawPaint(Port.averageColor);
     Paint greenPaint = MethodUntil().getDrawPaint(Port.KDJ_JColor);
-    TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
-    Paint dottedPaint = MethodUntil().getDrawPaint(Port.girdColor); //虚线画笔
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     yellowPaint.strokeWidth = Port.KDJWidth[0];
     purplePaint.strokeWidth = Port.KDJWidth[1];
     greenPaint.strokeWidth = Port.KDJWidth[2];
@@ -212,11 +211,11 @@ class KDJEntity {
     path.moveTo(leftMarginSpace, viewHeight - latitudeSpacing - textBottom);
     path.lineTo(viewWidth, viewHeight - latitudeSpacing - textBottom);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
+      girdPaint,
     );
     //绘制价格
     double perPrice = (maxPrice - minPrice) / 2; //计算每一格纬线框所占有的价格
@@ -224,7 +223,7 @@ class KDJEntity {
 
     textPaint
       ..text =
-          TextSpan(text: Utils.getLimitNum(minPrice + perPrice, 0), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          TextSpan(text: Utils.getLimitNum(minPrice + perPrice, 0), style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth1, viewHeight - latitudeSpacing - halfTextHeight - textBottom));
@@ -259,13 +258,13 @@ class KDJEntity {
         String? K, D, J;
 
         if (isDrawCrossLine) {
-          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Ks.length) {
+          if (currentIndex - KDJPeriod + 1 >= 0 && currentIndex - KDJPeriod + 1 < Ks.length) {
             K = Utils.getPointNum(Ks[currentIndex - KDJPeriod + 1]);
           }
-          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Ds.length) {
+          if (currentIndex - KDJPeriod + 1 >= 0 && currentIndex - KDJPeriod + 1 < Ds.length) {
             D = Utils.getPointNum(Ds[currentIndex - KDJPeriod + 1]);
           }
-          if (currentIndex - KDJPeriod + 1 > 0 && currentIndex - KDJPeriod + 1 < Js.length) {
+          if (currentIndex - KDJPeriod + 1 >= 0 && currentIndex - KDJPeriod + 1 < Js.length) {
             J = Utils.getPointNum(Js[currentIndex - KDJPeriod + 1]);
           }
         } else if ((mDataStartIndext + mShowDataNum) > KDJPeriod &&
@@ -280,8 +279,8 @@ class KDJEntity {
         textPaint
           ..text = TextSpan(children: [
             TextSpan(text: "KDJ($KDJPeriod , $KDJ_M1 , $KDJ_M2)", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (K != null) TextSpan(text: "  K:$K", style: TextStyle(color: Port.KDJ_KColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (D != null) TextSpan(text: "  D:$D", style: TextStyle(color: Port.KDJ_DColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (K != null) TextSpan(text: "  K:$K", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (D != null) TextSpan(text: "  D:$D", style: TextStyle(color: Port.averageColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             if (J != null) TextSpan(text: "  J:$J", style: TextStyle(color: Port.KDJ_JColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr

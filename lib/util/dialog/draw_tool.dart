@@ -1,154 +1,48 @@
-import 'dart:convert';
-
-import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide ComboBox, ComboBoxItem;
 import 'package:get/get.dart';
-import 'package:trade/util/theme/theme.dart';
-import 'package:window_manager/window_manager.dart';
+import '../../page/draw/draw_icons.dart';
 import '../../util/widget/combo_box.dart';
 
 import '../../config/common.dart';
-import '../../main.dart';
-import '../../util/multi_windows_manager/common.dart';
-import '../../util/multi_windows_manager/consts.dart';
-import '../../util/multi_windows_manager/multi_window_manager.dart';
-import 'draw_icons.dart';
+import '../multi_windows_manager/multi_window_manager.dart';
+import '../theme/theme.dart';
 
-class DrawTool extends StatefulWidget {
-  final Map<String, dynamic> params;
-
-  const DrawTool({super.key, required this.params});
-
-  @override
-  State<DrawTool> createState() => _DrawToolState();
-}
-
-class _DrawToolState extends State<DrawTool> with MultiWindowListener {
+class DrawToolDialog {
   final ThemeController themeController = Get.find<ThemeController>();
   Color selectedColor = Colors.white;
   int type = 0;
   int fineness = 1;
   int lineType = 1;
   double defaultWidth = 20.0;
-  Size dropDownSize = const Size(50, 15);
+  // Size defaultSize = const Size(15, 15);
+  Size dropDownSize = const Size(30, 15);
 
-  int windowId() {
-    return widget.params["windowId"];
-  }
-
-  void startDragging(bool isMainWindow) {
-    if (isMainWindow) {
-      windowManager.startDragging();
-    } else {
-      WindowController.fromWindowId(kWindowId!).startDragging();
-    }
-  }
-
-  void setMovable(bool isMainWindow, bool movable) {
-    if (isMainWindow) {
-      windowManager.setMovable(movable);
-    } else {
-      WindowController.fromWindowId(kWindowId!).setMovable(movable);
-    }
-  }
-
-  initData() async {
-    rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
-      if (call.method == kWindowEventNewDraw) {
-        windowOnTop(windowId());
-      } else if (call.method == kWindowEventSelectColor) {
-        selectedColor = Color(call.arguments["color"]);
-        if (type != 0) notifyOrder();
-        if (mounted) setState(() {});
-      } else if (call.method == drawDoneEvent) {
-        type = 0;
-        if (mounted) setState(() {});
-      } else if (call.method == toggleTheme) {
-        if (call.arguments == themeController.isDarkMode.value) return;
-        themeController.toggleTheme();
-        if (mounted) setState(() {});
-      }
-    });
-    await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      selectedColor = themeController.theme.acrylicBackgroundColor;
-    });
-  }
-
-  notifyOrder() async {
-    var tmp = {"pathType": type, "colorValue": selectedColor.colorValue, "widthType": fineness, "lineType": lineType};
-    String temp = jsonEncode(tmp);
-    await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, temp);
-  }
-
-  @override
-  void onWindowClose() async {
-    notMainWindowClose(WindowController windowController) async {
-      await windowController.hide();
-    }
-
-    final controller = WindowController.fromWindowId(kWindowId!);
-    await notMainWindowClose(controller);
-    super.onWindowClose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    DesktopMultiWindow.addListener(this);
-    initData();
-  }
-
-  @override
-  void dispose() {
-    DesktopMultiWindow.removeListener(this);
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return NavigationView(
-      appBar: NavigationAppBar(
-          automaticallyImplyLeading: false,
-          height: 30,
-          backgroundColor: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
-          title: GestureDetector(
-            onPanStart: (_) => startDragging(false),
-            onPanCancel: () {
-              if (isMacOS) {
-                setMovable(false, false);
-              }
-            },
-            onPanEnd: (_) {
-              if (isMacOS) {
-                setMovable(false, false);
-              }
-            },
-            child: Container(
-              color: Colors.transparent,
+  Widget drawTool(Function() fun) {
+    selectedColor = themeController.theme.acrylicBackgroundColor;
+    return ContentDialog(
+        style: themeController.theme.dialogTheme,
+        constraints: const BoxConstraints(
+          maxWidth: 360,
+          maxHeight: 495,
+        ),
+        content: StatefulBuilder(builder: (_, setState) {
+          return Column(children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                IconButton(
+                    onPressed: () {
+                      Get.back();
+                    },
+                    icon: Image.asset(
+                      "assets/images/icon_close@3x.png",
+                      width: 22,
+                    ))
+              ],
             ),
-          ),
-          actions: IconButton(
-              icon: Icon(
-                FluentIcons.chrome_close,
-                color: Common.commandTextColor,
-              ),
-              onPressed: () {
-                Future.delayed(Duration.zero, () async {
-                  await WindowController.fromWindowId(kWindowId!).hide();
-                  await rustDeskWinManager.closeWindowByType(WindowType.Color);
-                  await DesktopMultiWindow.invokeMethod(
-                      kMainWindowId, kDrawEvent, jsonEncode({"pathType": 0, "colorValue": 0, "widthType": 0, "lineType": 0}));
-                });
-              })),
-      content: Container(
-        padding: const EdgeInsets.all(20),
-        color: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
-        child: Column(
-          children: [
-             Text(
+            const Text(
               "画线工具箱",
-              style: TextStyle(fontSize: 18,color: themeController.theme.acrylicBackgroundColor, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             Row(
               children: [
@@ -160,8 +54,8 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                     decoration: BoxDecoration(color: selectedColor, borderRadius: BorderRadius.circular(4)),
                   ),
                   onTap: () async {
-                    // await rustDeskWinManager.newColorPicker("colorPicker");
-                    await rustDeskWinManager.newColorPicker("colorPicker", preWindowId: windowId());
+                    await rustDeskWinManager.newColorPicker("colorPicker");
+                    // await rustDeskWinManager.newColorPicker("colorPicker", preWindowId: windowId());
                   },
                 ),
                 const Spacer(),
@@ -342,10 +236,8 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                 ],
               ),
             )
-          ],
-        ),
-      ),
-    );
+          ]);
+        }));
   }
 
   Widget titleWidget(String text) {
@@ -361,22 +253,18 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Checkbox(
-            style: CheckboxThemeData(
-              uncheckedDecoration: WidgetStatePropertyAll(
-                BoxDecoration(
-                  color: themeController.isDarkMode.value ? Common.checkedBoxDarkBgColor : Common.dialogLightBgColor,
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(color: themeController.isDarkMode.value ? Common.checkBoxBorderDarkColor : Common.checkBoxBorderLightColor),
-                ),
-              ),
-            ),
             checked: type == index,
             onChanged: (e) {
               type = index;
-              notifyOrder();
-              if (mounted) setState(() {});
+              // notifyOrder();
+              // if (mounted) setState(() {});
             }).marginOnly(right: 12),
         Image.asset(address, width: defaultWidth),
+        // RepaintBoundary(
+        //     child: CustomPaint(
+        //   size: defaultSize,
+        //   painter: painter,
+        // )),
       ],
     );
   }

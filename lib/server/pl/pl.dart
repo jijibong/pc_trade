@@ -35,7 +35,7 @@ class PLServer {
         }
         return pLRecords;
       } else {
-        InfoBarUtils.showWarningDialog(response.data["msg"]);
+        InfoBarUtils.showWarningBar(response.data["msg"]);
       }
     } on DioException {
       rethrow;

@@ -6,8 +6,6 @@ import '../OHLCEntity.dart';
 
 /**
  * 计算指标线数据
- * @author hexuejian
- *
  */
 class CalcIndexData {
   List<double> Tr1 = [];

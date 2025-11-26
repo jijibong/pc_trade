@@ -23,6 +23,8 @@ import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/info_bar/info_bar.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/consts.dart';
+import '../../util/shared_preferences/shared_preferences_key.dart';
+import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
@@ -40,14 +42,17 @@ class QuoteLogic extends GetxController {
   var selectedSector = List.filled(Common.screenCount, Sector()).obs;
   var homePageList = List.filled(Common.screenCount, <Contract>[]).obs;
   // var mOptionalList = <Contract>[].obs;
-  var historyList = <Contract>[].obs;
+  var historyList = <Contract>[].obs; //浏览记录
   var mainContractList = <Contract>[].obs;
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
   var mHoldToContractList = <Contract>[].obs;
   var selectedCommodity = Commodity().obs;
   var quoteFilledList = <Map<String, List<FillData>>>[].obs;
-  var sectorList = <Sector>[].obs;
+  var sectorList = <Sector>[].obs; //自选板块列表
+  var sectorMap = <Sector, List<Contract>>{}.obs;
+  var showSectorMap = <Sector, List<Contract>>{}.obs;
+  var sector = Sector().obs;
 
   StreamSubscription? quoteEventSubscription;
   StreamSubscription? optionEventSubscription;
@@ -371,10 +376,10 @@ class QuoteLogic extends GetxController {
       if (con.change != null) {
         if (con.change! < 0) {
           con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-          con.changeColor = Common.quoteLowColor;
+          con.changeUp = false;
         } else {
           con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-          con.changeColor = Common.quoteHighColor;
+          con.changeUp = true;
         }
       }
       con.high = Utils.d2SBySrc(con.highPrice?.toDouble(), tick);
@@ -387,10 +392,10 @@ class QuoteLogic extends GetxController {
       if (con.change != null) {
         if (con.change! < 0) {
           con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-          con.changeColor = Common.quoteLowColor;
+          con.changeUp = false;
         } else {
           con.changePerString = "${Utils.double2Str(Utils.dealPointBigDecimal(con.changePer?.toDouble(), 2))}%";
-          con.changeColor = Common.quoteHighColor;
+          con.changeUp = true;
         }
       }
       con.high = Utils.d2SBySrc(con.highPrice?.toDouble(), tick);
@@ -400,23 +405,23 @@ class QuoteLogic extends GetxController {
     if (con.preSettlePrice != null) {
       if (con.lastPrice != null) {
         if (con.lastPrice! > con.preSettlePrice!) {
-          con.lastPriceColor = Common.quoteHighColor;
+          con.lastPriceUp = true;
         } else if (con.lastPrice! < con.preSettlePrice!) {
-          con.lastPriceColor = Common.quoteLowColor;
+          con.lastPriceUp = false;
         }
       }
       if (con.highPrice != null) {
         if (con.highPrice! > con.preSettlePrice!) {
-          con.highColor = Common.quoteHighColor;
+          con.highUp = true;
         } else if (con.highPrice! < con.preSettlePrice!) {
-          con.highColor = Common.quoteLowColor;
+          con.highUp = false;
         }
       }
       if (con.lowPrice != null) {
         if (con.lowPrice! > con.preSettlePrice!) {
-          con.lowColor = Common.quoteHighColor;
+          con.lowUp = true;
         } else if (con.lowPrice! < con.preSettlePrice!) {
-          con.lowColor = Common.quoteLowColor;
+          con.lowUp = false;
         }
       }
     }
@@ -494,6 +499,69 @@ class QuoteLogic extends GetxController {
     viewIndexList.addAll(List.filled(Common.screenCount - 1, 0));
     selectedSector.removeRange(1, Common.screenCount);
     selectedSector.addAll(List.filled(Common.screenCount - 1, Sector()));
+  }
+
+  Future requestSector(int index) async {
+    String? jsonString = await SpUtils.getString(SpKey.sector);
+    sectorMap.clear();
+    if (jsonString != null && jsonString != "") {
+      try {
+        sectorMap.addAll(deserializeSectorMap(jsonString));
+        for (var i in sectorMap.keys) {
+          if (i.id == "2") {
+            sectorMap[i] = mainContractList;
+          }
+          if (i.id == "3") {
+            sectorMap[i] = mHoldToContractList;
+          }
+          if (i.id == "4") {
+            sectorMap[i] = historyList;
+          }
+        }
+      } catch (e) {
+        logger.e(e);
+      }
+    } else {
+      sectorMap.addAll({Sector(name: "自选", type: 0, show: true, canDelete: false, editable: true, id: "1"): []});
+      sectorMap.addAll({Sector(name: "主力合约", type: 0, show: true, canDelete: false, editable: false, id: "2"): mainContractList});
+      sectorMap.addAll({Sector(name: "持仓合约", type: 0, show: true, canDelete: false, editable: false, id: "3"): mHoldToContractList});
+      sectorMap.addAll({Sector(name: "浏览记录", type: 0, show: true, canDelete: false, editable: false, id: "4"): historyList});
+    }
+    showSectorMap.clear();
+    sectorList.clear();
+    for (var i in sectorMap.keys) {
+      if (i.show == true) {
+        showSectorMap.addAll({i: sectorMap[i] ?? []});
+      }
+      if (i.editable == true) {
+        sectorList.add(i);
+      }
+    }
+    if (selectedSector[index].id == null || !showSectorMap.keys.contains(selectedSector[index])) {
+      selectedSector[index] = showSectorMap.keys.first;
+    }
+    homePageList[index] = showSectorMap[selectedSector[index]] ?? [];
+    subscriptionHome(index);
+  }
+
+  ///序列化
+  String serializeSectorMap(Map<Sector, List<Contract>> map) {
+    final serialized = map.map((sector, contracts) => MapEntry(
+      jsonEncode(sector.toJson()),
+      contracts.map((person) => person.toJson()).toList(),
+    ));
+    return jsonEncode(serialized);
+  }
+
+  ///反序列化
+  Map<Sector, List<Contract>> deserializeSectorMap(String jsonString) {
+    final Map<String, dynamic> decodedMap = jsonDecode(jsonString);
+    final Map<Sector, List<Contract>> resultMap = decodedMap.map((key, value) {
+      final sector = Sector.fromJson(jsonDecode(key) as Map<String, dynamic>);
+      final contracts = (value as List).map((item) => Contract.fromJson(item as Map<String, dynamic>)).toList();
+      return MapEntry(sector, contracts);
+    });
+    return resultMap;
   }
 
   // ///自选页删除自选

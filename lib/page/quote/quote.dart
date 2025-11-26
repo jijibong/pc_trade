@@ -4,7 +4,6 @@ import 'dart:math';
 
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
 import 'package:trade/page/quote/quote_data.dart';
 import 'package:trade/page/quote/quote_details/quote_details.dart';
 import 'package:trade/page/quote/quote_logic.dart';
@@ -16,6 +15,7 @@ import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 import '../../model/option/sector.dart';
 import '../../model/quote/contract.dart';
 import '../../server/quote/market.dart';
+import '../../util/dialog/add_option.dart';
 import '../../util/event_bus/events.dart';
 import '../../util/log/log.dart';
 import '../../util/multi_windows_manager/multi_window_manager.dart';
@@ -24,16 +24,17 @@ import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 
 class Quote extends StatefulWidget {
-  const Quote(this.index, {super.key});
+  const Quote(this.index, {this.multiScreen, super.key});
   final int index;
+  final bool? multiScreen;
 
   @override
   State<Quote> createState() => _QuoteState();
 }
 
 class _QuoteState extends State<Quote> {
+  final ThemeController themeController = Get.find<ThemeController>();
   final QuoteLogic logic = Get.put(QuoteLogic());
-  late AppTheme appTheme;
   final ScrollController _commScrollController = ScrollController();
   StreamSubscription? _subscription;
   StreamSubscription? _subscriptionA;
@@ -42,8 +43,6 @@ class _QuoteState extends State<Quote> {
   StreamSubscription? _subscriptionD;
   double _commDragStartOffset = 0.0;
   double _commCurrentOffset = 0.0;
-  Map<Sector, List<Contract>> sectorMap = {};
-  Map<Sector, List<Contract>> showSectorMap = {};
 
   Future queryExchange() async {
     if (widget.index == 0) {
@@ -81,8 +80,7 @@ class _QuoteState extends State<Quote> {
                   futureTickSize: element.commodityTickSize,
                   contractSize: element.contractSize,
                   currency: element.tradeCurrency,
-                  trTime: element.tradeTime,
-                  orderNum: element.orderNum);
+                  trTime: element.tradeTime);
               conList.add(con);
 
               // if (element.mfContract == e.id) {
@@ -101,77 +99,13 @@ class _QuoteState extends State<Quote> {
     });
   }
 
-  Future requestSector() async {
-    String? jsonString = await SpUtils.getString(SpKey.sector);
-    sectorMap.clear();
-    if (jsonString != null && jsonString != "") {
-      try {
-        sectorMap.addAll(deserializeSectorMap(jsonString));
-        for (var i in sectorMap.keys) {
-          if (i.id == "2") {
-            sectorMap[i] = logic.mainContractList;
-          }
-          if (i.id == "3") {
-            sectorMap[i] = logic.mHoldToContractList;
-          }
-          if (i.id == "4") {
-            sectorMap[i] = logic.historyList;
-          }
-        }
-      } catch (e) {
-        logger.e(e);
-      }
-    } else {
-      sectorMap.addAll({Sector(name: "自选", type: 0, show: true, canDelete: false, editable: true, id: "1"): []});
-      sectorMap.addAll({Sector(name: "主力合约", type: 0, show: false, canDelete: false, editable: false, id: "2"): logic.mainContractList});
-      sectorMap.addAll({Sector(name: "持仓合约", type: 0, show: false, canDelete: false, editable: false, id: "3"): logic.mHoldToContractList});
-      sectorMap.addAll({Sector(name: "浏览记录", type: 0, show: false, canDelete: false, editable: false, id: "4"): logic.historyList});
-    }
-    showSectorMap.clear();
-    logic.sectorList.clear();
-    for (var i in sectorMap.keys) {
-      if (i.show == true) {
-        showSectorMap.addAll({i: sectorMap[i] ?? []});
-      }
-      if (i.editable == true) {
-        logic.sectorList.add(i);
-      }
-    }
-    if (logic.selectedSector[widget.index].id == null || !showSectorMap.keys.contains(logic.selectedSector[widget.index])) {
-      logic.selectedSector[widget.index] = showSectorMap.keys.first;
-    }
-    logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
-    logic.subscriptionHome(widget.index);
-    if (mounted) setState(() {});
-  }
-
-  ///序列化
-  String serializeSectorMap(Map<Sector, List<Contract>> map) {
-    final serialized = map.map((sector, contracts) => MapEntry(
-          jsonEncode(sector.toJson()),
-          contracts.map((person) => person.toJson()).toList(),
-        ));
-    return jsonEncode(serialized);
-  }
-
-  ///反序列化
-  Map<Sector, List<Contract>> deserializeSectorMap(String jsonString) {
-    final Map<String, dynamic> decodedMap = jsonDecode(jsonString);
-    final Map<Sector, List<Contract>> resultMap = decodedMap.map((key, value) {
-      final sector = Sector.fromJson(jsonDecode(key) as Map<String, dynamic>);
-      final contracts = (value as List).map((item) => Contract.fromJson(item as Map<String, dynamic>)).toList();
-      return MapEntry(sector, contracts);
-    });
-    return resultMap;
-  }
-
   listener() {
     _subscription = EventBusUtil.getInstance().on<GoKChart>().listen((event) {
       // logger.i(event.go);
       if (event.index == widget.index) {
         if (event.go) {
           logic.viewIndexList[widget.index] = 1;
-          appTheme.selectCommandBarIndex = 0;
+          themeController.selectCommandBarIndex.value = 0;
         } else {
           logic.viewIndexList[widget.index] = 0;
         }
@@ -179,50 +113,50 @@ class _QuoteState extends State<Quote> {
     });
 
     ///板块更新
-    _subscriptionA = EventBusUtil.getInstance().on<SectorEvent>().listen((event) async {
-      var tmp = jsonDecode(event.json);
-      List<Sector> temp = [];
-      for (var i in tmp) {
-        temp.add(Sector.fromJson(i));
-      }
-      Map<Sector, List<Contract>> newMap = {};
-      for (var i in temp) {
-        bool exist = false;
-        for (var e in sectorMap.keys) {
-          if (i.id == e.id) {
-            exist = true;
-            newMap.addAll({i: sectorMap[e] ?? []});
-          }
-        }
-        if (!exist) {
-          newMap.addAll({i: []});
-        }
-      }
-      sectorMap.clear();
-      sectorMap.addAll(newMap);
-      showSectorMap.clear();
-      logic.sectorList.clear();
-      for (var i in sectorMap.keys) {
-        if (i.show == true) {
-          showSectorMap.addAll({i: sectorMap[i] ?? []});
-        }
-        if (i.editable == true) {
-          logic.sectorList.add(i);
-        }
-      }
-      final serialized = serializeSectorMap(sectorMap);
-      await SpUtils.set(SpKey.sector, serialized);
-      if (mounted) setState(() {});
-    });
+    // _subscriptionA = EventBusUtil.getInstance().on<SectorEvent>().listen((event) async {
+    //   var tmp = jsonDecode(event.json);
+    //   List<Sector> temp = [];
+    //   for (var i in tmp) {
+    //     temp.add(Sector.fromJson(i));
+    //   }
+    //   Map<Sector, List<Contract>> newMap = {};
+    //   for (var i in temp) {
+    //     bool exist = false;
+    //     for (var e in sectorMap.keys) {
+    //       if (i.id == e.id) {
+    //         exist = true;
+    //         newMap.addAll({i: sectorMap[e] ?? []});
+    //       }
+    //     }
+    //     if (!exist) {
+    //       newMap.addAll({i: []});
+    //     }
+    //   }
+    //   sectorMap.clear();
+    //   sectorMap.addAll(newMap);
+    //   showSectorMap.clear();
+    //   logic.sectorList.clear();
+    //   for (var i in sectorMap.keys) {
+    //     if (i.show == true) {
+    //       showSectorMap.addAll({i: sectorMap[i] ?? []});
+    //     }
+    //     if (i.editable == true) {
+    //       logic.sectorList.add(i);
+    //     }
+    //   }
+    //   final serialized = serializeSectorMap(sectorMap);
+    //   await SpUtils.set(SpKey.sector, serialized);
+    //   if (mounted) setState(() {});
+    // });
 
     ///自选更新
     _subscriptionB = EventBusUtil.getInstance().on<AddOptionEvent>().listen((event) async {
       bool exist = false;
-      for (var i in sectorMap.keys) {
+      for (var i in logic.sectorMap.keys) {
         if (i.id == event.sector.id) {
           if (event.add) {
-            if (sectorMap[i] != null && sectorMap[i]!.isNotEmpty) {
-              for (var i in sectorMap[i]!) {
+            if (logic.sectorMap[i] != null && logic.sectorMap[i]!.isNotEmpty) {
+              for (var i in logic.sectorMap[i]!) {
                 if (i.name == event.contract.name && i.code == event.contract.code && i.comId == event.contract.comId) {
                   exist = true;
                   break;
@@ -230,11 +164,11 @@ class _QuoteState extends State<Quote> {
               }
             }
             if (!exist) {
-              sectorMap[i]?.add(event.contract);
+              logic.sectorMap[i]?.add(event.contract);
             }
           } else {
-            if (sectorMap[i]!.contains(event.contract)) {
-              sectorMap[i]?.remove(event.contract);
+            if (logic.sectorMap[i]!.contains(event.contract)) {
+              logic.sectorMap[i]?.remove(event.contract);
             }
           }
           break;
@@ -247,41 +181,39 @@ class _QuoteState extends State<Quote> {
           logic.optionOperate(event.contract, event.add);
         }
         if (logic.selectedSector[widget.index].id == event.sector.id) {
-          logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+          logic.homePageList[widget.index] = logic.showSectorMap[logic.selectedSector[widget.index]] ?? [];
           logic.subscriptionHome(widget.index);
         }
-        final serialized = serializeSectorMap(sectorMap);
+        final serialized = logic.serializeSectorMap(logic.sectorMap);
         await SpUtils.set(SpKey.sector, serialized);
       }
-      if (mounted) setState(() {});
     });
 
     ///更新账号自选
     _subscriptionC = EventBusUtil.getInstance().on<OptionRefresh>().listen((event) async {
-      for (var i in sectorMap.keys) {
+      for (var i in logic.sectorMap.keys) {
         if (i.id == "1") {
-          sectorMap[i]?.clear();
-          sectorMap[i]?.addAll(event.contractList);
+          logic.sectorMap[i]?.clear();
+          logic.sectorMap[i]?.addAll(event.contractList);
           if (i.show == true) {
-            showSectorMap[i]?.clear();
-            showSectorMap[i]?.addAll(event.contractList);
+            logic.showSectorMap[i]?.clear();
+            logic.showSectorMap[i]?.addAll(event.contractList);
           }
           break;
         }
       }
       if (logic.selectedSector[widget.index].id == "1") {
-        logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+        logic.homePageList[widget.index] = logic.showSectorMap[logic.selectedSector[widget.index]] ?? [];
         logic.subscriptionHome(widget.index);
       }
-      if (mounted) setState(() {});
     });
 
     ///自选排序更新
     _subscriptionD = EventBusUtil.getInstance().on<UpdateOptionEvent>().listen((event) async {
-      for (var i in sectorMap.keys) {
+      for (var i in logic.sectorMap.keys) {
         if (logic.selectedSector[widget.index].id == i.id) {
-          sectorMap[i] = logic.homePageList[widget.index];
-          final serialized = serializeSectorMap(sectorMap);
+          logic.sectorMap[i] = logic.homePageList[widget.index];
+          final serialized = logic.serializeSectorMap(logic.sectorMap);
           await SpUtils.set(SpKey.sector, serialized);
           return;
         }
@@ -293,7 +225,7 @@ class _QuoteState extends State<Quote> {
   void initState() {
     super.initState();
     queryExchange();
-    requestSector();
+    logic.requestSector(widget.index);
     listener();
   }
 
@@ -310,7 +242,6 @@ class _QuoteState extends State<Quote> {
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return ScaffoldPage(padding: EdgeInsets.zero, content: item());
   }
 
@@ -319,7 +250,7 @@ class _QuoteState extends State<Quote> {
       return Listener(
         child: GestureDetector(
           onDoubleTap: () {
-            if (appTheme.multiScreen != 1) {
+            if (themeController.multiScreen.value != 1) {
               EventBusUtil.getInstance().fire(SelectScreen(widget.index));
             }
           },
@@ -329,10 +260,15 @@ class _QuoteState extends State<Quote> {
               Expanded(
                   child: logic.viewIndexList[widget.index] == 0
                       ? QuoteData(widget.index)
-                      : QuoteDetails(logic.selectedContractList[widget.index], widget.index)),
+                      : QuoteDetails(
+                          logic.selectedContractList[widget.index],
+                          widget.index,
+                          multiScreen: widget.multiScreen,
+                        )),
               if (logic.viewIndexList[widget.index] == 0)
-                SizedBox(
-                  height: 28,
+                Container(
+                  height: 34,
+                  color: themeController.theme.inactiveBackgroundColor,
                   child: GestureDetector(
                     onHorizontalDragStart: (details) {
                       _commDragStartOffset = details.globalPosition.dx;
@@ -347,10 +283,10 @@ class _QuoteState extends State<Quote> {
                     },
                     child: ListView.builder(
                       scrollDirection: Axis.horizontal,
-                      itemCount: appTheme.selectIndex == 1 ? logic.commodityList.length : showSectorMap.length + 1,
+                      itemCount: themeController.selectIndex.value == 1 ? logic.commodityList.length : logic.showSectorMap.length + 1,
                       controller: _commScrollController,
                       itemBuilder: (BuildContext context, int index) {
-                        if (appTheme.selectIndex == 1) {
+                        if (themeController.selectIndex.value == 1) {
                           return GestureDetector(
                             onTap: () async {
                               logic.selectedCommodity.value = logic.commodityList[index];
@@ -371,38 +307,82 @@ class _QuoteState extends State<Quote> {
                               EventBusUtil.getInstance().fire(RefreshCommodity(thisIndex));
                             },
                             child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                              margin: const EdgeInsets.all(5),
                               alignment: Alignment.center,
-                              color: logic.commodityList[index] == logic.selectedCommodity.value ? appTheme.exchangeBgColor : Colors.transparent,
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(25),
+                                color: logic.commodityList[index] == logic.selectedCommodity.value
+                                    ? themeController.theme.bottomNavigationTheme.backgroundColor
+                                    : Colors.transparent,
+                              ),
                               child: Text(
                                 logic.commodityList[index].commodityName ?? "",
-                                style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                style: TextStyle(
+                                    fontSize: 14,
+                                    color: logic.commodityList[index] == logic.selectedCommodity.value
+                                        ? themeController.theme.bottomNavigationTheme.selectedColor
+                                        : themeController.theme.bottomNavigationTheme.inactiveColor),
                               ),
                             ),
                           );
                         } else {
                           return GestureDetector(
                             onTap: () async {
-                              if (index == showSectorMap.length) {
-                                String jsonString = jsonEncode(sectorMap.keys.map((e) => e.toJson()).toList());
-                                await rustDeskWinManager.newSectorManage("newSectorManage", hold: jsonString);
+                              if (index == logic.showSectorMap.length) {
+                                // String jsonString = jsonEncode(sectorMap.keys.map((e) => e.toJson()).toList());
+                                // await rustDeskWinManager.newSectorManage("newSectorManage", hold: jsonString);
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return AddOptionDialog().editDialog(logic.sectorMap.keys.toList(), (value) async {
+                                        Map<Sector, List<Contract>> newMap = {};
+                                        for (var i in value) {
+                                          bool exist = false;
+                                          for (var e in logic.sectorMap.keys) {
+                                            if (i.id == e.id) {
+                                              exist = true;
+                                              newMap.addAll({i: logic.sectorMap[e] ?? []});
+                                            }
+                                          }
+                                          if (!exist) {
+                                            newMap.addAll({i: []});
+                                          }
+                                        }
+                                        logic.sectorMap.clear();
+                                        logic.sectorMap.addAll(newMap);
+                                        logic.showSectorMap.clear();
+                                        logic.sectorList.clear();
+                                        for (var i in logic.sectorMap.keys) {
+                                          if (i.show == true) {
+                                            logic.showSectorMap.addAll({i: logic.sectorMap[i] ?? []});
+                                          }
+                                          if (i.editable == true) {
+                                            logic.sectorList.add(i);
+                                          }
+                                        }
+                                        final serialized = logic.serializeSectorMap(logic.sectorMap);
+                                        await SpUtils.set(SpKey.sector, serialized);
+                                        if (mounted) setState(() {});
+                                      });
+                                    });
                               } else {
-                                logic.selectedSector[widget.index] = showSectorMap.keys.elementAt(index);
-                                logic.homePageList[widget.index] = showSectorMap[logic.selectedSector[widget.index]] ?? [];
+                                logic.selectedSector[widget.index] = logic.showSectorMap.keys.elementAt(index);
+                                logic.homePageList[widget.index] = logic.showSectorMap[logic.selectedSector[widget.index]] ?? [];
                                 logic.subscriptionHome(widget.index);
                               }
                               if (mounted) setState(() {});
                             },
-                            child: index != showSectorMap.length
+                            child: index != logic.showSectorMap.length
                                 ? Container(
                                     margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
                                     alignment: Alignment.center,
-                                    color: showSectorMap.keys.elementAt(index) == logic.selectedSector[widget.index]
-                                        ? appTheme.exchangeBgColor
-                                        : Colors.transparent,
+                                    // color: showSectorMap.keys.elementAt(index) == logic.selectedSector[widget.index]
+                                    //     ? themeController.theme.focusColor
+                                    //     : Colors.transparent,
                                     child: Text(
-                                      showSectorMap.keys.elementAt(index).name ?? "",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                      logic.showSectorMap.keys.elementAt(index).name ?? "",
+                                      style: TextStyle(fontSize: 14, color: themeController.theme.selectionColor),
                                     ),
                                   )
                                 : Container(
@@ -411,7 +391,7 @@ class _QuoteState extends State<Quote> {
                                     color: Colors.transparent,
                                     child: Text(
                                       "...",
-                                      style: TextStyle(fontSize: 14, color: appTheme.exchangeTextColor),
+                                      style: TextStyle(fontSize: 14, color: themeController.theme.selectionColor),
                                     ),
                                   ),
                           );
@@ -436,14 +416,14 @@ class _QuoteState extends State<Quote> {
               //       },
               //       child: ListView.builder(
               //         scrollDirection: Axis.horizontal,
-              //         itemCount: appTheme.selectIndex == 1 ? logic.mExchangeList.length : myPage.length + 1,
+              //         itemCount: themeController.selectIndex == 1 ? logic.mExchangeList.length : myPage.length + 1,
               //         controller: _scrollController,
               //         itemBuilder: (BuildContext context, int index) {
-              //           if (appTheme.selectIndex == 1) {
+              //           if (themeController.selectIndex == 1) {
               //             return GestureDetector(
               //               onTap: () {
               //                 logic.viewIndexList[widget.index] = 0;
-              //                 appTheme.selectIndex = 1;
+              //                 themeController.selectIndex = 1;
               //                 logic.switchExchange(index, widget.index);
               //                 if (mounted) setState(() {});
               //               },
@@ -451,11 +431,11 @@ class _QuoteState extends State<Quote> {
               //                 margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               //                 alignment: Alignment.center,
               //                 color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
-              //                     ? appTheme.exchangeBgColor
+              //                     ? themeController.exchangeBgColor
               //                     : Colors.transparent,
               //                 child: Text(
               //                   logic.mExchangeList[index].exchangeName ?? "",
-              //                   style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+              //                   style: TextStyle(fontSize: 17, color: themeController.exchangeTextColor),
               //                 ),
               //               ),
               //             );
@@ -463,18 +443,18 @@ class _QuoteState extends State<Quote> {
               //             if (index == 0) {
               //               return GestureDetector(
               //                 onTap: () {
-              //                   appTheme.multiScreen = 1;
+              //                   themeController.multiScreen = 1;
               //                   if (mounted) setState(() {});
               //                 },
               //                 child: Container(
               //                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               //                   alignment: Alignment.center,
               //                   color: logic.mExchangeList[index] == logic.selectedExchangeList[widget.index]
-              //                       ? appTheme.exchangeBgColor
+              //                       ? themeController.exchangeBgColor
               //                       : Colors.transparent,
               //                   child: Text(
               //                     "我的合约",
-              //                     style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+              //                     style: TextStyle(fontSize: 17, color: themeController.exchangeTextColor),
               //                   ),
               //                 ),
               //               );
@@ -493,10 +473,10 @@ class _QuoteState extends State<Quote> {
               //                 child: Container(
               //                   margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
               //                   alignment: Alignment.center,
-              //                   color: myPage[index - 1] == selectedPage ? appTheme.exchangeBgColor : Colors.transparent,
+              //                   color: myPage[index - 1] == selectedPage ? themeController.exchangeBgColor : Colors.transparent,
               //                   child: Text(
               //                     myPage[index - 1].name ?? "",
-              //                     style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+              //                     style: TextStyle(fontSize: 17, color: themeController.exchangeTextColor),
               //                   ),
               //                 ),
               //               );
@@ -513,10 +493,10 @@ class _QuoteState extends State<Quote> {
               //     //   },
               //     //   child: Container(
               //     //     margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              //     //     color: logic.optionalIndexList[widget.index] == 0 ? appTheme.exchangeBgColor : Colors.transparent,
+              //     //     color: logic.optionalIndexList[widget.index] == 0 ? themeController.exchangeBgColor : Colors.transparent,
               //     //     child: Text(
               //     //       '自选界面',
-              //     //       style: TextStyle(fontSize: 17, color: appTheme.exchangeTextColor),
+              //     //       style: TextStyle(fontSize: 17, color: themeController.exchangeTextColor),
               //     //     ),
               //     //   ),
               //     // )

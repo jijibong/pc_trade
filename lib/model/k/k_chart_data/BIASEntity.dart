@@ -4,15 +4,15 @@ import 'package:path_drawing/path_drawing.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
 import 'CalcIndexData.dart';
+import 'package:get/get.dart';
 
 /**
  * BIAS指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class BIASEntity {
   /**BIAS数据集合*/
@@ -31,6 +31,7 @@ class BIASEntity {
   // 3 }, 1);
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   BIASEntity() {
     BIASs1 = [];
@@ -182,15 +183,14 @@ class BIASEntity {
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double latitudeSpacing = lowerHeight / 4; //每格高度
     double rate = 0.0; //每单位像素价格
-    Paint redPaint = MethodUntil().getDrawPaint(Port.BIAS1Color);
-    Paint yellowPaint = MethodUntil().getDrawPaint(Port.BIAS2Color);
-    Paint bluePaint = MethodUntil().getDrawPaint(Port.BIAS3Color);
+    Paint redPaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
+    Paint yellowPaint = MethodUntil().getDrawPaint(Port.averageColor);
+    Paint bluePaint = MethodUntil().getDrawPaint(Port.ma20DarkColor);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
-    Paint dottedPaint = MethodUntil().getDrawPaint(Port.girdColor); //虚线画笔
-
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     redPaint.strokeWidth = Port.BIASWidth[0];
     yellowPaint.strokeWidth = Port.BIASWidth[1];
     bluePaint.strokeWidth = Port.BIASWidth[2];
@@ -204,11 +204,11 @@ class BIASEntity {
       path.moveTo(leftMarginSpace, viewHeight - latitudeSpacing * i - textBottom);
       path.lineTo(viewWidth - leftMarginSpace, viewHeight - latitudeSpacing * i - textBottom);
       canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        dottedPaint,
+        // dashPath(
+        path,
+        // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+        // ),
+        girdPaint,
       );
     }
 
@@ -218,7 +218,7 @@ class BIASEntity {
       double textWidth = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice * i)} ", textPaint);
       textPaint
         ..text =
-            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
         ..paint(canvas, Offset(leftMarginSpace - textWidth, viewHeight - latitudeSpacing * i - textBottom - halfTextHeight));
@@ -268,13 +268,19 @@ class BIASEntity {
         String? bias1, bias2, bias3;
 
         if (isDrawCrossLine) {
-          if (currentIndex - (BIAS1Period - 1) > 0 && currentIndex - (BIAS1Period - 1) < BIASs1.length) {
+          if ((mDataStartIndext + mShowDataNum) > BIAS1Period &&
+              currentIndex - (BIAS1Period - 1) >= 0 &&
+              currentIndex - (BIAS1Period - 1) < BIASs1.length) {
             bias1 = Utils.getPointNum(BIASs1[currentIndex - (BIAS1Period - 1)]);
           }
-          if (currentIndex - (BIAS2Period - 1) > 0 && currentIndex - (BIAS2Period - 1) < BIASs1.length) {
+          if ((mDataStartIndext + mShowDataNum) > BIAS2Period &&
+              currentIndex - (BIAS2Period - 1) >= 0 &&
+              currentIndex - (BIAS2Period - 1) < BIASs2.length) {
             bias1 = Utils.getPointNum(BIASs2[currentIndex - (BIAS2Period - 1)]);
           }
-          if (currentIndex - (BIAS3Period - 1) > 0 && currentIndex - (BIAS3Period - 1) < BIASs1.length) {
+          if ((mDataStartIndext + mShowDataNum) > BIAS3Period &&
+              currentIndex - (BIAS3Period - 1) >= 0 &&
+              currentIndex - (BIAS3Period - 1) < BIASs3.length) {
             bias1 = Utils.getPointNum(BIASs3[currentIndex - (BIAS3Period - 1)]);
           }
         } else {
@@ -295,9 +301,10 @@ class BIASEntity {
               TextSpan(
                   text: "BIAS($BIAS1Period , $BIAS2Period , $BIAS3Period)",
                   style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              if (bias1 != null) TextSpan(text: "  BIAS1: $bias1", style: TextStyle(color: Port.BIAS1Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              if (bias2 != null) TextSpan(text: "  BIAS2: $bias2", style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              if (bias3 != null) TextSpan(text: "  BIAS3: $bias3", style: TextStyle(color: Port.BIAS3Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias1 != null)
+                TextSpan(text: "  BIAS1: $bias1", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias2 != null) TextSpan(text: "  BIAS2: $bias2", style: TextStyle(color: Port.averageColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              if (bias3 != null) TextSpan(text: "  BIAS3: $bias3", style: TextStyle(color: Port.ma20DarkColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             ],
           )
           ..textDirection = TextDirection.ltr

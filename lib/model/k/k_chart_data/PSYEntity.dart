@@ -1,17 +1,16 @@
-import 'package:path_drawing/path_drawing.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
 import 'CalcIndexData.dart';
+import 'package:get/get.dart';
 
 /**
  * PSY心理线指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class PSYEntity {
   /**PSY数据集合*/
@@ -32,6 +31,7 @@ class PSYEntity {
   static const Color DEFAULT_DOTTED_COLOR = Colors.grey;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   PSYEntity() {
     PSYs = [];
@@ -47,7 +47,7 @@ class PSYEntity {
     PSYs.clear();
     PSYMAs.clear();
 
-    if (OHLCData == null || OHLCData.length == 0) {
+    if (OHLCData.isEmpty) {
       return;
     }
 
@@ -139,13 +139,13 @@ class PSYEntity {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double rate = 0.0; //每单位像素价格
-    Paint redPaint = MethodUntil().getDrawPaint(Port.PSYColor);
-    Paint yellowPaint = MethodUntil().getDrawPaint(Port.PSYMAColor);
+    Paint redPaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
+    Paint yellowPaint = MethodUntil().getDrawPaint(Port.averageColor);
     TextPainter textPaint = TextPainter();
-    Paint dottedPaint = MethodUntil().getDrawPaint(DEFAULT_DOTTED_COLOR); //虚线画笔
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     redPaint.strokeWidth = Port.PSYWidth[0];
     yellowPaint.strokeWidth = Port.PSYWidth[1];
 
@@ -160,11 +160,11 @@ class PSYEntity {
     path.lineTo(viewWidth - leftMarginSpace, Y25);
     // canvas.drawPath(path, dottedPaint);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
+      girdPaint,
     );
 
     //70线
@@ -174,24 +174,24 @@ class PSYEntity {
     path.lineTo(viewWidth - leftMarginSpace, Y70);
     // canvas.drawPath(path, dottedPaint);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
+      girdPaint,
     );
     textPaint
-      ..text = TextSpan(text: price25, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: price25, style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(leftMarginSpace - SubChartPainter.getStringWidth("$price25 ", textPaint), Y25));
+      ..paint(canvas, Offset(leftMarginSpace - SubChartPainter.getStringWidth("$price25 ", textPaint), Y25-halfTextHeight));
     textPaint
-      ..text = TextSpan(text: price70, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: price70, style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
-      ..paint(canvas, Offset(leftMarginSpace - SubChartPainter.getStringWidth("$price70 ", textPaint), Y70));
+      ..paint(canvas, Offset(leftMarginSpace - SubChartPainter.getStringWidth("$price70 ", textPaint), Y70-halfTextHeight));
     textPaint
-      ..text = TextSpan(text: "0.00", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: "0.00", style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - SubChartPainter.getStringWidth("0.00 ", textPaint), viewHeight - textBottom));
@@ -227,11 +227,11 @@ class PSYEntity {
         String? psy, psyMa;
 
         if (isDrawCrossLine) {
-          if (currentIndex - PSYPeriod + 1 > 0 && currentIndex - PSYPeriod + 1 < PSYs.length) {
+          if (currentIndex - PSYPeriod + 1 >= 0 && currentIndex - PSYPeriod + 1 < PSYs.length) {
             psy = Utils.getPointNum(PSYs[currentIndex - (PSYPeriod - 1)]);
           }
-          if (currentIndex - PSYPeriod - PSYMAPeriod + 1 > 0 && currentIndex - PSYPeriod + 1 < PSYMAs.length) {
-            psy = Utils.getPointNum(PSYs[currentIndex - (PSYPeriod + PSYMAPeriod - 1)]);
+          if (currentIndex - PSYPeriod - PSYMAPeriod + 1 >= 0 && currentIndex - PSYPeriod - PSYMAPeriod + 1 < PSYMAs.length) {
+            psyMa = Utils.getPointNum(PSYMAs[currentIndex - (PSYPeriod + PSYMAPeriod - 1)]);
           }
         } else {
           if ((mDataStartIndext + mShowDataNum) > PSYPeriod && (i - (PSYPeriod - 1)) < PSYs.length) {
@@ -245,9 +245,10 @@ class PSYEntity {
         String text = "PSY($PSYPeriod , $PSYMAPeriod)";
         textPaint
           ..text = TextSpan(children: [
-            TextSpan(text: "PSY($PSYPeriod , $PSYMAPeriod)", style: TextStyle(color: Port.BIAS2Color, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (psy != null) TextSpan(text: "  PSY: $psy", style: TextStyle(color: Port.PSYColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-            if (psyMa != null) TextSpan(text: "  PSYMA: $psyMa", style: TextStyle(color: Port.PSYMAColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            TextSpan(text: "PSY($PSYPeriod , $PSYMAPeriod)", style: TextStyle(color: Port.averageColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psy != null)
+              TextSpan(text: "  PSY: $psy", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+            if (psyMa != null) TextSpan(text: "  PSYMA: $psyMa", style: TextStyle(color: Port.averageColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
           ])
           ..textDirection = TextDirection.ltr
           ..layout()

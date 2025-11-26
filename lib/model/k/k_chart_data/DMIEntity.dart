@@ -9,8 +9,6 @@ import 'CalcIndexData.dart';
 
 /**
  * RSI指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class DMIEntity {
   /**+DI数据集合*/

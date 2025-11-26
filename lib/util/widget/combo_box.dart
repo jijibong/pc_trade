@@ -330,7 +330,7 @@ class _ComboBoxMenuState<T> extends State<_ComboBoxMenu<T>> {
           borderRadius: BorderRadius.all(kComboBoxRadius),
         ),
         child: ColoredBox(
-          color: theme.menuColor.withOpacity(kMenuColorOpacity),
+          color: widget.popupColor ?? theme.acrylicBackgroundColor,
           child: Semantics(
             scopesRoute: true,
             namesRoute: true,
@@ -879,8 +879,9 @@ class ComboBox<T> extends StatefulWidget {
     this.isExpanded = false,
     this.focusColor,
     this.focusNode,
-    this.autofocus = true,
+    this.autofocus = false,
     this.popupColor,
+    this.backgroundColor,
     this.numBox,
     this.smallChange,
     // When adding new arguments, consider adding similar arguments to
@@ -1077,6 +1078,7 @@ class ComboBox<T> extends StatefulWidget {
   ///
   /// If it is not provided, the default [Acrylic] color is used.
   final Color? popupColor;
+  final Color? backgroundColor;
 
   @override
   State<ComboBox<T>> createState() => ComboBoxState<T>();
@@ -1290,7 +1292,7 @@ class ComboBoxState<T> extends State<ComboBox<T>> {
                 color: theme.resources.textFillColorDisabled,
               ),
         child: Container(
-          padding: padding.resolve(Directionality.of(context)),
+          // padding: padding.resolve(Directionality.of(context)),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             mainAxisSize: MainAxisSize.min,
@@ -1300,7 +1302,7 @@ class ComboBoxState<T> extends State<ComboBox<T>> {
                 padding: const EdgeInsetsDirectional.only(start: 8.0),
                 child: IconTheme.merge(
                   data: IconThemeData(
-                    color: iconColor(context),
+                    color: widget.style?.backgroundColor ?? iconColor(context),
                     size: widget.iconSize,
                   ),
                   child: widget.icon,
@@ -1320,7 +1322,10 @@ class ComboBoxState<T> extends State<ComboBox<T>> {
           onPressed: isEnabled ? openPopup : null,
           autofocus: widget.autofocus,
           focusNode: focusNode,
-          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
+          style: ButtonStyle(
+            padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+            backgroundColor: WidgetStatePropertyAll(widget.backgroundColor ?? Colors.transparent),
+          ),
           child: result,
         ),
       ),

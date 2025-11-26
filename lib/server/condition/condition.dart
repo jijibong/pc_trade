@@ -11,13 +11,13 @@ import '../../util/log/log.dart';
 
 class ConditionServer {
   ///查询条件单
-  static Future<List<Condition>?> queryTodayCondition() async {
+  static Future<List<Condition>?> queryCondition() async {
     try {
       String? data;
       if (Common.signData) {
-        data = await SignData().signData("", Config.queryTodayCondition);
+        data = await SignData().signData("", Config.queryCondition);
       }
-      Response response = await HttpUtils.getInstance().post(Config.queryTodayCondition, data: data);
+      Response response = await HttpUtils.getInstance().post(Config.queryCondition, data: data);
       // logger.i(response);
       if (response.data["code"] == 0) {
         List<Condition> conditions = [];

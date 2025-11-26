@@ -1,9 +1,12 @@
 import 'dart:math';
 import 'package:fluent_ui/fluent_ui.dart';
+import 'package:get/get.dart';
+import 'package:get/get_core/src/get_main.dart';
 
 import '../../../util/log/log.dart';
 import '../../../util/painter/k_chart/k_chart_painter.dart';
 import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -11,8 +14,6 @@ import 'CalcIndexData.dart';
 
 /**
  * Bollinger指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class BollingerEntity {
   /**Bollinger周期内均线数据集合*/
@@ -23,6 +24,7 @@ class BollingerEntity {
   static double DEFAULT_AXIS_TITLE_SIZE = Port.ChartTextSize;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   BollingerEntity() {
     BollingerAVE = [];
@@ -198,9 +200,9 @@ class BollingerEntity {
       bool isDrawCrossLine,
       int currentIndex) {
     double rate = 0.0; //每单位像素价格
-    Paint midPaint = MethodUntil().getDrawPaint(Port.BollingerMidColor);
-    Paint upPaint = MethodUntil().getDrawPaint(Port.BollingerUpColor);
-    Paint downPaint = MethodUntil().getDrawPaint(Port.BollingerDownColor);
+    Paint midPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor);
+    Paint upPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor);
+    Paint downPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
     midPaint.strokeWidth = Port.BollingerWidth[1];
     upPaint.strokeWidth = Port.BollingerWidth[0];
@@ -241,22 +243,26 @@ class BollingerEntity {
 
       //绘制当前周期，最新一根数据的up,down,middle
       if (i == mDataStartIndext + mShowDataNum - 1) {
-        if (isDrawCrossLine && currentIndex - BollingerPeriod > -1) {
+        if (isDrawCrossLine && currentIndex - BollingerPeriod >= -1 && currentIndex - BollingerPeriod < BollingerAVE.length - 1) {
           textPaint
             ..text = TextSpan(children: [
               TextSpan(
-                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ",
+                  style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
               TextSpan(
                   text: "MID:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)]))}  ",
-                  style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
               TextSpan(
                   text:
                       "TOP:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)] + 2 * BollingerSQRT[currentIndex - (BollingerPeriod - 1)]))}  ",
-                  style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  style:
+                      TextStyle(color: themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
               TextSpan(
                   text:
                       "BOTTOM:${Utils.getPointNum((BollingerAVE[currentIndex - (BollingerPeriod - 1)] - 2 * BollingerSQRT[currentIndex - (BollingerPeriod - 1)]))}",
-                  style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             ])
             ..textDirection = TextDirection.ltr
             ..layout()
@@ -271,10 +277,20 @@ class BollingerEntity {
           textPaint
             ..text = TextSpan(children: [
               TextSpan(
-                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              TextSpan(text: "MID:$mid  ", style: TextStyle(color: Port.BollingerMidColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              TextSpan(text: "TOP:$up  ", style: TextStyle(color: Port.BollingerUpColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
-              TextSpan(text: "BOTTOM:$down", style: TextStyle(color: Port.BollingerDownColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ",
+                  style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "MID:$mid  ",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma10DarkColor : Port.ma10LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "TOP:$up  ",
+                  style:
+                      TextStyle(color: themeController.isDarkMode.value ? Port.ma5DarkColor : Port.ma5LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+              TextSpan(
+                  text: "BOTTOM:$down",
+                  style: TextStyle(
+                      color: themeController.isDarkMode.value ? Port.ma20DarkColor : Port.ma20LightColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             ])
             ..textDirection = TextDirection.ltr
             ..layout()
@@ -283,7 +299,8 @@ class BollingerEntity {
           textPaint
             ..text = TextSpan(children: [
               TextSpan(
-                  text: "BOLL($BollingerPeriod, $BollingerSD)  ", style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
+                  text: "BOLL($BollingerPeriod, $BollingerSD)  ",
+                  style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE)),
             ])
             ..textDirection = TextDirection.ltr
             ..layout()

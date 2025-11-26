@@ -130,7 +130,7 @@ class Config {
   static String queryCloseDetail = "/v1/order/history/close";
 
   ///查询当日条件单
-  static String queryTodayCondition = "/v1/order/condition/qry";
+  static String queryCondition = "/v1/order/condition/qry";
 
   ///添加条件单
   static String addCondition = "/v1/order/condition/add";

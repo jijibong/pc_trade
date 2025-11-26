@@ -7,8 +7,9 @@ import '../../model/k/custom_line.dart';
 import '../theme/theme.dart';
 
 class LineDialog {
+  final ThemeController themeController = Get.find<ThemeController>();
+
   Widget showLineDialog(CustomLine customLine, String code, {void Function()? function}) {
-    final appTheme = AppTheme();
     List typeList = ["买入", "卖出", "平仓"];
     String type = customLine.type == 1
         ? "买入"
@@ -20,7 +21,7 @@ class LineDialog {
       style: ContentDialogThemeData(
           padding: EdgeInsets.zero,
           bodyPadding: EdgeInsets.zero,
-          decoration: BoxDecoration(color: appTheme.unColor, borderRadius: BorderRadius.zero)),
+          decoration: BoxDecoration(color: themeController.theme.inactiveColor, borderRadius: BorderRadius.zero)),
       content: Container(
           height: 240,
           color: Common.dialogContentColor,
@@ -32,14 +33,10 @@ class LineDialog {
                   margin: const EdgeInsets.only(bottom: 15),
                   child: Row(
                     children: [
-                      Image.asset(
-                        "assets/images/jmaster.ico",
-                        width: 20,
-                      ),
                       Expanded(
                         child: Text(
                           "画线下单属性",
-                          style: TextStyle(color: appTheme.color),
+                          style: TextStyle(color: themeController.theme.activeColor),
                         ),
                       ),
                       IconButton(

@@ -46,7 +46,8 @@ class VREntity {
    * @param OHLCData
    */
   void initData(List<OHLCEntity> OHLCData, int period) {
-    if (OHLCData == null || OHLCData.isEmpty) {
+    mVrlList.clear();
+    if (OHLCData.isEmpty) {
       return;
     }
 
@@ -56,7 +57,6 @@ class VREntity {
 //        (3) N日以来股价平盘的那一日的成交量都称为PV，将N日内的PV总和相加称为PVS。
 //        (4)最后N日的VR就可以计算出来:
 //        VR (N)=((UVS+ 1/2PVS)/(DVS + 1/2PVS))*100
-    mVrlList.clear();
     for (int i = period - 1; i < OHLCData.length; i++) {
       double uvs = 0.0;
       double dvs = 0.0;
@@ -133,12 +133,9 @@ class VREntity {
       return;
     }
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
-    Paint linePaint = MethodUntil().getDrawPaint(Port.VR_Color);
     TextPainter textPaint = TextPainter();
-    Paint girdPaint = MethodUntil().getDrawPaint(Port.girdColor);
-    girdPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint linePaint = MethodUntil().getDrawPaint(Port.VR_Color);
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
     girdPaint
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
@@ -155,16 +152,16 @@ class VREntity {
     path.moveTo(leftMarginSpace, viewHeight - perheight);
     path.lineTo(viewWidth, viewHeight - perheight);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
       girdPaint,
     );
     String price = Utils.getLimitNum(perPrice * 2 + minPrice, 2);
     double priceWidth = SubChartPainter.getStringWidth("$price ", textPaint);
     textPaint
-      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - priceWidth, viewHeight - perheight - halfTextHeight));
@@ -190,7 +187,7 @@ class VREntity {
         String? rsi;
 
         if (isDrawCrossLine) {
-          if (currentIndex - period + 1 > 0 && currentIndex - period + 1 < mVrlList.length) {
+          if ((mDataStartIndext + mShowDataNum) > period && currentIndex - period + 1 >= 0 && currentIndex - period + 1 < mVrlList.length) {
             rsi = Utils.getPointNum(mVrlList[currentIndex - (period - 1)]);
           }
         } else if ((mDataStartIndext + mShowDataNum) > period && (i - (period - 1)) < mVrlList.length) {

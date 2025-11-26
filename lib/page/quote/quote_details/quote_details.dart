@@ -9,9 +9,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart' hide Condition;
-import 'package:hexcolor/hexcolor.dart';
 import 'package:multi_split_view/multi_split_view.dart';
-import 'package:provider/provider.dart';
 import 'package:trade/main.dart';
 import 'package:trade/model/user/user.dart';
 import 'package:trade/util/shared_preferences/shared_preferences_key.dart';
@@ -40,7 +38,6 @@ import '../../../model/k/k_preiod.dart';
 import '../../../model/k/k_time.dart';
 import '../../../model/k/port.dart';
 import '../../../model/k/trade_time.dart';
-import '../../../model/condition/condition.dart';
 import '../../../model/pb/quote/fill.pb.dart';
 import '../../../model/pl/pl.dart';
 import '../../../model/quote/contract.dart';
@@ -54,8 +51,10 @@ import '../../../server/condition/condition.dart';
 import '../../../server/login/login.dart';
 import '../../../server/pl/pl.dart';
 import '../../../server/quote/market.dart';
-import '../../../server/socket/webSocket.dart';
+import '../../../util/dialog/add_option.dart';
+import '../../../util/dialog/contract_info.dart';
 import '../../../util/dialog/line_dialog.dart';
+import '../../../util/dialog/mod_condition.dart';
 import '../../../util/dialog/period_dialog.dart';
 import '../../../util/dialog/pl_dialog.dart';
 import '../../../util/event_bus/eventBus_utils.dart';
@@ -71,13 +70,16 @@ import '../../../util/theme/theme.dart';
 import '../../../util/utils/k_util.dart';
 import '../../../util/utils/market_util.dart';
 import '../../../util/utils/utils.dart';
-import '../../../util/widget/dash_line.dart';
+import '../../../util/widget/dash_divider.dart';
+import '../../draw/draw_icons.dart';
 import '../quote_logic.dart';
 
 class QuoteDetails extends StatefulWidget {
   final Contract contract;
   final int index;
-  const QuoteDetails(this.contract, this.index, {super.key});
+  final bool? multiScreen;
+
+  const QuoteDetails(this.contract, this.index, {this.multiScreen, super.key});
 
   @override
   State<QuoteDetails> createState() => _QuoteDetailsState();
@@ -85,11 +87,11 @@ class QuoteDetails extends StatefulWidget {
 
 class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMixin {
   final QuoteLogic logic = Get.put(QuoteLogic());
+  final ThemeController themeController = Get.find<ThemeController>();
   Contract? contract = Contract();
   List<FillData> quoteFilledData = [];
   List<HoldOrder> holdOrder = [];
   List<PLRecord> pLRecordList = [];
-  late AppTheme appTheme;
   var uuid = const Uuid();
   final mainMenuController = FlyoutController();
   final priceController = FlyoutController();
@@ -183,6 +185,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   bool isDrawCrossLine = false;
   bool isDrawing = false;
   bool orderDrawing = false;
+  bool delOrderLines = false;
   bool startDrawTool = false;
   bool drawTooling = false;
   bool drawToolEnd = false;
@@ -207,7 +210,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   /// 当前纵坐标
   double currentY = -1;
 
-  int hoverIndex = 0;
+  int hoverIndex = -1;
 
   bool isNeedAddData = true;
 
@@ -301,12 +304,12 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   String pankouAllMarket = "--";
   String pankouCirMarket = "--";
   String pankouPresettle = "--";
-  Color pankouColor = HexColor("#ff204a");
-  Color pankouHighColor = HexColor("#ff204a");
-  Color pankouLowColor = HexColor("#ff204a");
-  int selectedLine = -1;
-  int selectedPLLine = -1;
-  int selectedIndex = -1;
+  bool pankouUp = true;
+  bool pankouLowUp = true;
+  bool pankouHighUp = true;
+  int selectedLine = -1; //画线下单线
+  int selectedPLLine = -1; //损盈线
+  int selectedIndex = -1; //画线工具线
   int selectedPoint = -1;
   Offset? startMovingPoint;
   String? initPointX1;
@@ -349,7 +352,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         isDrawTime = false;
       }
     } else {
-      kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+      kPeriod = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
     }
     periodList.add(kPeriod);
     subscriptionKlineData(true);
@@ -466,7 +469,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
 
     //初始化RSI数据
-    if (isDrawMACD) {
+    if (isDrawRSI) {
       if (mRSIData == null) {
         mRSIData = RSIEntity();
         mRSIData?.initData(mOHLCData, ChartPainter.rsiPeriod, 2);
@@ -1151,7 +1154,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   qryCondition() async {
     selectedLine = -1;
     drawOrderLines.clear();
-    await ConditionServer.queryTodayCondition().then((value) {
+    await ConditionServer.queryCondition().then((value) {
       if (value != null) {
         for (var con in value) {
           if (con.Status == 1) {
@@ -1257,19 +1260,17 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     pankouPresettle = Utils.double2Str(Utils.dealPointByOld(contract?.preSettlePrice, tick));
 
     if ((contract?.change ?? 0) > 0) {
-      pankouColor = HexColor("#ff204a");
+      pankouUp = true;
     } else if ((contract?.change ?? 0) < 0) {
-      pankouColor = HexColor("#3aff20");
-    } else {
-      pankouColor = HexColor("#ffffff");
+      pankouUp = false;
     }
 
     if (contract?.highPrice != null && contract?.openPrice != null && (contract!.highPrice! < contract!.openPrice!)) {
-      pankouHighColor = HexColor("#3aff20");
+      pankouHighUp = false;
     }
 
     if (contract?.lowPrice != null && contract?.openPrice != null && (contract!.lowPrice! < contract!.openPrice!)) {
-      pankouLowColor = HexColor("#3aff20");
+      pankouLowUp = false;
     }
   }
 
@@ -1587,7 +1588,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     if (con.isMain == true) {
       contract?.isMain = true;
     }
-    if (contract != null && !logic.historyList.contains(contract)) {
+    if (contract == null) return;
+    if (!logic.historyList.contains(contract)) {
       logic.historyList.add(contract!);
     }
     getKPeriod();
@@ -1775,17 +1777,22 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     ///画线下单
     streamSubscriptionL = EventBusUtil.getInstance().on<OrderEvent>().listen((event) async {
       var map = event.json;
-      orderDrawType = map['type'];
-      if (orderDrawType == 0) {
-        orderDrawing = false;
+      if (map == false) {
+        delOrderLines = true;
       } else {
-        orderDrawing = true;
-        if (startDrawTool) {
-          startDrawTool = false;
-          await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+        delOrderLines = false;
+        orderDrawType = map['type'];
+        if (orderDrawType == 0) {
+          orderDrawing = false;
+        } else {
+          orderDrawing = true;
+          if (startDrawTool) {
+            startDrawTool = false;
+            await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+          }
+          num = map['num'];
+          price = map['priceType'];
         }
-        num = map['num'];
-        price = map['priceType'];
       }
       if (mounted) setState(() {});
     });
@@ -1920,7 +1927,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   switchPeriod(KPeriod period, {int? index, bool? force}) async {
     if (kPeriod == period && force != true) return;
-    if (index != null) appTheme.selectCommandBarIndex = index;
+    if (index != null) themeController.selectCommandBarIndex.value = index;
     if (force != true) {
       periodList.add(period);
     }
@@ -1997,7 +2004,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     painter = ChartPainter(
       isDrawTime: isDrawTime,
       lastClose: lastClose,
@@ -2052,105 +2058,170 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       pLRecordList: pLRecordList,
       hoverIndex: hoverIndex,
     );
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-            flex: 4,
-            child: logic.showChartList[widget.index] == 0
-                ? Column(
-                    children: [
-                      Row(
-                        children: [
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
-                              style: TextStyle(fontSize: 16, color: appTheme.color),
-                            ),
-                          ),
-                        ],
-                      ),
-                      Expanded(
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapUp: (event) {
-                            if ((orderDrawing || startDrawTool || drawTooling || drawToolEnd) && !isDrawTime) return;
-                            isDrawCrossLine = !isDrawCrossLine;
-                            if (isDrawCrossLine) {
-                              currentX = event.localPosition.dx;
-                              currentY = event.localPosition.dy;
-                            } else {
-                              currentX = -1;
-                              currentY = -1;
-                            }
-                            if (mounted) setState(() {});
-                          },
-                          onHorizontalDragStart: (event) {
-                            if (isDrawTime || selectedIndex != -1) {
-                              return;
-                            }
-                            mDownIndext = mDataStartIndext;
-                            mStartX = event.localPosition.dx;
-                          },
-                          onHorizontalDragUpdate: (event) {
-                            if (mOHLCData.isEmpty || isDrawTime || selectedLine != -1 || selectedIndex != -1) {
-                              return;
-                            }
-                            if (!isDrawCrossLine) {
-                              double horizontalSpacing = event.localPosition.dx - mStartX;
-                              if (horizontalSpacing < 0) {
-                                mDataStartIndext = (mDownIndext + (horizontalSpacing / mCandleWidth).abs()).toInt();
-                              } else if (horizontalSpacing > 0) {
-                                mDataStartIndext = (mDownIndext - horizontalSpacing / mCandleWidth).toInt();
-                                if (mDataStartIndext < 0) {
-                                  mDataStartIndext = 0;
-                                }
-                              }
+    return contract != null
+        ? Obx(() {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                    flex: 9,
+                    child: logic.showChartList[widget.index] == 0
+                        ? Column(
+                            children: [
+                              if (widget.multiScreen != true)
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      "${contract?.name ?? ""}(${contract?.code ?? ""})",
+                                      style: TextStyle(fontSize: 18, color: themeController.theme.acrylicBackgroundColor),
+                                    ),
+                                    IconButton(
+                                        icon: Image.asset(
+                                          "assets/images/icon_heart@3x.png",
+                                          width: Common.iconImageWidth,
+                                        ),
+                                        onPressed: () {
+                                          Get.dialog(AddOptionDialog().addOptionDialog(contract!));
+                                        }).marginSymmetric(horizontal: 20),
+                                    IconButton(
+                                        icon: Image.asset(
+                                          "assets/images/icon_inf@3x.png",
+                                          width: Common.iconImageWidth,
+                                        ),
+                                        onPressed: () {
+                                          showDialog(
+                                              context: context,
+                                              builder: (BuildContext context) {
+                                                if (contract != null) {
+                                                  return ContractDialog().contractInfoDialog(contract!);
+                                                }
+                                                return Container();
+                                              });
+                                        }).marginOnly(right: 20),
+                                    DashedDivider(
+                                      axis: Axis.vertical,
+                                      length: Common.iconImageWidth,
+                                      color: Common.dashDividerColor,
+                                    ),
+                                    IconButton(
+                                            icon: Image.asset(
+                                              "assets/images/hx_icon_8@3x.png",
+                                              width: Common.iconImageWidth - 2,
+                                            ),
+                                            onPressed: () {})
+                                        .marginSymmetric(horizontal: 20),
+                                    IconButton(
+                                        icon: Image.asset(
+                                          "assets/images/hx_icon_9@3x.png",
+                                          width: Common.iconImageWidth - 2,
+                                        ),
+                                        onPressed: () {}),
+                                    IconButton(
+                                            icon: Image.asset(
+                                              "assets/images/hx_icon_10@3x.png",
+                                              width: Common.iconImageWidth - 2,
+                                            ),
+                                            onPressed: () {})
+                                        .marginSymmetric(horizontal: 20),
+                                    IconButton(
+                                        icon: Image.asset(
+                                          "assets/images/hx_icon_11@3x.png",
+                                          width: Common.iconImageWidth - 2,
+                                        ),
+                                        onPressed: () {}),
+                                  ],
+                                ),
+                              Expanded(
+                                child: GestureDetector(
+                                    behavior: HitTestBehavior.opaque,
+                                    onTapUp: (event) {
+                                      if ((orderDrawing || startDrawTool || drawTooling || drawToolEnd) && !isDrawTime) return;
+                                      isDrawCrossLine = !isDrawCrossLine;
+                                      if (isDrawCrossLine) {
+                                        currentX = event.localPosition.dx;
+                                        currentY = event.localPosition.dy;
+                                      } else {
+                                        currentX = -1;
+                                        currentY = -1;
+                                      }
+                                      if (mounted) setState(() {});
+                                    },
+                                    onHorizontalDragStart: (event) {
+                                      if (isDrawTime || selectedIndex != -1) {
+                                        return;
+                                      }
+                                      mDownIndext = mDataStartIndext;
+                                      mStartX = event.localPosition.dx;
+                                    },
+                                    onHorizontalDragUpdate: (event) {
+                                      if (mOHLCData.isEmpty || isDrawTime || selectedLine != -1 || selectedIndex != -1) {
+                                        return;
+                                      }
+                                      if (!isDrawCrossLine) {
+                                        double horizontalSpacing = event.localPosition.dx - mStartX;
+                                        if (horizontalSpacing < 0) {
+                                          mDataStartIndext = (mDownIndext + (horizontalSpacing / mCandleWidth).abs()).toInt();
+                                        } else if (horizontalSpacing > 0) {
+                                          mDataStartIndext = (mDownIndext - horizontalSpacing / mCandleWidth).toInt();
+                                          if (mDataStartIndext < 0) {
+                                            mDataStartIndext = 0;
+                                          }
+                                        }
 
-                              if (mOHLCData.length - mPreSize != 0) {
-                                //检查数据集合在没有刷新阶段是否有增加，增加的应该去除掉
-                                int number = mOHLCData.length - mPreSize;
-                                for (int i = 1; i <= number; i++) {
-                                  mOHLCData.removeAt(mOHLCData.length - 1);
-                                }
-                              }
+                                        if (mOHLCData.length - mPreSize != 0) {
+                                          //检查数据集合在没有刷新阶段是否有增加，增加的应该去除掉
+                                          int number = mOHLCData.length - mPreSize;
+                                          for (int i = 1; i <= number; i++) {
+                                            mOHLCData.removeAt(mOHLCData.length - 1);
+                                          }
+                                        }
 
-                              // int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
+                                        // int maxPeriod = ChartPainter.getMaxPeriod(isDrawCost, isDrawBollinger, isDrawFall);
 
-                              // if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
-                              //   //到达指定位置控制数据的向前加载
-                              //   isNeedAddData = false;
-                              //   mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
-                              //   requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
-                              // }
-                              // if (isNeedAddData) {
-                              setCurrentData();
-                              // }
-                            } else {
-                              currentX = event.localPosition.dx;
-                              currentY = event.localPosition.dy;
-                            }
-                            if (mounted) setState(() {});
-                          },
-                          child: Container(
-                              decoration: BoxDecoration(border: Border(top: BorderSide(color: Colors.red))),
-                              child: isDrawTime
-                                  ? timeChart()
-                                  : MultiSplitViewTheme(
-                                      data: MultiSplitViewThemeData(dividerThickness: 1, dividerPainter: DividerPainter(backgroundColor: Colors.red)),
-                                      child: MultiSplitView(
-                                        axis: Axis.vertical,
-                                        controller: multiSplitViewController,
-                                      ))),
-                        ),
-                      ),
-                    ],
-                  )
-                : statement()),
-        if (showPanKou) Expanded(flex: 1, child: dataWidget())
-      ],
-    );
+                                        // if (maxPeriod > mDataStartIndext && isNeedAddData && isReachLast == false) {
+                                        //   //到达指定位置控制数据的向前加载
+                                        //   isNeedAddData = false;
+                                        //   mStartDate = "${mOHLCData[0].date} ${mOHLCData[0].time}";
+                                        //   requestMoreKline(int.parse(Utils.getLongTime(mStartDate)));
+                                        // }
+                                        // if (isNeedAddData) {
+                                        setCurrentData();
+                                        // }
+                                      } else {
+                                        currentX = event.localPosition.dx;
+                                        currentY = event.localPosition.dy;
+                                      }
+                                      if (mounted) setState(() {});
+                                    },
+                                    child: Container(
+                                        decoration: BoxDecoration(
+                                          color: themeController.theme.cardColor,
+                                          borderRadius: const BorderRadius.horizontal(right: Radius.circular(5)),
+                                        ),
+                                        child: isDrawTime
+                                            ? timeChart()
+                                            : MultiSplitViewTheme(
+                                                data: MultiSplitViewThemeData(
+                                                    dividerThickness: 1, dividerPainter: DividerPainter(backgroundColor: Colors.transparent)),
+                                                child: MultiSplitView(
+                                                  axis: Axis.vertical,
+                                                  controller: multiSplitViewController,
+                                                )))),
+                              ),
+                            ],
+                          )
+                        : statement()),
+                if (showPanKou && widget.multiScreen != true) Expanded(flex: 2, child: dataWidget())
+              ],
+            );
+          })
+        : GestureDetector(
+            child: Container(color: Colors.transparent, alignment: Alignment.center, child: const Text("合约已过期")),
+            onTap: () {
+              logic.selectedIndex.value = widget.index;
+            },
+          );
   }
 
   Widget timeChart() {
@@ -2222,14 +2293,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         ? MenuFlyoutItem(
                             text: const Text('K线'),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                               logic.showChartList[widget.index] = 0;
                               switchPeriod(fs, index: 1);
                             })
                         : MenuFlyoutItem(
                             text: const Text('分时'),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 0);
                             }),
                     if (!isDrawTime)
@@ -2380,10 +2451,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('日线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 1 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                         switchPeriod(fs, index: 1);
                       },
                     ),
@@ -2391,10 +2462,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('周线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 2 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week);
                         switchPeriod(fs, index: 2);
                       },
                     ),
@@ -2402,10 +2473,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('月线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 3 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month);
                         switchPeriod(fs, index: 3);
                       },
                     ),
@@ -2413,10 +2484,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('年线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 4 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year);
                         switchPeriod(fs, index: 4);
                       },
                     ),
@@ -2424,10 +2495,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('任意天'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 5 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 5;
+                        themeController.selectCommandBarIndex.value = 5;
                         KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
                         showDialog(
                             context: context,
@@ -2440,10 +2511,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('1分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 6 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 6);
                       },
                     ),
@@ -2451,10 +2522,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('3分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 7 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 7);
                       },
                     ),
@@ -2462,10 +2533,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('5分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 8 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 8);
                       },
                     ),
@@ -2473,10 +2544,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('10分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 9 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 9);
                       },
                     ),
@@ -2484,10 +2555,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('15分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 10 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 10);
                       },
                     ),
@@ -2495,10 +2566,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('30分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 11 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 11);
                       },
                     ),
@@ -2506,10 +2577,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('60分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 12 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                         switchPeriod(fs, index: 12);
                       },
                     ),
@@ -2517,10 +2588,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('120分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 13 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                         switchPeriod(fs, index: 13);
                       },
                     ),
@@ -2528,10 +2599,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('任意分'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 14 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 14;
+                        themeController.selectCommandBarIndex.value = 14;
                         KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
                         showDialog(
                             context: context,
@@ -2556,43 +2627,43 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   text: const Text('最大化'),
                   onPressed: Flyout.of(context).close,
                 ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('取消分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 1;
+                      themeController.multiScreen.value = 1;
                       logic.cancelMultiScreen();
                     },
                   ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('二分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 2;
+                      themeController.multiScreen.value = 2;
                       EventBusUtil.getInstance().fire(SplitScreen(2));
                     },
                   ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('四分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 4;
+                      themeController.multiScreen.value = 4;
                       EventBusUtil.getInstance().fire(SplitScreen(4));
                     },
                   ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('六分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 6;
+                      themeController.multiScreen.value = 6;
                       EventBusUtil.getInstance().fire(SplitScreen(6));
                     },
                   ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('九分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 9;
+                      themeController.multiScreen.value = 9;
                       EventBusUtil.getInstance().fire(SplitScreen(9));
                     },
                   ),
@@ -2656,7 +2727,18 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         onPointerDown: (e) async {
           if (isDrawTime || e.buttons == kSecondaryMouseButton) return;
           String name = "${contract?.exCode}${contract?.code}${contract?.comType}";
-          if (orderDrawing) {
+          if (delOrderLines) {
+            if (selectedLine != -1) {
+              await ConditionServer.delCondition(drawOrderLines[selectedLine].id ?? 0).then((value) {
+                if (value) {
+                  qryCondition();
+                }
+              });
+              selectedLine = -1;
+              cursor = SystemMouseCursors.basic;
+              delOrderLines = false;
+            }
+          } else if (orderDrawing) {
             // if (orderDrawType == 3 && holdOrder.isEmpty) {
             //   InfoBarUtils.showWarningDialog("指定合约没有持仓，不能平仓");
             //   orderDrawing = false;
@@ -2753,7 +2835,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
         },
         onPointerHover: (e) {
           if (isDrawCrossLine) {
-            hoverIndex = 0;
+            hoverIndex = -1;
             currentX = e.localPosition.dx;
             currentY = e.localPosition.dy;
           } else if (!isDrawTime) {
@@ -2942,6 +3024,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             cursor: cursor,
             child: GestureDetector(
               onSecondaryTapUp: (d) {
+                delOrderLines = false;
                 final targetContext = flyoutTargetKey.currentContext;
                 if (targetContext == null) return;
                 final box = targetContext.findRenderObject() as RenderBox;
@@ -2950,70 +3033,71 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   ancestor: Navigator.of(context).context.findRenderObject(),
                 );
                 if (cursor == SystemMouseCursors.click) {
-                  if (selectedLine != -1) {
+                  // if (selectedLine != -1) {
+                  //   contextController.showFlyout(
+                  //     barrierColor: Colors.black.withOpacity(0.1),
+                  //     position: position,
+                  //     builder: (context) {
+                  //       return MenuFlyout(items: [
+                  //         MenuFlyoutItem(
+                  //           text: const Text('画线属性'),
+                  //           onPressed: () {
+                  //             CustomLine customLine = drawOrderLines[selectedLine].copyWith();
+                  //             showDialog(
+                  //                 context: context,
+                  //                 builder: (BuildContext context) {
+                  //                   return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
+                  //                     drawOrderLines[selectedLine] = customLine;
+                  //                     if (mounted) setState(() {});
+                  //                   });
+                  //                 });
+                  //           },
+                  //         ),
+                  //         MenuFlyoutItem(
+                  //             text: const Text('删除画线'),
+                  //             onPressed: () async {
+                  //               await ConditionServer.delCondition(drawOrderLines[selectedLine].id ?? 0).then((value) {
+                  //                 if (value) {
+                  //                   qryCondition();
+                  //                 }
+                  //               });
+                  //               selectedLine = -1;
+                  //               cursor = SystemMouseCursors.basic;
+                  //               if (mounted) setState(() {});
+                  //             }),
+                  //         MenuFlyoutItem(
+                  //             text: const Text('全部删除'),
+                  //             onPressed: () async {
+                  //               selectedLine = -1;
+                  //               cursor = SystemMouseCursors.basic;
+                  //               for (var e in drawOrderLines) {
+                  //                 await ConditionServer.delCondition(e.id ?? 0).then((value) {
+                  //                   if (value) {
+                  //                     qryCondition();
+                  //                   }
+                  //                 });
+                  //               }
+                  //               if (mounted) setState(() {});
+                  //             }),
+                  //       ]);
+                  //     },
+                  //   );
+                  //   return;
+                  // } else
+                  if (selectedIndex != -1) {
                     contextController.showFlyout(
                       barrierColor: Colors.black.withOpacity(0.1),
                       position: position,
                       builder: (context) {
                         return MenuFlyout(items: [
-                          MenuFlyoutItem(
-                            text: const Text('画线属性'),
-                            onPressed: () {
-                              CustomLine customLine = drawOrderLines[selectedLine].copyWith();
-                              showDialog(
-                                  context: context,
-                                  builder: (BuildContext context) {
-                                    return LineDialog().showLineDialog(customLine, contract?.code ?? "--", function: () async {
-                                      drawOrderLines[selectedLine] = customLine;
-                                      if (mounted) setState(() {});
-                                    });
-                                  });
-                            },
-                          ),
-                          MenuFlyoutItem(
-                              text: const Text('删除画线'),
-                              onPressed: () async {
-                                await ConditionServer.delCondition(drawOrderLines[selectedLine].id ?? 0).then((value) {
-                                  if (value) {
-                                    qryCondition();
-                                  }
-                                });
-                                selectedLine = -1;
-                                cursor = SystemMouseCursors.basic;
-                                if (mounted) setState(() {});
-                              }),
-                          MenuFlyoutItem(
-                              text: const Text('全部删除'),
-                              onPressed: () async {
-                                selectedLine = -1;
-                                cursor = SystemMouseCursors.basic;
-                                for (var e in drawOrderLines) {
-                                  await ConditionServer.delCondition(e.id ?? 0).then((value) {
-                                    if (value) {
-                                      qryCondition();
-                                    }
-                                  });
-                                }
-                                if (mounted) setState(() {});
-                              }),
-                        ]);
-                      },
-                    );
-                    return;
-                  } else if (selectedIndex != -1) {
-                    contextController.showFlyout(
-                      barrierColor: Colors.black.withOpacity(0.1),
-                      position: position,
-                      builder: (context) {
-                        return MenuFlyout(items: [
-                          MenuFlyoutItem(
-                            text: const Text('画线属性'),
-                            onPressed: () async {
-                              DrawToolLine drawToolLine = drawToolLines[selectedIndex].copyWith();
-                              String tmp = jsonEncode(drawToolLine.toJson());
-                              await rustDeskWinManager.newLineSetting("newLineSetting", hold: tmp);
-                            },
-                          ),
+                          // MenuFlyoutItem(
+                          //   text: const Text('画线属性'),
+                          //   onPressed: () async {
+                          //     DrawToolLine drawToolLine = drawToolLines[selectedIndex].copyWith();
+                          //     String tmp = jsonEncode(drawToolLine.toJson());
+                          //     await rustDeskWinManager.newLineSetting("newLineSetting", hold: tmp);
+                          //   },
+                          // ),
                           MenuFlyoutItem(
                               text: const Text('删除画线'),
                               onPressed: () async {
@@ -3093,14 +3177,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                               ? MenuFlyoutItem(
                                   text: const Text('K线'),
                                   onPressed: () {
-                                    KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                    KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                                     logic.showChartList[widget.index] = 0;
                                     switchPeriod(fs, index: 1);
                                   })
                               : MenuFlyoutItem(
                                   text: const Text('分时'),
                                   onPressed: () {
-                                    KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                    KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
                                     switchPeriod(fs, index: 0);
                                   }),
                           if (!isDrawTime)
@@ -3265,10 +3349,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('日线'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 1 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                               switchPeriod(fs, index: 1);
                             },
                           ),
@@ -3276,10 +3360,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('周线'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 2 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                              KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week);
                               switchPeriod(fs, index: 2);
                             },
                           ),
@@ -3287,10 +3371,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('月线'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 3 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                              KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month);
                               switchPeriod(fs, index: 3);
                             },
                           ),
@@ -3298,10 +3382,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('年线'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 4 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                              KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year);
                               switchPeriod(fs, index: 4);
                             },
                           ),
@@ -3309,10 +3393,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('任意天'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 5 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              appTheme.selectCommandBarIndex = 5;
+                              themeController.selectCommandBarIndex.value = 5;
                               KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
                               showDialog(
                                   context: context,
@@ -3325,10 +3409,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('1分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 6 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 6);
                             },
                           ),
@@ -3336,10 +3420,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('3分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 7 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 7);
                             },
                           ),
@@ -3347,10 +3431,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('5分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 8 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 8);
                             },
                           ),
@@ -3358,10 +3442,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('10分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 9 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 9);
                             },
                           ),
@@ -3369,10 +3453,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('15分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 10 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 10);
                             },
                           ),
@@ -3380,10 +3464,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('30分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 11 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 11);
                             },
                           ),
@@ -3391,10 +3475,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('60分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 12 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                              KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                               switchPeriod(fs, index: 12);
                             },
                           ),
@@ -3402,10 +3486,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('120分钟'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 13 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                              KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                               switchPeriod(fs, index: 13);
                             },
                           ),
@@ -3413,10 +3497,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             text: const Text('任意分'),
                             leading: Icon(
                               FluentIcons.radio_btn_on,
-                              color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                              color: themeController.selectCommandBarIndex.value == 14 ? Colors.white : Colors.transparent,
                             ),
                             onPressed: () {
-                              appTheme.selectCommandBarIndex = 14;
+                              themeController.selectCommandBarIndex.value = 14;
                               KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
                               showDialog(
                                   context: context,
@@ -3441,43 +3525,43 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         text: const Text('最大化'),
                         onPressed: Flyout.of(context).close,
                       ),
-                      if (appTheme.selectIndex == 0)
+                      if (themeController.selectIndex.value == 0)
                         MenuFlyoutItem(
                           text: const Text('取消分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 1;
+                            themeController.multiScreen.value = 1;
                             logic.cancelMultiScreen();
                           },
                         ),
-                      if (appTheme.selectIndex == 0)
+                      if (themeController.selectIndex.value == 0)
                         MenuFlyoutItem(
                           text: const Text('二分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 2;
+                            themeController.multiScreen.value = 2;
                             EventBusUtil.getInstance().fire(SplitScreen(2));
                           },
                         ),
-                      if (appTheme.selectIndex == 0)
+                      if (themeController.selectIndex.value == 0)
                         MenuFlyoutItem(
                           text: const Text('四分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 4;
+                            themeController.multiScreen.value = 4;
                             EventBusUtil.getInstance().fire(SplitScreen(4));
                           },
                         ),
-                      if (appTheme.selectIndex == 0)
+                      if (themeController.selectIndex.value == 0)
                         MenuFlyoutItem(
                           text: const Text('六分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 6;
+                            themeController.multiScreen.value = 6;
                             EventBusUtil.getInstance().fire(SplitScreen(6));
                           },
                         ),
-                      if (appTheme.selectIndex == 0)
+                      if (themeController.selectIndex.value == 0)
                         MenuFlyoutItem(
                           text: const Text('九分屏'),
                           onPressed: () async {
-                            appTheme.multiScreen = 9;
+                            themeController.multiScreen.value = 9;
                             EventBusUtil.getInstance().fire(SplitScreen(9));
                           },
                         ),
@@ -3584,7 +3668,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       currentX: currentX,
       currentY: currentY,
       hoverIndex: hoverIndex,
-      index: value,
+      index: index,
       isDrawCrossLine: isDrawCrossLine,
       mKPeriod: kPeriod,
     );
@@ -3594,7 +3678,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     return Listener(
         onPointerHover: (e) {
           if (isDrawCrossLine) {
-            hoverIndex = value;
+            hoverIndex = index;
             currentX = e.localPosition.dx;
             currentY = e.localPosition.dy;
             if (mounted) setState(() {});
@@ -3658,14 +3742,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                             ? MenuFlyoutItem(
                                 text: const Text('K线'),
                                 onPressed: () {
-                                  KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                                  KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                                   logic.showChartList[widget.index] = 0;
                                   switchPeriod(fs, index: 1);
                                 })
                             : MenuFlyoutItem(
                                 text: const Text('分时'),
                                 onPressed: () {
-                                  KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                                  KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
                                   switchPeriod(fs, index: 0);
                                 }),
                         if (!isDrawTime)
@@ -3842,10 +3926,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('日线'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 1 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                            KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                             switchPeriod(fs, index: 1);
                           },
                         ),
@@ -3853,10 +3937,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('周线'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 2 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                            KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week);
                             switchPeriod(fs, index: 2);
                           },
                         ),
@@ -3864,10 +3948,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('月线'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 3 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                            KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month);
                             switchPeriod(fs, index: 3);
                           },
                         ),
@@ -3875,10 +3959,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('年线'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 4 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                            KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year);
                             switchPeriod(fs, index: 4);
                           },
                         ),
@@ -3886,10 +3970,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('任意天'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 5 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            appTheme.selectCommandBarIndex = 5;
+                            themeController.selectCommandBarIndex.value = 5;
                             KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
                             showDialog(
                                 context: context,
@@ -3902,10 +3986,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('1分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 6 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 6);
                           },
                         ),
@@ -3913,10 +3997,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('3分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 7 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 7);
                           },
                         ),
@@ -3924,10 +4008,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('5分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 8 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 8);
                           },
                         ),
@@ -3935,10 +4019,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('10分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 9 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 9);
                           },
                         ),
@@ -3946,10 +4030,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('15分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 10 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 10);
                           },
                         ),
@@ -3957,10 +4041,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('30分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 11 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                            KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute);
                             switchPeriod(fs, index: 11);
                           },
                         ),
@@ -3968,10 +4052,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('60分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 12 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                            KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                             switchPeriod(fs, index: 12);
                           },
                         ),
@@ -3979,10 +4063,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('120分钟'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 13 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                            KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                             switchPeriod(fs, index: 13);
                           },
                         ),
@@ -3990,10 +4074,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           text: const Text('任意分'),
                           leading: Icon(
                             FluentIcons.radio_btn_on,
-                            color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                            color: themeController.selectCommandBarIndex.value == 14 ? Colors.white : Colors.transparent,
                           ),
                           onPressed: () {
-                            appTheme.selectCommandBarIndex = 14;
+                            themeController.selectCommandBarIndex.value = 14;
                             KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
                             showDialog(
                                 context: context,
@@ -4018,43 +4102,43 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('最大化'),
                       onPressed: Flyout.of(context).close,
                     ),
-                    if (appTheme.selectIndex == 0)
+                    if (themeController.selectIndex.value == 0)
                       MenuFlyoutItem(
                         text: const Text('取消分屏'),
                         onPressed: () async {
-                          appTheme.multiScreen = 1;
+                          themeController.multiScreen.value = 1;
                           logic.cancelMultiScreen();
                         },
                       ),
-                    if (appTheme.selectIndex == 0)
+                    if (themeController.selectIndex.value == 0)
                       MenuFlyoutItem(
                         text: const Text('二分屏'),
                         onPressed: () async {
-                          appTheme.multiScreen = 2;
+                          themeController.multiScreen.value = 2;
                           EventBusUtil.getInstance().fire(SplitScreen(2));
                         },
                       ),
-                    if (appTheme.selectIndex == 0)
+                    if (themeController.selectIndex.value == 0)
                       MenuFlyoutItem(
                         text: const Text('四分屏'),
                         onPressed: () async {
-                          appTheme.multiScreen = 4;
+                          themeController.multiScreen.value = 4;
                           EventBusUtil.getInstance().fire(SplitScreen(4));
                         },
                       ),
-                    if (appTheme.selectIndex == 0)
+                    if (themeController.selectIndex.value == 0)
                       MenuFlyoutItem(
                         text: const Text('六分屏'),
                         onPressed: () async {
-                          appTheme.multiScreen = 6;
+                          themeController.multiScreen.value = 6;
                           EventBusUtil.getInstance().fire(SplitScreen(6));
                         },
                       ),
-                    if (appTheme.selectIndex == 0)
+                    if (themeController.selectIndex.value == 0)
                       MenuFlyoutItem(
                         text: const Text('九分屏'),
                         onPressed: () async {
-                          appTheme.multiScreen = 9;
+                          themeController.multiScreen.value = 9;
                           EventBusUtil.getInstance().fire(SplitScreen(9));
                         },
                       ),
@@ -4231,14 +4315,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                         ? MenuFlyoutItem(
                             text: const Text('K线'),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                              KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                               logic.showChartList[widget.index] = 0;
                               switchPeriod(fs, index: 1);
                             })
                         : MenuFlyoutItem(
                             text: const Text('分时'),
                             onPressed: () {
-                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                              KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
                               switchPeriod(fs, index: 0);
                             }),
                     if (!isDrawTime)
@@ -4277,10 +4361,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('日线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 1 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 1 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day, isDel: false);
+                        KPeriod fs = KPeriod(name: "日", period: KTime.DAY, cusType: 1, kpFlag: KPFlag.Day);
                         switchPeriod(fs, index: 1);
                       },
                     ),
@@ -4288,10 +4372,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('周线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 2 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 2 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week, isDel: false);
+                        KPeriod fs = KPeriod(name: "周", period: KTime.WEEK, cusType: 1, kpFlag: KPFlag.Week);
                         switchPeriod(fs, index: 2);
                       },
                     ),
@@ -4299,10 +4383,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('月线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 3 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 3 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month, isDel: false);
+                        KPeriod fs = KPeriod(name: "月", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Month);
                         switchPeriod(fs, index: 3);
                       },
                     ),
@@ -4310,10 +4394,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('年线'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 4 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 4 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year, isDel: false);
+                        KPeriod fs = KPeriod(name: "年", period: KTime.MON, cusType: 1, kpFlag: KPFlag.Year);
                         switchPeriod(fs, index: 4);
                       },
                     ),
@@ -4321,10 +4405,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('任意天'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 5 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 5 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 5;
+                        themeController.selectCommandBarIndex.value = 5;
                         KPFlag mKPFlag = KPFlag(name: "日", flag: KPFlag.Day, max: 365);
                         showDialog(
                             context: context,
@@ -4337,10 +4421,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('1分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 6 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 6 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "1分钟", period: KTime.M_1, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 6);
                       },
                     ),
@@ -4348,10 +4432,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('3分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 7 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 7 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "3分钟", period: KTime.M_3, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 7);
                       },
                     ),
@@ -4359,10 +4443,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('5分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 8 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 8 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "5分钟", period: KTime.M_5, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 8);
                       },
                     ),
@@ -4370,10 +4454,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('10分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 9 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 9 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "10分钟", period: KTime.M_10, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 9);
                       },
                     ),
@@ -4381,10 +4465,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('15分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 10 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 10 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "15分钟", period: KTime.M_15, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 10);
                       },
                     ),
@@ -4392,10 +4476,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('30分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 11 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 11 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute, isDel: false);
+                        KPeriod fs = KPeriod(name: "30分钟", period: KTime.M_30, cusType: 1, kpFlag: KPFlag.Minute);
                         switchPeriod(fs, index: 11);
                       },
                     ),
@@ -4403,10 +4487,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('60分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 12 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 12 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        KPeriod fs = KPeriod(name: "1小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                         switchPeriod(fs, index: 12);
                       },
                     ),
@@ -4414,10 +4498,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('120分钟'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 13 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 13 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour, isDel: false);
+                        KPeriod fs = KPeriod(name: "2小时", period: KTime.H_1, cusType: 1, kpFlag: KPFlag.Hour);
                         switchPeriod(fs, index: 13);
                       },
                     ),
@@ -4425,10 +4509,10 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       text: const Text('任意分'),
                       leading: Icon(
                         FluentIcons.radio_btn_on,
-                        color: appTheme.selectCommandBarIndex == 14 ? Colors.white : Colors.transparent,
+                        color: themeController.selectCommandBarIndex.value == 14 ? Colors.white : Colors.transparent,
                       ),
                       onPressed: () {
-                        appTheme.selectCommandBarIndex = 14;
+                        themeController.selectCommandBarIndex.value = 14;
                         KPFlag mKPFlag = KPFlag(name: "分钟", flag: KPFlag.Minute, max: 1440);
                         showDialog(
                             context: context,
@@ -4443,25 +4527,25 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                   text: const Text('最大化'),
                   onPressed: Flyout.of(context).close,
                 ),
-                if (appTheme.selectIndex == 0)
+                if (themeController.selectIndex.value == 0)
                   MenuFlyoutItem(
                     text: const Text('取消分屏'),
                     onPressed: () async {
-                      appTheme.multiScreen = 1;
+                      themeController.multiScreen.value = 1;
                       logic.cancelMultiScreen();
                     },
                   ),
                 // MenuFlyoutItem(
                 //   text: const Text('四分屏'),
                 //   onPressed: () async {
-                //     appTheme.multiScreen = 1;
+                //     themeController.multiScreen = 1;
                 //     EventBusUtil.getInstance().fire(SplitScreen(1));
                 //   },
                 // ),
                 // MenuFlyoutItem(
                 //   text: const Text('九分屏'),
                 //   onPressed: () async {
-                //     appTheme.multiScreen = 2;
+                //     themeController.multiScreen = 2;
                 //     EventBusUtil.getInstance().fire(SplitScreen(2));
                 //   },
                 // ),
@@ -4488,7 +4572,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                       fit: BoxFit.scaleDown,
                       child: Text(
                         "${contract?.name ?? ""}(${contract?.code ?? ""})<${kPeriod.name}线>",
-                        style: TextStyle(fontSize: 16, color: appTheme.color),
+                        style: TextStyle(fontSize: 16, color: themeController.theme.activeColor),
                       ),
                     ),
                   ],
@@ -4574,220 +4658,202 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   }
 
   Widget dataWidget() {
-    return SizedBox(
+    return Container(
       // width: 288,
       height: 1.sh,
+      margin: EdgeInsets.only(left: 1.sp),
       child: ScrollConfiguration(
         behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
         child: ListView(
           children: [
-            Container(
-                decoration: BoxDecoration(border: Border.all(color: Colors.red)),
-                padding: const EdgeInsets.all(5),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              "${contract?.name ?? ""}(${contract?.code ?? ""})",
-                              style: TextStyle(fontSize: 24, color: Colors.yellow),
-                            )),
-                      ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                Text(
+                  lastPrice,
+                  style: TextStyle(
+                      color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w500),
+                ),
+                IconButton(
+                    icon: Image.asset(
+                      "assets/images/icon_inf@3x.png",
+                      width: Common.iconImageWidth,
+                      color: Colors.transparent,
                     ),
-                    FlyoutTarget(
-                      controller: priceController,
-                      child: IconButton(
-                        icon: const Icon(FluentIcons.query_list),
-                        style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.zero)),
-                        onPressed: () {
-                          priceController.showFlyout(
-                            autoModeConfiguration: FlyoutAutoConfiguration(
-                              preferredMode: FlyoutPlacementMode.topLeft,
-                            ),
-                            builder: (context) {
-                              return MenuFlyout(items: [
-                                MenuFlyoutItem(
-                                  text: const Text('一档报价'),
-                                  onPressed: () {
-                                    Flyout.of(context).close;
-                                    level = 1;
-                                    if (mounted) setState(() {});
-                                  },
-                                ),
-                                MenuFlyoutItem(
-                                  text: const Text('五档报价'),
-                                  onPressed: () {
-                                    Flyout.of(context).close;
-                                    level = 5;
-                                    if (mounted) setState(() {});
-                                  },
-                                ),
-                                MenuFlyoutItem(
-                                  text: const Text('十档报价'),
-                                  onPressed: () {
-                                    Flyout.of(context).close;
-                                    level = 10;
-                                    if (mounted) setState(() {});
-                                  },
-                                ),
-                              ]);
-                            },
-                          );
-                        },
-                      ),
-                    )
-                  ],
-                )),
+                    onPressed: () {}),
+                Text(
+                  change,
+                  style: TextStyle(color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                ),
+                Text(
+                  changePer,
+                  style: TextStyle(color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                ),
+              ],
+            ),
             Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(border: Border.all(color: Colors.red)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (level == 10) priceItem("卖十", "${contract!.level2List?[29].price ?? 0.00}", "${contract!.level2List?[29].volume ?? 0}"),
-                  if (level == 10) priceItem("卖九", "${contract!.level2List?[28].price ?? 0.00}", "${contract!.level2List?[28].volume ?? 0}"),
-                  if (level == 10) priceItem("卖八", "${contract!.level2List?[27].price ?? 0.00}", "${contract!.level2List?[27].volume ?? 0}"),
-                  if (level == 10) priceItem("卖七", "${contract!.level2List?[26].price ?? 0.00}", "${contract!.level2List?[26].volume ?? 0}"),
-                  if (level == 10) priceItem("卖六", "${contract!.level2List?[25].price ?? 0.00}", "${contract!.level2List?[25].volume ?? 0}"),
-                  if (level == 10 || level == 5)
-                    priceItem("卖五", "${contract!.level2List?[24].price ?? 0.00}", "${contract!.level2List?[24].volume ?? 0}"),
-                  if (level == 10 || level == 5)
-                    priceItem("卖四", "${contract!.level2List?[23].price ?? 0.00}", "${contract!.level2List?[23].volume ?? 0}"),
-                  if (level == 10 || level == 5)
-                    priceItem("卖三", "${contract!.level2List?[22].price ?? 0.00}", "${contract!.level2List?[22].volume ?? 0}"),
-                  if (level == 10 || level == 5)
-                    priceItem("卖二", "${contract!.level2List?[21].price ?? 0.00}", "${contract!.level2List?[21].volume ?? 0}"),
-                  priceItem("卖一", "${contract!.level2List?[20].price ?? 0.00}", "${contract!.level2List?[20].volume ?? 0}", fontSize: 22),
-                ],
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(5),
+                color: themeController.theme.activeColor,
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(5),
-              decoration: BoxDecoration(border: Border.all(color: Colors.red)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                priceItem("买一", "${contract!.level2List?[0].price ?? 0.00}", "${contract!.level2List?[0].volume ?? 0}", fontSize: 22),
-                if (level == 10 || level == 5)
-                  priceItem("买二", "${contract!.level2List?[1].price ?? 0.00}", "${contract!.level2List?[1].volume ?? 0}"),
-                if (level == 10 || level == 5)
-                  priceItem("买三", "${contract!.level2List?[2].price ?? 0.00}", "${contract!.level2List?[2].volume ?? 0}"),
-                if (level == 10 || level == 5)
-                  priceItem("买四", "${contract!.level2List?[3].price ?? 0.00}", "${contract!.level2List?[3].volume ?? 0}"),
-                if (level == 10 || level == 5)
-                  priceItem("买五", "${contract!.level2List?[4].price ?? 0.00}", "${contract!.level2List?[4].volume ?? 0}"),
-                if (level == 10) priceItem("买六", "${contract!.level2List?[5].price ?? 0.00}", "${contract!.level2List?[5].volume ?? 0}"),
-                if (level == 10) priceItem("买七", "${contract!.level2List?[6].price ?? 0.00}", "${contract!.level2List?[6].volume ?? 0}"),
-                if (level == 10) priceItem("买八", "${contract!.level2List?[7].price ?? 0.00}", "${contract!.level2List?[7].volume ?? 0}"),
-                if (level == 10) priceItem("买九", "${contract!.level2List?[8].price ?? 0.00}", "${contract!.level2List?[8].volume ?? 0}"),
-                if (level == 10) priceItem("买十", "${contract!.level2List?[9].price ?? 0.00}", "${contract!.level2List?[9].volume ?? 0}"),
-              ]),
-            ),
-            Container(
-              decoration: BoxDecoration(border: Border.all(color: Colors.red)),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.symmetric(horizontal: 10),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              padding: EdgeInsets.fromLTRB(5.sp, 5.sp, 5.sp, 0),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        dataItem("最新", thin: true),
-                        dataItem("涨跌", thin: true),
-                        dataItem("幅度", thin: true),
-                        dataItem("总手", thin: true),
-                        dataItem("现手", thin: true),
-                        dataItem("持仓", thin: true),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        dataItem(pankouLastPrice, color: pankouColor),
-                        dataItem(pankouChange, color: pankouColor),
-                        dataItem(pankouChangePer, color: pankouColor),
-                        dataItem(pankouAllMarket, color: pankouColor),
-                        dataItem(pankouCirMarket, color: Colors.yellow),
-                        dataItem(pankouPosition, color: Colors.yellow),
-                      ],
-                    ),
-                  ),
-                  DashedLine(
-                    axis: Axis.vertical,
-                    dashColor: Colors.red,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.symmetric(horizontal: 10),
-                        width: 1,
-                        height: 180,
-                        alignment: Alignment.center,
+                  priceItem("卖一", "${contract!.level2List?[20].price ?? 0.00}", "${contract!.level2List?[20].volume ?? 0}"),
+                  priceItem("买一", "${contract!.level2List?[0].price ?? 0.00}", "${contract!.level2List?[0].volume ?? 0}")
+                      .marginSymmetric(vertical: 5.sp),
+                  Container(
+                    decoration:
+                        BoxDecoration(border: Border(top: BorderSide(width: themeController.isDarkMode.value ? 0.8 : 0.2, color: Colors.grey))),
+                    alignment: Alignment.center,
+                    child: IntrinsicHeight(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                dataItem("最新", thin: true),
+                                dataItem("涨跌", thin: true),
+                                dataItem("幅度", thin: true),
+                                dataItem("总手", thin: true),
+                                dataItem("现手", thin: true),
+                                dataItem("持仓", thin: true),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                dataItem(pankouLastPrice, color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouChange, color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouChangePer, color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouAllMarket, color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouCirMarket),
+                                dataItem(pankouPosition),
+                              ],
+                            ),
+                          ),
+                          Container(
+                            width: themeController.isDarkMode.value ? 0.8 : 0.2,
+                            color: Colors.grey,
+                            margin: EdgeInsets.fromLTRB(5.sp, 0, 5.sp, 5.sp),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                dataItem("均价", thin: true),
+                                dataItem("昨结", thin: true),
+                                dataItem("开盘", thin: true),
+                                dataItem("最高", thin: true),
+                                dataItem("最低", thin: true),
+                                dataItem("仓差", thin: true),
+                              ],
+                            ),
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                dataItem(pankouAvr),
+                                dataItem(pankouPresettle, color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouOpenprice, color: Colors.white),
+                                dataItem(pankouHighprice, color: pankouHighUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouLowprice, color: pankouLowUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor),
+                                dataItem(pankouPoor),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        dataItem("均价", thin: true),
-                        dataItem("昨结", thin: true),
-                        dataItem("开盘", thin: true),
-                        dataItem("最高", thin: true),
-                        dataItem("最低", thin: true),
-                        dataItem("仓差", thin: true),
-                      ],
                     ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        dataItem(pankouAvr, color: Colors.yellow),
-                        dataItem(pankouPresettle, color: pankouColor),
-                        dataItem(pankouOpenprice, color: Colors.white),
-                        dataItem(pankouHighprice, color: pankouHighColor),
-                        dataItem(pankouLowprice, color: pankouLowColor),
-                        dataItem(pankouPoor, color: Colors.yellow),
-                      ],
-                    ),
-                  ),
+                  )
                 ],
               ),
             ),
             Container(
                 height: 1.sh,
-                decoration: BoxDecoration(border: Border.all(color: Colors.red)),
-                child: Column(
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(flex: 2, child: detailItem("时间", fontSize: 18)),
-                        Expanded(flex: 2, child: detailItem("价位", fontSize: 18)),
-                        Expanded(flex: 1, child: detailItem("现手", fontSize: 18)),
-                      ],
-                    ).marginOnly(bottom: 3),
-                    Expanded(
-                        child: ListView.builder(
-                            shrinkWrap: true,
-                            itemCount: quoteFilledData.length,
-                            itemBuilder: (BuildContext context, int index) {
-                              String timeStr = quoteFilledData[index].updateTime.split(" ")[1];
-                              return Row(
-                                children: [
-                                  Expanded(flex: 2, child: detailItem(timeStr.substring(0, timeStr.indexOf(".")))),
-                                  Expanded(flex: 2, child: detailItem(quoteFilledData[index].lastPrice.toString(), up: 1)),
-                                  Expanded(
-                                      flex: 1,
-                                      child: detailItem(quoteFilledData[index].volume.toInt().toString(), up: quoteFilledData[index].orderForward)),
-                                ],
-                              );
-                            })),
-                  ],
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(5),
+                  color: themeController.theme.activeColor,
+                ),
+                padding: EdgeInsets.all(4.sp),
+                margin: EdgeInsets.only(top: 1.sp),
+                child: IntrinsicWidth(
+                  child: Column(
+                    children: [
+                      Text(
+                        "分时成交",
+                        style: TextStyle(color: themeController.theme.acrylicBackgroundColor, fontWeight: FontWeight.w500),
+                      ),
+                      Container(
+                        color: Colors.grey,
+                        height: themeController.isDarkMode.value ? 0.8 : 0.2,
+                        margin: EdgeInsets.only(bottom: 1.sp, top: 4.sp),
+                      ),
+                      Expanded(
+                          child: ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: quoteFilledData.length,
+                              itemBuilder: (BuildContext context, int index) {
+                                String timeStr = quoteFilledData[index].updateTime.split(" ")[1];
+                                return Row(
+                                  children: [
+                                    Expanded(
+                                      child: Align(
+                                          alignment: Alignment.centerLeft,
+                                          child: FittedBox(
+                                            fit: BoxFit.scaleDown,
+                                            child: Text(
+                                              timeStr.substring(0, timeStr.indexOf(".")),
+                                              style: TextStyle(
+                                                fontSize: 14,
+                                                color: themeController.theme.acrylicBackgroundColor,
+                                              ),
+                                            ),
+                                          )),
+                                    ),
+                                    Expanded(
+                                      child: FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          quoteFilledData[index].lastPrice.toString(),
+                                          style: TextStyle(
+                                            fontSize: 14,
+                                            color: themeController.theme.acrylicBackgroundColor,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Expanded(
+                                      child: Align(
+                                        alignment: Alignment.centerRight,
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Text(
+                                            quoteFilledData[index].volume.toInt().toString(),
+                                            style: TextStyle(
+                                              fontSize: 14,
+                                              color: quoteFilledData[index].orderForward == 1
+                                                  ? Common.quoteHighColor
+                                                  : quoteFilledData[index].orderForward == 2
+                                                      ? themeController.theme.focusTheme.glowColor
+                                                      : themeController.theme.acrylicBackgroundColor,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ).marginSymmetric(vertical: 1.sp);
+                              })),
+                    ],
+                  ),
                 )),
           ],
         ),
@@ -4797,50 +4863,38 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
   Widget dataItem(String? title, {Color? color, bool? thin}) {
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 5),
+      margin: EdgeInsets.only(top: 3.sp),
       child: FittedBox(
         fit: BoxFit.scaleDown,
-        child: Text(title ?? "-",
-            style: TextStyle(fontWeight: thin == true ? FontWeight.w100 : FontWeight.bold, fontSize: 16, color: color ?? appTheme.color)),
+        child: Text(title ?? "-", style: TextStyle(color: color ?? themeController.theme.acrylicBackgroundColor)),
       ),
     );
   }
 
-  Widget priceItem(String title, String price, String count, {double? fontSize}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 2),
-      child: Row(children: [
-        Expanded(child: FittedBox(fit: BoxFit.scaleDown, child: Text(title, style: TextStyle(fontSize: fontSize ?? 14, color: appTheme.color)))),
-        Expanded(
-            child: FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(price, textAlign: TextAlign.right, style: TextStyle(fontSize: fontSize ?? 16, color: pankouColor)))),
-        const SizedBox(width: 10),
-        Expanded(
-            flex: 2, child: FittedBox(fit: BoxFit.scaleDown, child: Text(count, style: TextStyle(fontSize: fontSize ?? 16, color: Colors.yellow)))),
-      ]),
-    );
-  }
-
-  Widget detailItem(String? text, {int? up, double? fontSize}) {
-    return Container(
-      margin: const EdgeInsets.symmetric(vertical: 1),
-      child: FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Text(
-          text ?? "--",
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: fontSize ?? 16,
-            color: Colors.red,
-            // color: up == 1
-            //     ? Colors.red
-            //     : up == 2
-            //         ? Colors.green
-            //         : appTheme.color,
-          ),
+  Widget priceItem(String title, String price, String count) {
+    return Row(children: [
+      Expanded(
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FittedBox(fit: BoxFit.scaleDown, child: Text(title, style: TextStyle(color: themeController.theme.acrylicBackgroundColor))),
         ),
       ),
-    );
+      Expanded(
+        child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(price, style: TextStyle(color: pankouUp ? Common.quoteHighColor : themeController.theme.focusTheme.glowColor))),
+      ),
+      Expanded(
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                count,
+                style: TextStyle(color: themeController.theme.acrylicBackgroundColor),
+              )),
+        ),
+      ),
+    ]);
   }
 }

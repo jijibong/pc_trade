@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:get/get.dart' hide Condition;
-import 'package:provider/provider.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -35,6 +34,7 @@ class ConditionPage extends StatefulWidget {
 }
 
 class _ConditionPageState extends State<ConditionPage> with MultiWindowListener {
+  final ThemeController themeController = Get.find<ThemeController>();
   double boxWidth = 108;
   double boxHeight = 34;
   double padWidth = 12;
@@ -57,7 +57,6 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
   int mTriggerPriceType = 1, mOrderSide = SideType.SIDE_SELL, mPositionEffect = PositionEffectType.PositionEffect_COVER;
   Condition selectedCondition = Condition();
   List<Condition> mConditionList = [];
-  late AppTheme appTheme;
   ScrollController scrollController = ScrollController();
 
   int windowId() {
@@ -101,7 +100,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
   }
 
   void qryCondition(int status) async {
-    await ConditionServer.queryTodayCondition().then((value) {
+    await ConditionServer.queryCondition().then((value) {
       if (value != null) {
         mConditionList.clear();
         for (Condition con in value) {
@@ -245,12 +244,11 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return NavigationView(
       appBar: NavigationAppBar(
           automaticallyImplyLeading: false,
           height: 30,
-          backgroundColor: appTheme.commandBarColor,
+          backgroundColor: themeController.theme.cardColor,
           title: GestureDetector(
             onPanStart: (_) => startDragging(false),
             onPanCancel: () {
@@ -264,7 +262,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
               }
             },
             child: Row(children: [
-              Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
+              // Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
               Expanded(
                   child: const Text(
                 "条件单修改",
@@ -620,7 +618,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
 
   Widget tableTitleItem(String? text) {
     return Container(
-      decoration: BoxDecoration(border: Border.all(color: appTheme.exchangeBgColor)),
+      // decoration: BoxDecoration(border: Border.all(color: themeController.theme.focusColor)),
       padding: const EdgeInsets.symmetric(vertical: 5),
       alignment: Alignment.center,
       child: AnimatedFluentTheme(
@@ -632,7 +630,7 @@ class _ConditionPageState extends State<ConditionPage> with MultiWindowListener 
               text ?? "--",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(color: appTheme.color),
+              style: TextStyle(color: themeController.theme.activeColor),
             )),
       ),
     );

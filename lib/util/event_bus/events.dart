@@ -220,3 +220,4 @@ class SectorEvent {
   String json;
   SectorEvent({required this.json});
 }
+

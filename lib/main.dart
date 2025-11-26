@@ -8,8 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
-import 'package:provider/provider.dart';
-import 'package:system_theme/system_theme.dart';
 import 'package:trade/page/draw/color_picker.dart';
 import 'package:trade/page/draw/draw_order.dart';
 import 'package:trade/page/draw/draw_tool.dart';
@@ -19,7 +17,7 @@ import 'package:trade/page/secondary/condition.dart';
 import 'package:trade/page/secondary/sector_manage.dart';
 import 'package:trade/page/secondary/notification.dart';
 import 'package:trade/page/secondary/pl_page.dart';
-import 'package:trade/page/secondary/sub_window.dart';
+import 'package:trade/page/trade/order_page.dart';
 import 'package:trade/page/trade/trade.dart';
 import 'package:trade/util/multi_windows_manager/common.dart';
 import 'package:trade/util/multi_windows_manager/consts.dart';
@@ -44,9 +42,7 @@ Size? size;
 
 Future<void> main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
-  if (!kIsWeb && [TargetPlatform.windows].contains(defaultTargetPlatform)) {
-    SystemTheme.accentColor.load();
-  }
+  Get.put(ThemeController());
 
   if (isDesktop) {
     if (args.isNotEmpty && args.first == 'multi_window') {
@@ -65,6 +61,13 @@ Future<void> main(List<String> args) async {
           runMultiWindow(
             argument,
             kAppTypeDesktopRemote,
+          );
+          break;
+        case WindowType.Order:
+          desktopType = DesktopType.order;
+          runMultiWindow(
+            argument,
+            kAppTypeDesktopOrder,
           );
           break;
         case WindowType.PL:
@@ -109,18 +112,11 @@ Future<void> main(List<String> args) async {
             kAppTypeDesktopNotification,
           );
           break;
-        case WindowType.Order:
-          desktopType = DesktopType.order;
+        case WindowType.DrawOrder:
+          desktopType = DesktopType.drawOrder;
           runMultiWindow(
             argument,
             kAppTypeDesktopDrawOrder,
-          );
-          break;
-        case WindowType.SubWindow:
-          desktopType = DesktopType.subWindow;
-          runMultiWindow(
-            argument,
-            kAppTypeDesktopSubWindow,
           );
           break;
         case WindowType.SectorManage:
@@ -205,8 +201,22 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & Size(size.width * 0.65, size.height * 0.47))
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.65, size.height * 0.53))
         ..setTitle("交易")
+        ..center()
+        ..show();
+      break;
+    case kAppTypeDesktopOrder:
+      _runOrderApp(
+        title,
+        argument,
+      );
+      if (kUseCompatibleUiMode) {
+        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
+      }
+      WindowController.fromWindowId(kWindowId!)
+        ..setFrame(const Offset(0, 0) & Size(size.width * 0.45, size.height * 0.56))
+        ..setTitle("")
         ..center()
         ..show();
       break;
@@ -247,7 +257,7 @@ void runMultiWindow(
         WindowController.fromWindowId(kWindowId!).showTitleBar(true);
       }
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & Size(size.width * 0.09, size.height * 0.4))
+        ..setFrame(const Offset(0, 0) & const Size(380, 495))
         ..setTitle("画线工具箱")
         ..center()
         ..show();
@@ -304,21 +314,8 @@ void runMultiWindow(
       }
 
       WindowController.fromWindowId(kWindowId!)
-        ..setFrame(Offset(size.width - 315, size.height - 340) & const Size(315, 305))
+        ..setFrame(Offset(size.width - 315, size.height - 340) & const Size(315, 300))
         ..setTitle("提示")
-        ..show();
-      break;
-    case kAppTypeDesktopSubWindow:
-      _runSubWindow(
-        title,
-        argument,
-      );
-      if (kUseCompatibleUiMode) {
-        WindowController.fromWindowId(kWindowId!).showTitleBar(true);
-      }
-      WindowController.fromWindowId(kWindowId!)
-        ..setFrame(const Offset(0, 0) & const Size(1450, 850))
-        ..setTitle("行情")
         ..show();
       break;
     case kAppTypeDesktopSectorManage:
@@ -346,6 +343,32 @@ void _runTradeApp(
 ) async {
   runApp(RefreshWrapper(
     builder: (context) => ScreenUtilInit(
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (context, child) {
+          return GetBuilder<ThemeController>(builder: (themeController) {
+            return FluentApp(
+              debugShowCheckedModeBanner: false,
+              localizationsDelegates: const [
+                FluentLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: const [Locale('en'), Locale('zh')],
+              home: Trade(params: argument),
+              navigatorKey: Get.key,
+            );
+          });
+        }),
+  ));
+}
+
+void _runOrderApp(
+  String title,
+  Map<String, dynamic> argument,
+) async {
+  runApp(RefreshWrapper(
+    builder: (context) => ScreenUtilInit(
         designSize: const Size(360, 690),
         minTextAdapt: true,
         splitScreenMode: true,
@@ -361,21 +384,17 @@ void _runTradeApp(
                     brightness: Brightness.dark,
                     visualDensity: VisualDensity.standard,
                   ),
-                  themeMode: _appTheme.mode,
                   theme: FluentThemeData(
                     visualDensity: VisualDensity.standard,
                   ),
-                  home: MultiProvider(
-                      providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-                      child: Trade(params: argument)),
+                  home: OrderPage(params: argument),
+                  localizationsDelegates: const [
+                    FluentLocalizations.delegate,
+                    GlobalMaterialLocalizations.delegate,
+                    GlobalWidgetsLocalizations.delegate,
+                  ],
+                  supportedLocales: const [Locale('en'), Locale('zh')],
                 ),
-                localizationsDelegates: const [
-                  FluentLocalizations.delegate,
-                  GlobalMaterialLocalizations.delegate,
-                  GlobalWidgetsLocalizations.delegate,
-                  GlobalCupertinoLocalizations.delegate,
-                ],
-                supportedLocales: const [Locale('zh', 'CN')],
                 builder: (context, child) {
                   child = _keepScaleBuilder(context, child);
                   return child;
@@ -401,13 +420,10 @@ void _runPLApp(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: PlPage(params: argument)),
+          home: PlPage(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -441,13 +457,10 @@ void _runConditionApp(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: ConditionPage(params: argument)),
+          home: ConditionPage(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -481,13 +494,10 @@ void _runDrawApp(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: DrawTool(params: argument)),
+          home: DrawTool(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -521,13 +531,10 @@ void _runDrawSetting(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: LineSetting(params: argument)),
+          home: LineSetting(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -561,13 +568,10 @@ void _runColorPicker(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: ColorPickerPage(params: argument)),
+          home: ColorPickerPage(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -601,13 +605,10 @@ void _runDrawOrderApp(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: DrawOrder(params: argument)),
+          home: DrawOrder(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -638,7 +639,6 @@ void _runLocalNotification(
           brightness: Brightness.dark,
           visualDensity: VisualDensity.standard,
         ),
-        themeMode: _appTheme.mode,
         theme: FluentThemeData(
           visualDensity: VisualDensity.standard,
         ),
@@ -646,60 +646,15 @@ void _runLocalNotification(
           FluentLocalizations.delegate,
           GlobalMaterialLocalizations.delegate,
           GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
         ],
         supportedLocales: const [Locale('zh', 'CN')],
         builder: (context, child) {
           child = _keepScaleBuilder(context, child);
           return child;
         },
-        home: MultiProvider(
-            providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-            child: LocalNotification(params: argument)),
+        home: LocalNotification(params: argument),
       ),
     ),
-  ));
-}
-
-void _runSubWindow(
-  String title,
-  Map<String, dynamic> argument,
-) {
-  runApp(RefreshWrapper(
-    builder: (context) => ScreenUtilInit(
-        designSize: const Size(360, 690),
-        minTextAdapt: true,
-        splitScreenMode: true,
-        builder: (context, child) {
-          return AnimatedFluentTheme(
-            data: FluentThemeData(visualDensity: VisualDensity.standard),
-            child: FluentApp(
-              debugShowCheckedModeBanner: false,
-              darkTheme: FluentThemeData(
-                brightness: Brightness.dark,
-                visualDensity: VisualDensity.standard,
-              ),
-              themeMode: _appTheme.mode,
-              theme: FluentThemeData(
-                visualDensity: VisualDensity.standard,
-              ),
-              localizationsDelegates: const [
-                FluentLocalizations.delegate,
-                GlobalMaterialLocalizations.delegate,
-                GlobalWidgetsLocalizations.delegate,
-                GlobalCupertinoLocalizations.delegate,
-              ],
-              supportedLocales: const [Locale('zh', 'CN')],
-              builder: (context, child) {
-                child = _keepScaleBuilder(context, child);
-                return child;
-              },
-              home: MultiProvider(
-                  providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-                  child: SubWindow(params: argument)),
-            ),
-          );
-        }),
   ));
 }
 
@@ -719,13 +674,10 @@ void _runSectorManage(
             brightness: Brightness.dark,
             visualDensity: VisualDensity.standard,
           ),
-          themeMode: _appTheme.mode,
           theme: FluentThemeData(
             visualDensity: VisualDensity.standard,
           ),
-          home: MultiProvider(
-              providers: [ChangeNotifierProvider.value(value: gFFI.ffiModel), ChangeNotifierProvider.value(value: _appTheme)],
-              child: SectorManage(params: argument)),
+          home: SectorManage(params: argument),
         ),
         localizationsDelegates: const [
           FluentLocalizations.delegate,
@@ -752,8 +704,6 @@ Widget _keepScaleBuilder(BuildContext context, Widget? child) {
   );
 }
 
-final _appTheme = AppTheme();
-
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -763,52 +713,21 @@ class MyApp extends StatelessWidget {
         minTextAdapt: true,
         splitScreenMode: true,
         builder: (context, child) {
-          return MultiProvider(
-            providers: [
-              ChangeNotifierProvider.value(value: gFFI.ffiModel),
-              ChangeNotifierProvider.value(
-                value: _appTheme,
-                builder: (context, child) {
-                  final appTheme = context.watch<AppTheme>();
-                  return AnimatedFluentTheme(
-                    data: FluentThemeData(visualDensity: VisualDensity.standard),
-                    child: GetMaterialApp(
-                      debugShowCheckedModeBanner: false,
-                      localizationsDelegates: const [
-                        FluentLocalizations.delegate,
-                        GlobalMaterialLocalizations.delegate,
-                        GlobalWidgetsLocalizations.delegate,
-                        GlobalCupertinoLocalizations.delegate,
-                      ],
-                      supportedLocales: [appTheme.locale],
-                      builder: (context, child) {
-                        return AnimatedFluentTheme(
-                          data: FluentThemeData(),
-                          child: child!,
-                        );
-                      },
-                      // navigatorObservers: [BotToastNavigatorObserver()],
-                      title: Common.appName,
-                      locale: appTheme.locale,
-                      home: FluentApp(
-                        debugShowCheckedModeBanner: false,
-                        themeMode: appTheme.mode,
-                        color: appTheme.color,
-                        darkTheme: FluentThemeData(
-                          brightness: Brightness.dark,
-                          visualDensity: VisualDensity.standard,
-                        ),
-                        theme: FluentThemeData(
-                          visualDensity: VisualDensity.standard,
-                        ),
-                        home: const Homepage(),
-                      ),
-                    ),
-                  );
-                },
-              )
-            ],
-          );
+          return GetBuilder<ThemeController>(builder: (themeController) {
+            return FluentApp(
+              debugShowCheckedModeBanner: false,
+              localizationsDelegates: const [
+                FluentLocalizations.delegate,
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+              ],
+              supportedLocales: const [Locale('en'), Locale('zh')],
+              theme: themeController.theme,
+              title: Common.appName,
+              home: const Homepage(),
+              navigatorKey: Get.key,
+            );
+          });
         });
   }
 }

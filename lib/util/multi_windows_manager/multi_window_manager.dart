@@ -10,7 +10,7 @@ import 'consts.dart';
 
 /// must keep the order
 // ignore: constant_identifier_names
-enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, Order, SubWindow, SectorManage, Unknown }
+enum WindowType { Main, Trade, PL, Condition, Draw, Setting, Color, Notification, DrawOrder, SectorManage, Order, Unknown }
 
 extension Index on int {
   WindowType get windowType {
@@ -32,11 +32,11 @@ extension Index on int {
       case 7:
         return WindowType.Notification;
       case 8:
-        return WindowType.Order;
+        return WindowType.DrawOrder;
       case 9:
-        return WindowType.SubWindow;
-      case 10:
         return WindowType.SectorManage;
+      case 10:
+        return WindowType.Order;
       default:
         return WindowType.Unknown;
     }
@@ -68,8 +68,8 @@ class RustDeskMultiWindowManager {
   final List<int> _colorWindows = List.empty(growable: true);
   final List<int> _notificationWindows = List.empty(growable: true);
   final List<int> _orderWindows = List.empty(growable: true);
+  final List<int> _drawOrderWindows = List.empty(growable: true);
   final List<int> _settingWindows = List.empty(growable: true);
-  final List<int> _subWindows = List.empty(growable: true);
   final List<int> _sectorManage = List.empty(growable: true);
 
   // This function must be called in the main window thread.
@@ -311,10 +311,10 @@ class RustDeskMultiWindowManager {
 
   Future<MultiWindowCallResult> newDrawOrder(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
     return await newSession(
-      WindowType.Order,
+      WindowType.DrawOrder,
       kWindowEventDrawOrder,
       remoteId,
-      _orderWindows,
+      _drawOrderWindows,
       password: password,
       forceRelay: forceRelay,
       hold: hold,
@@ -333,18 +333,6 @@ class RustDeskMultiWindowManager {
     );
   }
 
-  Future<MultiWindowCallResult> newSubWindows(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
-    return await newSession(
-      WindowType.SubWindow,
-      kWindowEventSubWindow,
-      remoteId,
-      _subWindows,
-      password: password,
-      forceRelay: forceRelay,
-      hold: hold,
-    );
-  }
-
   Future<MultiWindowCallResult> newSectorManage(String remoteId, {String? password, bool? forceRelay, String? hold}) async {
     return await newSession(
       WindowType.SectorManage,
@@ -354,6 +342,19 @@ class RustDeskMultiWindowManager {
       password: password,
       forceRelay: forceRelay,
       hold: hold,
+    );
+  }
+
+  Future<MultiWindowCallResult> newAdvancedOrder(String remoteId, {String? password, bool? forceRelay, String? hold, String? contract}) async {
+    return await newSession(
+      WindowType.Order,
+      kWindowEventAdvancedOrder,
+      remoteId,
+      _orderWindows,
+      password: password,
+      forceRelay: forceRelay,
+      hold: hold,
+      contract: contract
     );
   }
 
@@ -390,12 +391,12 @@ class RustDeskMultiWindowManager {
         return _settingWindows;
       case WindowType.Notification:
         return _notificationWindows;
-      case WindowType.Order:
-        return _orderWindows;
-      case WindowType.SubWindow:
-        return _subWindows;
+      case WindowType.DrawOrder:
+        return _drawOrderWindows;
       case WindowType.SectorManage:
         return _sectorManage;
+      case WindowType.Order:
+        return _orderWindows;
       case WindowType.Unknown:
         break;
     }
@@ -427,13 +428,14 @@ class RustDeskMultiWindowManager {
       case WindowType.Notification:
         _notificationWindows.clear();
         break;
-      case WindowType.Order:
-        _orderWindows.clear();
-        break;
-      case WindowType.SubWindow:
-        _subWindows.clear();
+      case WindowType.DrawOrder:
+        _drawOrderWindows.clear();
         break;
       case WindowType.SectorManage:
+        _sectorManage.clear();
+        break;
+      case WindowType.Order:
+        _orderWindows.clear();
         break;
       case WindowType.Unknown:
         break;

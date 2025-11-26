@@ -1,11 +1,10 @@
-import 'dart:math';
-
 import 'package:flutter/cupertino.dart';
-import 'package:path_drawing/path_drawing.dart';
+import 'package:get/get.dart';
 import 'package:trade/util/painter/k_chart/sub_chart_painter.dart';
 
 import '../../../util/log/log.dart';
-import '../../../util/painter/k_chart/k_chart_painter.dart';
+import '../../../util/painter/k_chart/method_util.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -44,6 +43,7 @@ class MACDEntity {
    * 增加数据类
    */
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   /**
    * 初始化数据
@@ -55,13 +55,14 @@ class MACDEntity {
    * @param pri_type
    */
   void initData(List<OHLCEntity> OHLCData, int Speriod, int Lperiod, int period, int pri_type) {
+    DEAs.clear();
+    DIFs.clear();
+    MACDs.clear();
+
     if (OHLCData.isEmpty || Lperiod - 1 >= OHLCData.length) {
       return;
     }
 
-    DEAs.clear();
-    DIFs.clear();
-    MACDs.clear();
     List<OHLCEntity> OHLCList = <OHLCEntity>[];
     OHLCList.clear();
     OHLCList.addAll(OHLCData);
@@ -262,16 +263,16 @@ class MACDEntity {
     }
     double lowerHight = viewHeight - Port.defult_margin_top - halfTextHeight * 2;
     double textsize = DEFAULT_AXIS_TITLE_SIZE;
-    Paint blackPaint = getDrawPaint(const Color.fromRGBO(0, 0, 0, 1));
-    Paint redPaint = getDrawPaint(Port.macdUpColor);
-    Paint greenPaint = getDrawPaint(Port.macdDownColor);
-    Paint deaPaint = getDrawPaint(Port.macdSlowColor);
-    Paint diffPaint = getDrawPaint(Port.macdFastColor);
+    Paint blackPaint = MethodUntil().getDrawPaint(const Color.fromRGBO(0, 0, 0, 1));
+    Paint redPaint = MethodUntil().getDrawPaint(Port.macdUpColor);
+    Paint greenPaint = MethodUntil().getDrawPaint(themeController.theme.focusTheme.glowColor!);
+    Paint deaPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.deaDarkColor : Port.deaLightColor);
+    Paint diffPaint = MethodUntil().getDrawPaint(themeController.isDarkMode.value ? Port.diffDarkColor : Port.diffLightColor);
     TextPainter textPaint = TextPainter(); // getDrawPaint(Port.chartTxtColor);
-    Paint girdPaint = getDrawPaint(Port.girdColor);
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
     girdPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     redPaint.strokeWidth = Port.macdWidth[2].toDouble();
     blackPaint.strokeWidth = 1;
     greenPaint.strokeWidth = Port.macdWidth[3].toDouble();
@@ -292,7 +293,7 @@ class MACDEntity {
 
     double textWidth = SubChartPainter.getStringWidth("$price ", textPaint);
     textPaint
-      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.dividerColor, fontSize: textsize))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth, viewHeight - maxheight - halfTextHeight));
@@ -305,7 +306,7 @@ class MACDEntity {
     String price0 = "0.00";
     double textWidth0 = SubChartPainter.getStringWidth("$price0 ", textPaint);
     textPaint
-      ..text = TextSpan(text: price0, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
+      ..text = TextSpan(text: price0, style: TextStyle(color: Port.dividerColor, fontSize: textsize))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth0, Y - halfTextHeight));
@@ -314,17 +315,18 @@ class MACDEntity {
     double minheight = (minPrice / 2 - minPrice) * rate;
     path.moveTo(leftMarginSpace, viewHeight - minheight);
     path.lineTo(viewWidth, viewHeight - minheight);
-    canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      girdPaint,
-    );
+    canvas.drawPath(path, girdPaint);
+    // canvas.drawPath(
+    //   dashPath(
+    //     path,
+    //     dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+    //   ),
+    //   girdPaint,
+    // );
     String lowPrice = Utils.getLimitNum(minPrice / 2, 2);
     double textWidth1 = SubChartPainter.getStringWidth("$lowPrice ", textPaint);
     textPaint
-      ..text = TextSpan(text: lowPrice, style: TextStyle(color: Port.chartTxtColor, fontSize: textsize))
+      ..text = TextSpan(text: lowPrice, style: TextStyle(color: Port.dividerColor, fontSize: textsize))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth1, viewHeight - minheight - halfTextHeight));
@@ -414,9 +416,15 @@ class MACDEntity {
           ..text = TextSpan(
             children: [
               TextSpan(text: "MACD($macdSPeriod , $macdLPeriod , $macdPeriod)", style: TextStyle(color: Port.chartTxtColor, fontSize: textsize)),
-              if (diff != null) TextSpan(text: "  DIFF:$diff", style: TextStyle(color: Port.macdFastColor, fontSize: textsize)),
-              if (dea != null) TextSpan(text: "  DEA:$dea", style: TextStyle(color: Port.macdSlowColor, fontSize: textsize)),
-              if (macd != null) TextSpan(text: "  $macd", style: TextStyle(color: Port.macdFastColor, fontSize: textsize)),
+              if (diff != null)
+                TextSpan(
+                    text: "  DIFF:$diff",
+                    style: TextStyle(color: themeController.isDarkMode.value ? Port.diffDarkColor : Port.diffLightColor, fontSize: textsize)),
+              if (dea != null)
+                TextSpan(
+                    text: "  DEA:$dea",
+                    style: TextStyle(color: themeController.isDarkMode.value ? Port.deaDarkColor : Port.deaLightColor, fontSize: textsize)),
+              if (macd != null) TextSpan(text: "  $macd", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: textsize)),
             ],
           )
           ..textDirection = TextDirection.ltr
@@ -441,17 +449,5 @@ class MACDEntity {
         // }
       }
     }
-  }
-
-  /**
-   * 绘图画笔
-   */
-  Paint getDrawPaint(Color color) {
-    Paint paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.fill
-      ..isAntiAlias = true
-      ..strokeWidth = Port.StrokeWidth;
-    return paint;
   }
 }

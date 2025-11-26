@@ -1,17 +1,16 @@
-import 'package:path_drawing/path_drawing.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
 import 'CalcIndexData.dart';
+import 'package:get/get.dart';
 
 /**
  * 商品路径CCI指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class CCIEntity {
   /**CCI数据集合*/
@@ -30,6 +29,7 @@ class CCIEntity {
   static const Color DEFAULT_DOTTED_COLOR = Colors.grey;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   CCIEntity() {
     CCIs = [];
@@ -135,12 +135,12 @@ class CCIEntity {
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double latitudeSpacing = lowerHeight / 4; //每格高度
     double rate = 0.0; //每单位像素价格
-    Paint purplePaint = MethodUntil().getDrawPaint(Port.CCIColor);
+    Paint purplePaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
     TextPainter textPaint = TextPainter(); // MethodUntil().getDrawPaint(Port.chartTxtColor);
-    Paint dottedPaint = MethodUntil().getDrawPaint(Port.girdColor); //虚线画笔
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     purplePaint.strokeWidth = Port.CCIWidth[0];
 
     rate = lowerHeight / (maxPrice - minPrice);
@@ -152,17 +152,17 @@ class CCIEntity {
       path.moveTo(leftMarginSpace, latitudeSpacing * i + textBottom);
       path.lineTo(viewWidth - leftMarginSpace, latitudeSpacing * i + textBottom);
       canvas.drawPath(
-        dashPath(
-          path,
-          dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-        ),
-        dottedPaint,
+        // dashPath(
+        path,
+        // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+        // ),
+        girdPaint,
       );
       //绘制价格
       double textWidth = SubChartPainter.getStringWidth("${Utils.getPointNum(minPrice + perPrice * i)} ", textPaint);
       textPaint
         ..text =
-            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+            TextSpan(text: Utils.getPointNum(minPrice + perPrice * i), style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
         ..textDirection = TextDirection.ltr
         ..layout()
         ..paint(canvas, Offset(leftMarginSpace - textWidth, lowerHeight - latitudeSpacing * i + textBottom - halfTextHeight));
@@ -188,14 +188,15 @@ class CCIEntity {
       //绘制当前周期，最新一根数据的KDJ
       if (i == (mDataStartIndext + mShowDataNum - 1) && (i - (CCIPeriod - 1)) < CCIs.length) {
         String? cci;
-        if (isDrawCrossLine) {
+        if (isDrawCrossLine && currentIndex - (CCIPeriod - 1) >= 0 && currentIndex - (CCIPeriod - 1) < CCIs.length) {
           cci = Utils.getPointNum(CCIs[currentIndex - (CCIPeriod - 1)]);
         } else if ((mDataStartIndext + mShowDataNum) > CCIPeriod) {
           cci = Utils.getPointNum(CCIs[i - (CCIPeriod - 1)]);
         }
 
         textPaint
-          ..text = TextSpan(text: "CCI($CCIPeriod)  ($cci)", style: TextStyle(color: Port.CCIColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text = TextSpan(
+              text: "CCI($CCIPeriod)  ($cci)", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));

@@ -11,8 +11,6 @@ import 'CalcIndexData.dart';
 
 /**
  * 鳄鱼线指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class AlligatorEntity {
   /**鳄鱼线鳄线数据集合*/

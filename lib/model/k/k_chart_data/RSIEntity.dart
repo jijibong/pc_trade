@@ -1,8 +1,10 @@
-import 'package:path_drawing/path_drawing.dart';
+import 'package:get/get.dart';
 
 import 'package:fluent_ui/fluent_ui.dart';
+import '../../../util/log/log.dart';
 import '../../../util/painter/k_chart/method_util.dart';
 import '../../../util/painter/k_chart/sub_chart_painter.dart';
+import '../../../util/theme/theme.dart';
 import '../../../util/utils/utils.dart';
 import '../OHLCEntity.dart';
 import '../port.dart';
@@ -10,8 +12,6 @@ import 'CalcIndexData.dart';
 
 /**
  * RSI指标线绘制，数据计算
- * @author hexuejian
- *
  */
 class RSIEntity {
   /**RSI数据集合*/
@@ -31,6 +31,7 @@ class RSIEntity {
   static Color DEFAULT_DOTTED_COLOR = Colors.red;
   /**增加数据类*/
   CalcIndexData mCalcData = CalcIndexData();
+  final ThemeController themeController = Get.find<ThemeController>();
 
   RSIEntity() {
     RSIs = [];
@@ -45,7 +46,7 @@ class RSIEntity {
   void initData(List<OHLCEntity> OHLCData, int period, int priType) {
     RSIs.clear();
 
-    if (OHLCData == null || OHLCData.isEmpty) {
+    if (OHLCData.isEmpty) {
       return;
     }
 
@@ -146,12 +147,12 @@ class RSIEntity {
     double textBottom = Port.defult_margin_top;
     double lowerHeight = viewHeight - textBottom - halfTextHeight * 2;
     double rate = 0.0; //每单位像素价格
-    Paint yellowPaint = MethodUntil().getDrawPaint(Port.rsiColor);
+    Paint yellowPaint = MethodUntil().getDrawPaint(themeController.theme.inactiveColor);
     TextPainter textPaint = TextPainter();
-    Paint dottedPaint = MethodUntil().getDrawPaint(DEFAULT_DOTTED_COLOR); //虚线画笔
-    dottedPaint
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
+    Paint girdPaint = MethodUntil().getDrawPaint(Port.borderColor);
+    girdPaint
+      ..strokeWidth = themeController.isDarkMode.value ? 0.1 : 0.5
+      ..style = PaintingStyle.stroke;
     yellowPaint.strokeWidth = Port.rsiWidth;
 
     rate = lowerHeight / 100;
@@ -163,16 +164,16 @@ class RSIEntity {
     path.moveTo(leftMarginSpace, Y);
     path.lineTo(viewWidth, Y);
     canvas.drawPath(
-      dashPath(
-        path,
-        dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
-      ),
-      dottedPaint,
+      // dashPath(
+      path,
+      // dashArray: CircularIntervalList<double>(DEFAULT_DASH_EFFECT),
+      // ),
+      girdPaint,
     );
 
     double textWidth = SubChartPainter.getStringWidth("$price ", textPaint);
     textPaint
-      ..text = TextSpan(text: price, style: TextStyle(color: Port.chartTxtColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+      ..text = TextSpan(text: price, style: TextStyle(color: Port.dividerColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
       ..textDirection = TextDirection.ltr
       ..layout()
       ..paint(canvas, Offset(leftMarginSpace - textWidth, Y - halfTextHeight));
@@ -197,16 +198,18 @@ class RSIEntity {
       if (i == mDataStartIndext + mShowDataNum - 1) {
         String rsi = "";
 
+        // logger.i("${currentIndex} ; ${currentIndex - rsiPeriod + 1} ; ${RSIs[currentIndex - rsiPeriod + 1]}");
         if (isDrawCrossLine) {
-          if (currentIndex - rsiPeriod + 1 > 0 && currentIndex - rsiPeriod + 1 < RSIs.length) {
+          if (mDataStartIndext + mShowDataNum > rsiPeriod && currentIndex - rsiPeriod + 1 >= 0 && currentIndex - rsiPeriod + 1 < RSIs.length) {
             rsi = Utils.getPointNum(RSIs[currentIndex - rsiPeriod + 1]);
           }
-        } else if ((mDataStartIndext + mShowDataNum) > rsiPeriod && i - (rsiPeriod - 1) < RSIs.length) {
+        } else if (mDataStartIndext + mShowDataNum > rsiPeriod && i - (rsiPeriod - 1) < RSIs.length) {
           rsi = Utils.getPointNum(RSIs[i - (rsiPeriod - 1)]);
         }
 
         textPaint
-          ..text = TextSpan(text: "RSI($rsiPeriod)  $rsi", style: TextStyle(color: Port.rsiColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
+          ..text =
+              TextSpan(text: "RSI($rsiPeriod)  $rsi", style: TextStyle(color: themeController.theme.inactiveColor, fontSize: DEFAULT_AXIS_TITLE_SIZE))
           ..textDirection = TextDirection.ltr
           ..layout()
           ..paint(canvas, Offset(Port.defult_icon_width + leftMarginSpace, Port.text_check));

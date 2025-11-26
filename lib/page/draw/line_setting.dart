@@ -30,7 +30,7 @@ class LineSetting extends StatefulWidget {
 }
 
 class _LineSettingState extends State<LineSetting> with MultiWindowListener {
-  late AppTheme appTheme;
+  final ThemeController themeController = Get.find<ThemeController>();
   Size dropDownSize = const Size(200, 15);
   int currentIndex = 0;
   double boxHeight = 34;
@@ -98,12 +98,11 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
 
   @override
   Widget build(BuildContext context) {
-    appTheme = context.watch<AppTheme>();
     return NavigationView(
         appBar: NavigationAppBar(
             automaticallyImplyLeading: false,
             height: 30,
-            backgroundColor: appTheme.commandBarColor,
+            // backgroundColor: themeController.currentConfig.commandBarColor,
             title: GestureDetector(
               onPanStart: (_) => startDragging(false),
               onPanCancel: () {
@@ -117,12 +116,10 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
                 }
               },
               child: Row(children: [
-                Image.asset('assets/images/jmaster.ico', width: 16, height: 16),
-                Expanded(
-                    child: const Text(
+               const Text(
                   "画线属性",
                   style: TextStyle(fontSize: 13, color: Colors.white),
-                ).marginOnly(left: 2))
+                ).marginOnly(left: 2)
               ]).marginOnly(
                 left: 2,
                 right: 2,
@@ -148,7 +145,7 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
                           setState(() => currentIndex = 0);
                         },
                         child: Container(
-                          color: currentIndex == 0 ? Colors.blue.darkest : appTheme.exchangeTextColor,
+                          // color: currentIndex == 0 ? Colors.blue.darkest : appTheme.exchangeTextColor,
                           padding: const EdgeInsets.all(8),
                           child: Text(
                             "端点设置",
@@ -162,7 +159,7 @@ class _LineSettingState extends State<LineSetting> with MultiWindowListener {
                           setState(() => currentIndex = 1);
                         },
                         child: Container(
-                          color: currentIndex == 1 ? Colors.blue : appTheme.exchangeTextColor,
+                          // color: currentIndex == 1 ? Colors.blue : themeController.currentConfig.exchangeTextColor,
                           padding: const EdgeInsets.all(8),
                           child: Text(
                             "画线风格",

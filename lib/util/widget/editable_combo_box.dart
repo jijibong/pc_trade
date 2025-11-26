@@ -35,12 +35,17 @@ class EditableComboBox<T> extends ComboBox<T> {
     super.numBox,
     super.smallChange,
     required this.onFieldSubmitted,
+    this.decoration,
+    this.prefix,
     this.textController,
     this.onTextChanged,
     this.updateChange,
     // When adding new arguments, consider adding similar arguments to
     // EditableComboboxFormField.
   });
+
+  final WidgetStateProperty<BoxDecoration>? decoration;
+  final Widget? prefix;
 
   /// Called when the text field text is submitted
   ///
@@ -200,15 +205,19 @@ class _EditableComboboxState<T> extends ComboBoxState<T> {
       },
       child: TextBox(
         focusNode: focusNode,
+        decoration: widget.decoration,
         autofocus: widget.autofocus,
         controller: controller,
         expands: widget.isExpanded,
         enabled: isEnabled,
         unfocusedColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        prefix: widget.prefix,
         suffix: Builder(builder: (context) {
           return Row(
             children: [
               Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   IconButton(
                     icon: const Icon(

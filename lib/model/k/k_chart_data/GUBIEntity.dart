@@ -7,8 +7,6 @@ import 'CalcIndexData.dart';
 
 /**
  * 顾比均线指标线绘制，数据计算
- * @author hexuejian
- *
  */
  class GUBIEntity {
    List<double> Cost1=[];
