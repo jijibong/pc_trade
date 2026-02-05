@@ -30,7 +30,7 @@ class DealServer {
         data = await SignData().signData(jsonEncode(map), Config.queryContractMargin);
       }
       Response response = await HttpUtils.getInstance().post(Config.queryContractMargin, data: data);
-      logger.i(response);
+      // logger.f(response);
       if (response.data["code"] == 0) {
         ResInitMargin resInitMargin = ResInitMargin.fromJson(response.data["data"]);
         return resInitMargin;

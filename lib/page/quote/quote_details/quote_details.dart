@@ -17,6 +17,7 @@ import 'package:trade/util/shared_preferences/shared_preferences_utils.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../config/common.dart';
+import '../../../model/draw_tools/DrawTool.dart';
 import '../../../model/k/OHLCEntity.dart';
 import '../../../model/k/custom_line.dart';
 import '../../../model/k/draw_tool_line.dart';
@@ -193,8 +194,8 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   int num = 0;
   String price = "市价";
   int pathType = 0;
-  int colorValue = 0;
-  int widthType = 0;
+  int colorValue = 4294967295;
+  int widthType = 1;
   int lineType = 0;
   List<CustomLine> drawOrderLines = []; //画线下单
   List<DrawToolLine> drawToolLines = []; //画线工具
@@ -291,6 +292,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   List<TradeTime> mTradeTimes = [];
   List<String> mFsTimes = [];
   int mFsCount = 0;
+  List<DrawToolObj> drawToolObjList = [];
 
   String pankouLastPrice = "--";
   String pankouChange = "--";
@@ -1759,17 +1761,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
 
     ///画线工具箱
     streamSubscriptionK = EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
-      var map = event.json;
-      pathType = map['pathType'];
-      colorValue = map['colorValue'];
-      widthType = map['widthType'];
-      lineType = map['lineType'];
-      if (pathType != 0) {
-        startDrawTool = true;
-        if (orderDrawing) {
-          orderDrawing = false;
-          await DesktopMultiWindow.invokeMethod(dOrderWindowId ?? 1, drawDoneEvent, "");
-        }
+      var map = event.typeList;
+      for (int e in map) {
+        drawToolObjList.addAll(Common().drawToolTypes.where((element) => element.index == e));
       }
       if (mounted) setState(() {});
     });
@@ -2104,32 +2098,17 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                       length: Common.iconImageWidth,
                                       color: Common.dashDividerColor,
                                     ),
-                                    IconButton(
-                                            icon: Image.asset(
-                                              "assets/images/hx_icon_8@3x.png",
-                                              width: Common.iconImageWidth - 2,
-                                            ),
-                                            onPressed: () {})
-                                        .marginSymmetric(horizontal: 20),
-                                    IconButton(
-                                        icon: Image.asset(
-                                          "assets/images/hx_icon_9@3x.png",
-                                          width: Common.iconImageWidth - 2,
-                                        ),
-                                        onPressed: () {}),
-                                    IconButton(
-                                            icon: Image.asset(
-                                              "assets/images/hx_icon_10@3x.png",
-                                              width: Common.iconImageWidth - 2,
-                                            ),
-                                            onPressed: () {})
-                                        .marginSymmetric(horizontal: 20),
-                                    IconButton(
-                                        icon: Image.asset(
-                                          "assets/images/hx_icon_11@3x.png",
-                                          width: Common.iconImageWidth - 2,
-                                        ),
-                                        onPressed: () {}),
+                                    ...drawToolObjList.map(
+                                      (e) => IconButton(
+                                          icon: Image.asset(
+                                            e.iconPath,
+                                            width: Common.iconImageWidth - 2,
+                                          ),
+                                          onPressed: () {
+                                            startDrawTool = true;
+                                            pathType = e.index;
+                                          }).marginOnly(left: 20),
+                                    ),
                                   ],
                                 ),
                               Expanded(
@@ -4663,8 +4642,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
       height: 1.sh,
       margin: EdgeInsets.only(left: 1.sp),
       child: ScrollConfiguration(
-        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false, physics: const AlwaysScrollableScrollPhysics()),
+        behavior: ScrollConfiguration.of(context).copyWith(scrollbars: false),
         child: ListView(
+          physics: const NeverScrollableScrollPhysics(),
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -4696,7 +4676,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(5),
-                color: themeController.theme.activeColor,
+                color: themeController.theme.cardColor,
               ),
               padding: EdgeInsets.fromLTRB(5.sp, 5.sp, 5.sp, 0),
               child: Column(
@@ -4780,7 +4760,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                 height: 1.sh,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
-                  color: themeController.theme.activeColor,
+                  color: themeController.theme.cardColor,
                 ),
                 padding: EdgeInsets.all(4.sp),
                 margin: EdgeInsets.only(top: 1.sp),
@@ -4800,6 +4780,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                           child: ListView.builder(
                               shrinkWrap: true,
                               itemCount: quoteFilledData.length,
+                              physics: const NeverScrollableScrollPhysics(),
                               itemBuilder: (BuildContext context, int index) {
                                 String timeStr = quoteFilledData[index].updateTime.split(" ")[1];
                                 return Row(

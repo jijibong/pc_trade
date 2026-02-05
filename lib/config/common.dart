@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:hexcolor/hexcolor.dart';
 import 'package:intl/intl.dart';
 
+import '../model/draw_tools/DrawTool.dart';
+
 class Common {
   static DateFormat dateFormatter = DateFormat('yyyy-MM-dd');
   static DateFormat ymdhmsFormat = DateFormat('yyyy-MM-dd HH:mm:ss');
@@ -61,12 +63,20 @@ class Common {
   static Color quoteGreenColor = HexColor('#3aff20');
 
   static Color lightBgColor = HexColor('#F0F1F5');
+  // static Color lightBgColor = const Color.fromARGB(1, 240, 241, 245);
+  // static Color lightBgColor = hslaToColor(228, 1, 0.95, 1);
   static Color darkBgColor = HexColor('#18181C');
   static Color commandTextColor = HexColor('#777E90');
   static Color contentDarkBgColor = HexColor('#2A2C33');
   static Color contentLightBgColor = HexColor('#FFFFFF');
-  static Color darkDownColor = HexColor('#00F4F2');
+  static Color darkDownColor = HexColor('#00F4F2'); //青色
   static Color lightDownColor = HexColor('#00B06C'); //绿色
+  static Color redTextColor = HexColor('#FF3333'); //红色
+
+  static Color textBoxBorderDarkColor = HexColor('#393F4D'); //灰
+  static Color textBoxBorderHighLightDarkColor = HexColor('#D5DAE7');
+  static Color textBoxBorderLightColor = HexColor('#E1E3E8');
+  static Color textBoxBorderHighLightLightColor = HexColor('#BDBFC2');
 
   static Color hyperlinkColor = HexColor('#CAA559');
   static Color loginButtonColor = HexColor('#DBC18C');
@@ -100,9 +110,34 @@ class Common {
   static Color goldenTextColor = HexColor('#A0792C');
   static Color checkedBoxDarkBgColor = HexColor('#212329');
 
+  static Color msgTimeLightColor = HexColor('#A2A9B0');
+  static Color msgDarkBgColor = HexColor('#1D1E24');
+  static Color msgDividerDarkBgColor = HexColor('#353945');
+
   ///Size
   static double optionWidgetWidth = 40;
   static double iconImageWidth = 22;
+
+  var drawToolTypes = [
+    DrawToolObj(index: 1, name: '趋势线', iconPath: 'assets/images/hx_icon_1@3x.png'),
+    DrawToolObj(index: 2, name: '射线', iconPath: 'assets/images/hx_icon_2@3x.png'),
+    DrawToolObj(index: 3, name: '水平线', iconPath: 'assets/images/hx_icon_3@3x.png'),
+    DrawToolObj(index: 4, name: '竖线', iconPath: 'assets/images/hx_icon_4@3x.png'),
+    DrawToolObj(index: 5, name: '线段', iconPath: 'assets/images/hx_icon_5@3x.png'),
+    DrawToolObj(index: 6, name: '通道线', iconPath: 'assets/images/hx_icon_6@3x.png'),
+    DrawToolObj(index: 7, name: '平行线', iconPath: 'assets/images/hx_icon_7@3x.png'),
+    DrawToolObj(index: 8, name: '矩形', iconPath: 'assets/images/hx_icon_8@3x.png'),
+    DrawToolObj(index: 9, name: '三角线', iconPath: 'assets/images/hx_icon_9@3x.png'),
+    DrawToolObj(index: 10, name: '圆弧', iconPath: 'assets/images/hx_icon_10@3x.png'),
+    DrawToolObj(index: 11, name: '甘氏线', iconPath: 'assets/images/hx_icon_11@3x.png'),
+    DrawToolObj(index: 12, name: '阻速线', iconPath: 'assets/images/hx_icon_12@3x.png'),
+    DrawToolObj(index: 13, name: '对称角度线', iconPath: 'assets/images/hx_icon_13@3x.png'),
+    DrawToolObj(index: 14, name: '圆', iconPath: 'assets/images/hx_icon_14@3x.png'),
+    DrawToolObj(index: 15, name: '椭圆', iconPath: 'assets/images/hx_icon_15@3x.png'),
+    DrawToolObj(index: 16, name: '上45度', iconPath: 'assets/images/hx_icon_16@3x.png'),
+    DrawToolObj(index: 17, name: '下45度', iconPath: 'assets/images/hx_icon_17@3x.png'),
+    DrawToolObj(index: 18, name: '多圆弧', iconPath: 'assets/images/hx_icon_18@3x.png'),
+  ];
 }
 
 ///multi_windows

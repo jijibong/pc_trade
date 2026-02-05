@@ -205,8 +205,8 @@ class SetLine {
 
 ///画线工具箱
 class DrawEvent {
-  dynamic json;
-  DrawEvent({required this.json});
+  List typeList;
+  DrawEvent({required this.typeList});
 }
 
 ///画线下单

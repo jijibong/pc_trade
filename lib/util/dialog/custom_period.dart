@@ -13,8 +13,9 @@ class CustomPeriodDialog {
   List periodList = ["分钟", "小时", "日", "周", "月", "年"];
   String selectedPeriod = "分钟";
   int num = 1;
+  int hoverIndex = -1;
 
-  Widget customPeriod(List<KPeriod> kPeriodList,Function(List<KPeriod> kPeriodList) fun) {
+  Widget customPeriod(List<KPeriod> kPeriodList, Function(List<KPeriod> kPeriodList) fun) {
     return ContentDialog(
         style: themeController.theme.dialogTheme,
         constraints: const BoxConstraints(
@@ -59,37 +60,52 @@ class CustomPeriodDialog {
                         child: ListView.builder(
                           itemCount: kPeriodList.length,
                           itemBuilder: (BuildContext context, int index) {
-                            return GestureDetector(
+                            return MouseRegion(
+                              onHover: (_) {
+                                setState(() {
+                                  hoverIndex = index;
+                                });
+                              },
                               child: Row(
                                 children: [
                                   Text(kPeriodList[index].name ?? "").marginOnly(left: 10),
                                   const Spacer(),
-                                  IconButton(
-                                      icon: Image.asset("assets/images/icon_up@3x.png", width: 17),
-                                      onPressed: () {
-                                        if (index != 0) {
-                                          var temp = kPeriodList[index];
-                                          kPeriodList[index] = kPeriodList[index - 1];
-                                          kPeriodList[index - 1] = temp;
+                                  hoverIndex == index
+                                      ? IconButton(
+                                          icon: Image.asset("assets/images/icon_up@3x.png", width: 17),
+                                          onPressed: () {
+                                            if (index != 0) {
+                                              var temp = kPeriodList[index];
+                                              kPeriodList[index] = kPeriodList[index - 1];
+                                              kPeriodList[index - 1] = temp;
+                                              setState(() {});
+                                            }
+                                          })
+                                      : IconButton(
+                                          icon: Image.asset(
+                                            "assets/images/icon_up@3x.png",
+                                            width: 17,
+                                            color: Colors.transparent,
+                                          ),
+                                          onPressed: () {}),
+                                  if (hoverIndex == index)
+                                    IconButton(
+                                        icon: Image.asset("assets/images/icon_down@3x.png", width: 17),
+                                        onPressed: () {
+                                          if (index != kPeriodList.length - 1) {
+                                            var temp = kPeriodList[index];
+                                            kPeriodList[index] = kPeriodList[index + 1];
+                                            kPeriodList[index + 1] = temp;
+                                            setState(() {});
+                                          }
+                                        }),
+                                  if (hoverIndex == index)
+                                    IconButton(
+                                        icon: Image.asset("assets/images/icon_close@3x.png", width: 18),
+                                        onPressed: () {
+                                          kPeriodList.removeAt(index);
                                           setState(() {});
-                                        }
-                                      }),
-                                  IconButton(
-                                      icon: Image.asset("assets/images/icon_down@3x.png", width: 17),
-                                      onPressed: () {
-                                        if (index != kPeriodList.length - 1) {
-                                          var temp = kPeriodList[index];
-                                          kPeriodList[index] = kPeriodList[index + 1];
-                                          kPeriodList[index + 1] = temp;
-                                          setState(() {});
-                                        }
-                                      }),
-                                  IconButton(
-                                      icon: Image.asset("assets/images/icon_close@3x.png", width: 18),
-                                      onPressed: () {
-                                        kPeriodList.removeAt(index);
-                                        setState(() {});
-                                      }).marginOnly(right: 10),
+                                        }).marginOnly(right: 10),
                                 ],
                               ).paddingSymmetric(vertical: 2),
                             );

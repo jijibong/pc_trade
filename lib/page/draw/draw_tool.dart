@@ -5,6 +5,7 @@ import 'package:fluent_ui/fluent_ui.dart' hide ComboBox, ComboBoxItem;
 import 'package:get/get.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
+import '../../model/draw_tools/DrawTool.dart';
 import '../../util/widget/combo_box.dart';
 
 import '../../config/common.dart';
@@ -25,11 +26,7 @@ class DrawTool extends StatefulWidget {
 
 class _DrawToolState extends State<DrawTool> with MultiWindowListener {
   final ThemeController themeController = Get.find<ThemeController>();
-  Color selectedColor = Colors.white;
-  int type = 0;
-  int fineness = 1;
-  int lineType = 1;
-  double defaultWidth = 20.0;
+  List<int> typeList = [];
   Size dropDownSize = const Size(50, 15);
 
   int windowId() {
@@ -56,13 +53,6 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
     rustDeskWinManager.setMethodHandler((call, fromWindowId) async {
       if (call.method == kWindowEventNewDraw) {
         windowOnTop(windowId());
-      } else if (call.method == kWindowEventSelectColor) {
-        selectedColor = Color(call.arguments["color"]);
-        if (type != 0) notifyOrder();
-        if (mounted) setState(() {});
-      } else if (call.method == drawDoneEvent) {
-        type = 0;
-        if (mounted) setState(() {});
       } else if (call.method == toggleTheme) {
         if (call.arguments == themeController.isDarkMode.value) return;
         themeController.toggleTheme();
@@ -70,15 +60,10 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
       }
     });
     await DesktopMultiWindow.invokeMethod(kMainWindowId, drawLineWindowId, {"id": kWindowId});
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      selectedColor = themeController.theme.acrylicBackgroundColor;
-    });
   }
 
   notifyOrder() async {
-    var tmp = {"pathType": type, "colorValue": selectedColor.colorValue, "widthType": fineness, "lineType": lineType};
-    String temp = jsonEncode(tmp);
-    await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, temp);
+    await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, typeList);
   }
 
   @override
@@ -137,116 +122,116 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                 Future.delayed(Duration.zero, () async {
                   await WindowController.fromWindowId(kWindowId!).hide();
                   await rustDeskWinManager.closeWindowByType(WindowType.Color);
-                  await DesktopMultiWindow.invokeMethod(
-                      kMainWindowId, kDrawEvent, jsonEncode({"pathType": 0, "colorValue": 0, "widthType": 0, "lineType": 0}));
+                  // await DesktopMultiWindow.invokeMethod(
+                  //     kMainWindowId, kDrawEvent, jsonEncode({"pathType": 0, "colorValue": 0, "widthType": 0, "lineType": 0}));
                 });
               })),
       content: Container(
-        padding: const EdgeInsets.all(20),
+        padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
         color: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
         child: Column(
           children: [
-             Text(
+            Text(
               "画线工具箱",
-              style: TextStyle(fontSize: 18,color: themeController.theme.acrylicBackgroundColor, fontWeight: FontWeight.bold),
+              style: TextStyle(fontSize: 18, color: themeController.theme.acrylicBackgroundColor, fontWeight: FontWeight.bold),
             ),
-            Row(
-              children: [
-                titleWidget("颜色"),
-                GestureDetector(
-                  child: Container(
-                    height: 22,
-                    width: 22,
-                    decoration: BoxDecoration(color: selectedColor, borderRadius: BorderRadius.circular(4)),
-                  ),
-                  onTap: () async {
-                    // await rustDeskWinManager.newColorPicker("colorPicker");
-                    await rustDeskWinManager.newColorPicker("colorPicker", preWindowId: windowId());
-                  },
-                ),
-                const Spacer(),
-                titleWidget("线型"),
-                SizedBox(
-                  width: 72,
-                  height: 26,
-                  child: ComboBox(
-                    value: lineType,
-                    popupColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.lightBgColor,
-                    items: [
-                      ComboBoxItem(
-                        value: 1,
-                        child: CustomPaint(
-                          size: dropDownSize,
-                          painter: HorizontalLine(color: themeController.theme.acrylicBackgroundColor),
-                        ),
-                      ),
-                      ComboBoxItem(
-                        value: 2,
-                        child: CustomPaint(
-                          size: dropDownSize,
-                          painter: DashedLinePainter(color: themeController.theme.acrylicBackgroundColor),
-                        ),
-                      ),
-                      ComboBoxItem(
-                        value: 3,
-                        child: CustomPaint(
-                          size: dropDownSize,
-                          painter: DashedLinePainter(list: [1, 4], color: themeController.theme.acrylicBackgroundColor),
-                        ),
-                      ),
-                      ComboBoxItem(
-                        value: 4,
-                        child: CustomPaint(
-                          size: dropDownSize,
-                          painter: DashedLinePainter(list: [4, 1, 1], color: themeController.theme.acrylicBackgroundColor),
-                        ),
-                      ),
-                    ],
-                    onChanged: (v) {
-                      lineType = v ?? 1;
-                      setState(() {});
-                    },
-                  ),
-                ),
-                const Spacer(),
-                titleWidget("粗细"),
-                SizedBox(
-                    width: 72,
-                    height: 26,
-                    child: ComboBox(
-                      value: fineness,
-                      popupColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.lightBgColor,
-                      items: [
-                        ComboBoxItem(
-                          value: 1,
-                          child: CustomPaint(
-                            size: dropDownSize,
-                            painter: HorizontalLine(color: themeController.theme.acrylicBackgroundColor),
-                          ),
-                        ),
-                        ComboBoxItem(
-                          value: 2,
-                          child: CustomPaint(
-                            size: dropDownSize,
-                            painter: HorizontalLine(width: 3, color: themeController.theme.acrylicBackgroundColor),
-                          ),
-                        ),
-                        ComboBoxItem(
-                          value: 3,
-                          child: CustomPaint(
-                            size: dropDownSize,
-                            painter: HorizontalLine(width: 5, color: themeController.theme.acrylicBackgroundColor),
-                          ),
-                        ),
-                      ],
-                      onChanged: (v) {
-                        fineness = v ?? 1;
-                        // if (type != 0) notifyOrder();
-                        setState(() {});
-                      },
-                    ))
-              ],
-            ).marginSymmetric(vertical: 12),
+            // Row(
+            //   children: [
+            //     titleWidget("颜色"),
+            //     GestureDetector(
+            //       child: Container(
+            //         height: 22,
+            //         width: 22,
+            //         decoration: BoxDecoration(color: selectedColor, borderRadius: BorderRadius.circular(4)),
+            //       ),
+            //       onTap: () async {
+            //         // await rustDeskWinManager.newColorPicker("colorPicker");
+            //         await rustDeskWinManager.newColorPicker("colorPicker", preWindowId: windowId());
+            //       },
+            //     ),
+            //     const Spacer(),
+            //     titleWidget("线型"),
+            //     SizedBox(
+            //       width: 72,
+            //       height: 26,
+            //       child: ComboBox(
+            //         value: lineType,
+            //         popupColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.lightBgColor,
+            //         items: [
+            //           ComboBoxItem(
+            //             value: 1,
+            //             child: CustomPaint(
+            //               size: dropDownSize,
+            //               painter: HorizontalLine(color: themeController.theme.acrylicBackgroundColor),
+            //             ),
+            //           ),
+            //           ComboBoxItem(
+            //             value: 2,
+            //             child: CustomPaint(
+            //               size: dropDownSize,
+            //               painter: DashedLinePainter(color: themeController.theme.acrylicBackgroundColor),
+            //             ),
+            //           ),
+            //           ComboBoxItem(
+            //             value: 3,
+            //             child: CustomPaint(
+            //               size: dropDownSize,
+            //               painter: DashedLinePainter(list: [1, 4], color: themeController.theme.acrylicBackgroundColor),
+            //             ),
+            //           ),
+            //           ComboBoxItem(
+            //             value: 4,
+            //             child: CustomPaint(
+            //               size: dropDownSize,
+            //               painter: DashedLinePainter(list: [4, 1, 1], color: themeController.theme.acrylicBackgroundColor),
+            //             ),
+            //           ),
+            //         ],
+            //         onChanged: (v) {
+            //           lineType = v ?? 1;
+            //           setState(() {});
+            //         },
+            //       ),
+            //     ),
+            //     const Spacer(),
+            //     titleWidget("粗细"),
+            //     SizedBox(
+            //         width: 72,
+            //         height: 26,
+            //         child: ComboBox(
+            //           value: fineness,
+            //           popupColor: themeController.isDarkMode.value ? Common.comboDarkColor : Common.lightBgColor,
+            //           items: [
+            //             ComboBoxItem(
+            //               value: 1,
+            //               child: CustomPaint(
+            //                 size: dropDownSize,
+            //                 painter: HorizontalLine(color: themeController.theme.acrylicBackgroundColor),
+            //               ),
+            //             ),
+            //             ComboBoxItem(
+            //               value: 2,
+            //               child: CustomPaint(
+            //                 size: dropDownSize,
+            //                 painter: HorizontalLine(width: 3, color: themeController.theme.acrylicBackgroundColor),
+            //               ),
+            //             ),
+            //             ComboBoxItem(
+            //               value: 3,
+            //               child: CustomPaint(
+            //                 size: dropDownSize,
+            //                 painter: HorizontalLine(width: 5, color: themeController.theme.acrylicBackgroundColor),
+            //               ),
+            //             ),
+            //           ],
+            //           onChanged: (v) {
+            //             fineness = v ?? 1;
+            //             // if (type != 0) notifyOrder();
+            //             setState(() {});
+            //           },
+            //         ))
+            //   ],
+            // ).marginSymmetric(vertical: 12),
             Container(
               width: double.infinity,
               decoration: BoxDecoration(
@@ -254,6 +239,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: themeController.isDarkMode.value ? Common.checkBoxBorderDarkColor : Colors.transparent)),
               padding: const EdgeInsets.symmetric(vertical: 20),
+              margin: const EdgeInsets.only(top: 12),
               child: Column(
                 children: [
                   Text(
@@ -261,20 +247,10 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                     style: TextStyle(color: Common.commandTextColor, fontSize: 12),
                   ).marginOnly(bottom: 20),
                   Row(
-                    children: [
-                      Expanded(child: item(1, "趋势线", "assets/images/hx_icon_1@3x.png")),
-                      Expanded(child: item(2, "射线", "assets/images/hx_icon_2@3x.png")),
-                      Expanded(child: item(3, "水平线", "assets/images/hx_icon_3@3x.png")),
-                      Expanded(child: item(4, "竖线", "assets/images/hx_icon_4@3x.png")),
-                    ],
+                    children: Common().drawToolTypes.sublist(0, 4).map((e) => Expanded(child: item(e))).toList(),
                   ).marginOnly(bottom: 20),
                   Row(
-                    children: [
-                      Expanded(child: item(5, "线段", "assets/images/hx_icon_5@3x.png")),
-                      Expanded(child: item(6, "通道线", "assets/images/hx_icon_6@3x.png")),
-                      Expanded(child: item(7, "平行线", "assets/images/hx_icon_7@3x.png")),
-                      const Spacer()
-                    ],
+                    children: [...Common().drawToolTypes.sublist(4, 7).map((e) => Expanded(child: item(e))), const Spacer()],
                   ),
                   // Wrap(children: [
                   //   item(1, "趋势线", StraightLine()),
@@ -295,7 +271,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(color: themeController.isDarkMode.value ? Common.checkBoxBorderDarkColor : Colors.transparent)),
               padding: const EdgeInsets.all(20),
-              margin: const EdgeInsets.only(top: 20),
+              margin: const EdgeInsets.symmetric(vertical: 20),
               child: Column(
                 children: [
                   Text(
@@ -303,28 +279,13 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                     style: TextStyle(color: Common.commandTextColor, fontSize: 12),
                   ).marginOnly(bottom: 20),
                   Row(
-                    children: [
-                      Expanded(child: item(8, "矩形", "assets/images/hx_icon_8@3x.png")),
-                      Expanded(child: item(9, "三角线", "assets/images/hx_icon_9@3x.png")),
-                      Expanded(child: item(10, "圆弧", "assets/images/hx_icon_10@3x.png")),
-                      Expanded(child: item(11, "甘氏线", "assets/images/hx_icon_11@3x.png")),
-                    ],
+                    children: Common().drawToolTypes.sublist(7, 11).map((e) => Expanded(child: item(e))).toList(),
                   ).marginOnly(bottom: 20),
                   Row(
-                    children: [
-                      Expanded(child: item(12, "阻速线", "assets/images/hx_icon_12@3x.png")),
-                      Expanded(child: item(13, "对称角度线", "assets/images/hx_icon_13@3x.png")),
-                      Expanded(child: item(14, "圆", "assets/images/hx_icon_14@3x.png")),
-                      Expanded(child: item(15, "椭圆", "assets/images/hx_icon_15@3x.png")),
-                    ],
+                    children: Common().drawToolTypes.sublist(11, 15).map((e) => Expanded(child: item(e))).toList(),
                   ).marginOnly(bottom: 20),
                   Row(
-                    children: [
-                      Expanded(child: item(16, "上45度", "assets/images/hx_icon_16@3x.png")),
-                      Expanded(child: item(17, "下45度", "assets/images/hx_icon_17@3x.png")),
-                      Expanded(child: item(18, "多圆弧", "assets/images/hx_icon_18@3x.png")),
-                      const Spacer()
-                    ],
+                    children: [...Common().drawToolTypes.sublist(15, 18).map((e) => Expanded(child: item(e))), const Spacer()],
                   ),
                   // Wrap(children: [
                   //   item(8, "矩形", SquarePainter()),
@@ -341,6 +302,26 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                   // ]),
                 ],
               ),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Button(
+                  style: ButtonStyle(
+                      backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 8, horizontal: 30)),
+                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                  onPressed: () async {
+                    notifyOrder();
+                    await WindowController.fromWindowId(kWindowId!).hide();
+                    await rustDeskWinManager.closeWindowByType(WindowType.Color);
+                  },
+                  child: Text(
+                    '保存',
+                    style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.w500),
+                  ),
+                ),
+              ],
             )
           ],
         ),
@@ -355,7 +336,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
     ).marginOnly(right: 12);
   }
 
-  Widget item(int index, String message, String address) {
+  Widget item(DrawToolObj drawToolObj) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
@@ -370,13 +351,16 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
                 ),
               ),
             ),
-            checked: type == index,
+            checked: typeList.contains(drawToolObj.index),
             onChanged: (e) {
-              type = index;
-              notifyOrder();
+              if (typeList.contains(drawToolObj.index)) {
+                typeList.remove(drawToolObj.index);
+              } else {
+                typeList.add(drawToolObj.index);
+              }
               if (mounted) setState(() {});
             }).marginOnly(right: 12),
-        Image.asset(address, width: defaultWidth),
+        Image.asset(drawToolObj.iconPath, width: 20),
       ],
     );
   }

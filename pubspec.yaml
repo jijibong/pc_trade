@@ -108,6 +108,8 @@ dependencies:
 #  dropdown_button2: ^2.3.9
   #打包 https://pub.dev/packages/msix
   msix: ^3.16.9
+  #SVG https://pub-web.flutter-io.cn/packages/flutter_svg
+  flutter_svg: ^2.2.3
   #窗口管理 https://pub-web.flutter-io.cn/packages/window_manager
   #  window_manager: ^0.3.9
   window_manager:

@@ -6,9 +6,9 @@ import 'dart:math';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' as material;
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:intl/intl.dart';
 import 'package:multi_split_view/multi_split_view.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 import 'package:trade/util/info_bar/info_bar.dart';
@@ -23,6 +23,7 @@ import '../../model/broker/broker.dart';
 import '../../model/k/k_flag.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/k/k_time.dart';
+import '../../model/message/message.dart';
 import '../../model/option/myPage.dart';
 import '../../model/quote/contract.dart';
 import '../../model/trade/res_hold_order.dart';
@@ -32,7 +33,6 @@ import '../../server/socket/trade_webSocket.dart';
 import '../../server/socket/webSocket.dart';
 import '../../util/button/button.dart';
 import '../../util/dialog/custom_period.dart';
-import '../../util/dialog/draw_tool.dart';
 import '../../util/dialog/save_page_dialog.dart';
 import '../../util/event_bus/eventBus_utils.dart';
 import '../../util/event_bus/events.dart';
@@ -47,6 +47,7 @@ import '../../util/utils/market_util.dart';
 import '../../util/utils/utils.dart';
 import '../quote/quote.dart';
 import '../quote/quote_logic.dart';
+import 'message.dart';
 
 class Homepage extends StatefulWidget {
   const Homepage({super.key});
@@ -69,6 +70,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   final helpController = FlyoutController();
   final pageController = FlyoutController();
   final screenController = FlyoutController();
+  final messageController = FlyoutController();
   final systemKey = GlobalKey();
   final helpKey = GlobalKey();
   Broker broker = Broker(brokerId: Common.brokerId);
@@ -79,6 +81,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   String? mVCodeUrl;
   String? errorMsg;
   bool connected = false;
+  bool isSearching = false;
   double _dragStartOffset = 0.0;
   double _currentOffset = 0.0;
   List<MyPage> myPage = [];
@@ -87,8 +90,17 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   bool riskDialogShowing = false;
   int selectedIndex = 0;
   int perIndex = -1;
-  bool obscure = true;
   List<KPeriod> kPeriodList = [];
+  List<MessageDate> messageList = []; //消息通知
+  final List<FocusNode> _focusNodes = List.generate(4, (_) => FocusNode());
+  int _currentFocusIndex = -1;
+  late void Function(void Function()) globalState;
+  TextEditingController searchController = TextEditingController();
+  String _currentDateTime = '';
+  DateFormat dateFormatter = DateFormat('yyyy年MM月dd日');
+  DateFormat timeFormatter = DateFormat('HH时mm分ss秒');
+  List<String> weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  Timer? timer;
 
   requestNetIp() async {
     await LoginServer.requestNetIp().then((value) {
@@ -280,8 +292,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         var json = jsonDecode(call.arguments["line"]);
         EventBusUtil.getInstance().fire(SetLine(json: json));
       } else if (call.method == kDrawEvent) {
-        var map = jsonDecode(call.arguments);
-        EventBusUtil.getInstance().fire(DrawEvent(json: map));
+        EventBusUtil.getInstance().fire(DrawEvent(typeList: call.arguments));
       } else if (call.method == kOrderEvent) {
         if (!LoginServer.isLogin) {
           InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
@@ -338,6 +349,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         return ContentDialog(
           style: ContentDialogThemeData(decoration: themeController.theme.dialogTheme.decoration, padding: EdgeInsets.zero),
           content: StatefulBuilder(builder: (context, state) {
+            globalState = state;
             return Stack(
               children: [
                 ClipRRect(borderRadius: const BorderRadius.all(Radius.circular(20)), child: Image.asset("assets/images/pic@3x.png")),
@@ -350,7 +362,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       // onPressed: () => Get.back(),
                     )),
                 Positioned.fill(
-                    child: Column(
+                    child: FocusScope(
+                        child: Column(
                   mainAxisSize: MainAxisSize.min,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -358,12 +371,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       "欢迎登录${Common.shortName}",
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                     ).marginOnly(bottom: 20),
-                    boxItem('请输入服务商代码', severController, readOnly: true),
-                    boxItem('请输入交易账号', accountController),
-                    boxItem('请输入交易密码', pwdController, isPwd: true, refresh: () {
+                    boxItem('请输入服务商代码', severController, _focusNodes[0], readOnly: true),
+                    boxItem('请输入交易账号', accountController, _focusNodes[1]),
+                    boxItem('请输入交易密码', pwdController, _focusNodes[2], isPwd: true, refresh: () {
                       state(() {});
                     }),
-                    boxItem('请输入验证码', vCodeController),
+                    boxItem('请输入验证码', vCodeController, _focusNodes[3]),
                     Row(
                       children: [
                         Checkbox(
@@ -389,7 +402,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                             style: TextStyle(color: Common.hyperlinkColor),
                           ),
                           onPressed: () {
-                            InfoBarUtils.showWarningDialog("忘记密码请联系开户公司！");
+                            InfoBarUtils.showWarningDialog("忘记密码请联系系统管理员！");
                           },
                         ),
                       ],
@@ -413,13 +426,38 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       ),
                     ),
                   ],
-                ))
+                )))
               ],
             );
           }),
         );
       },
     );
+  }
+
+  // 获取并格式化当前日期时间
+  void _updateCurrentDateTime() {
+    // 获取当前时间
+    DateTime now = DateTime.now();
+    // 格式化日期时间（可自定义格式）
+    // 格式说明：yyyy=年，MM=月，dd=日，HH=时(24小时制)，mm=分，ss=秒
+    _currentDateTime = "日期：${dateFormatter.format(now)}（${weekdays[now.weekday % 7]}） 时间：${timeFormatter.format(now)}";
+    // 如果需要实时更新（每秒刷新），可以添加定时器
+    timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        _currentDateTime = "日期：${dateFormatter.format(now)}（${weekdays[now.weekday % 7]}） 时间：${timeFormatter.format(now)}";
+      });
+    });
+  }
+
+  void _onFocusChange(int index, bool hasFocus) {
+    if (hasFocus) {
+      _currentFocusIndex = index;
+    } else if (_currentFocusIndex == index) {
+      _currentFocusIndex = -1;
+    }
+    globalState(() {});
+    // print('$index ${hasFocus ? "获得焦点" : "失去焦点"}');
   }
 
   quit() async {
@@ -526,6 +564,12 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
   }
 
   void listener() {
+    for (int i = 0; i < _focusNodes.length; i++) {
+      _focusNodes[i].addListener(() {
+        _onFocusChange(i, _focusNodes[i].hasFocus);
+      });
+    }
+
     ///登录
     EventBusUtil.getInstance().on<LoginEvent>().listen((event) {
       tradeAccount();
@@ -705,6 +749,14 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     requestNetIp();
     refreshBroker();
     listener();
+    _updateCurrentDateTime();
+    messageList = [
+      MessageDate("交易所于12月10日发布通知‌，自12月12日(星期五)收盘结算时起，调整白银期货AG2602合约的交易规则：涨跌停板幅度扩大至15%，套保持仓交易保证金比例设为16%，一般持仓交易保证金比例设为17%。若遇市场风险情况，将在此基础上进一步调整。‌",
+          "10:05", false),
+      MessageDate("中国期货业协会近期信息‌显示，已有超30家国内保险机构参与期市套保，期货市场在服务实体经济方面持续发挥作用，例如通过“保险+期货”项目支持农业产业。‌", "10:05", false),
+      MessageDate("浙商期货提醒客户注意2601合约临近交割月的持仓调整要求，并根据上期所通知同步调整白银期货的保证金比例和涨跌停板幅度。‌", "12-08", true),
+      MessageDate("浙商期货提醒客户注意0312合约临近交割月", "12-08", true),
+    ];
   }
 
   @override
@@ -715,6 +767,10 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     WebSocketServer().dispose();
     _controller.dispose();
     _scrollController.dispose();
+    for (var node in _focusNodes) {
+      node.dispose();
+    }
+    timer?.cancel();
   }
 
   @override
@@ -745,12 +801,44 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                                 ),
                                 onPressed: () {})
                             .marginSymmetric(horizontal: 18),
-                        IconButton(
-                            icon: Image.asset(
-                              "assets/images/icon_search@3x.png",
-                              width: Common.iconImageWidth,
-                            ),
-                            onPressed: () {}),
+                        !isSearching
+                            ? IconButton(
+                                icon: Image.asset(
+                                  "assets/images/icon_search@3x.png",
+                                  width: Common.iconImageWidth,
+                                ),
+                                onPressed: () {
+                                  setState(() {
+                                    isSearching = true;
+                                  });
+                                })
+                            : SizedBox(
+                                height: 36,
+                                child: AutoSuggestBox(
+                                  controller: searchController,
+                                  decoration: WidgetStatePropertyAll(BoxDecoration(
+                                      borderRadius: BorderRadius.circular(10),
+                                      border: Border.all(color: Common.dialogContentBorderBgColor, width: 1))),
+                                  trailingIcon: Image.asset(
+                                    "assets/images/icon_search@3x.png",
+                                    width: Common.iconImageWidth,
+                                  ),
+                                  highlightColor: Colors.transparent,
+                                  unfocusedColor: Colors.transparent,
+                                  items: MarketUtils.contractList.map((e) {
+                                    return AutoSuggestBoxItem<Contract>(
+                                      value: e,
+                                      label: e.code ?? "--",
+                                    );
+                                  }).toList(),
+                                  onSelected: (item) {
+                                    if (item.value != null) {
+                                      EventBusUtil.getInstance().fire(SwitchContract(0, logic.selectedContractList[0]));
+                                      EventBusUtil.getInstance().fire(GoKChart(true, 0));
+                                    }
+                                  },
+                                ),
+                              ),
                       ],
                     )),
                     SizedBox(
@@ -825,12 +913,103 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   ),
                   onPressed: () {}),
               IconButton(
-                      icon: Image.asset(
-                        "assets/images/icon_message@3x.png",
-                        width: Common.iconImageWidth,
-                      ),
-                      onPressed: () {})
-                  .marginSymmetric(horizontal: 11),
+                  icon: FlyoutTarget(
+                    controller: messageController,
+                    child: Image.asset(
+                      "assets/images/icon_message@3x.png",
+                      width: Common.iconImageWidth,
+                    ),
+                  ),
+                  onPressed: () {
+                    messageController.showFlyout(
+                        placementMode: FlyoutPlacementMode.bottomRight,
+                        builder: (context) {
+                          return FlyoutContent(
+                            color: themeController.isDarkMode.value ? Common.dialogDarkBgColor : Common.dialogLightBgColor,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: SizedBox(
+                              width: 350,
+                              height: messageList.isNotEmpty ? 400 : 120,
+                              child: Column(
+                                children: [
+                                  Container(
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                                      decoration: BoxDecoration(
+                                          border: Border(
+                                              bottom: BorderSide(
+                                                  color: themeController.isDarkMode.value
+                                                      ? Common.checkBoxBorderDarkColor
+                                                      : Common.textBoxBorderLightColor))),
+                                      child: Row(
+                                        children: [
+                                          const Text("消息通知", style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                                          const Spacer(),
+                                          if (messageList.isNotEmpty)
+                                            GestureDetector(
+                                              child: Text("查看全部",
+                                                  style: TextStyle(fontSize: 14, color: Common.hyperlinkColor, fontWeight: FontWeight.w600)),
+                                              onTap: () {
+                                                Get.to(() => MessagePage(messageList));
+                                              },
+                                            ),
+                                        ],
+                                      )),
+                                  messageList.isNotEmpty
+                                      ? Expanded(
+                                          child: ListView.builder(
+                                              itemCount: messageList.length,
+                                              shrinkWrap: true,
+                                              itemBuilder: (context, index) {
+                                                return Row(
+                                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                                  children: [
+                                                    Container(
+                                                      width: 6,
+                                                      height: 6,
+                                                      margin: const EdgeInsets.only(top: 3),
+                                                      decoration: BoxDecoration(
+                                                        color: messageList[index].read == true
+                                                            ? Colors.transparent
+                                                            : themeController.theme.focusTheme.glowColor,
+                                                        borderRadius: BorderRadius.circular(3),
+                                                      ),
+                                                    ).marginOnly(right: 12),
+                                                    Expanded(
+                                                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                                                      Flexible(
+                                                          child: Text(
+                                                        messageList[index].message ?? "",
+                                                        maxLines: 2,
+                                                        overflow: TextOverflow.ellipsis,
+                                                      )).marginOnly(bottom: 8),
+                                                      Text(
+                                                        messageList[index].time ?? "",
+                                                        style: TextStyle(
+                                                            color: themeController.isDarkMode.value
+                                                                ? Common.commandTextColor
+                                                                : Common.msgTimeLightColor),
+                                                      )
+                                                    ]))
+                                                  ],
+                                                ).marginOnly(bottom: 8);
+                                              }),
+                                        )
+                                      : Container(
+                                          height: 76,
+                                          alignment: Alignment.center,
+                                          child: Text(
+                                            "暂无消息通知",
+                                            style: TextStyle(
+                                                color: themeController.isDarkMode.value ? Common.commandTextColor : Common.msgTimeLightColor),
+                                          ),
+                                        )
+                                ],
+                              ),
+                            ),
+                          );
+                        });
+                  }).marginSymmetric(horizontal: 11),
               IconButton(
                   icon: Image.asset(
                     "assets/images/icon_sun@3x.png",
@@ -1012,14 +1191,16 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                           //     color: themeController.selectCommandBarIndex.value == 0
                           //         ? themeController.theme.exchangeTextColor
                           //         : themeController.theme.color),
-                          icon: Image.asset(
-                            "assets/images/icon_line_chart@3x.png",
-                            width: Common.iconImageWidth,
-                          ).marginSymmetric(horizontal: 5),
+                          icon: Image.asset("assets/images/icon_line_chart@3x.png",
+                                  width: Common.iconImageWidth,
+                                  color: themeController.selectCommandBarIndex.value == -1
+                                      ? themeController.theme.inactiveColor
+                                      : Common.commandTextColor)
+                              .marginSymmetric(horizontal: 5),
                           // label: Text('分时图', style: TextStyle(color: themeController.theme.color)),
                           onPressed: () {
                             if (ButtonUtil.checkClick()) {
-                              themeController.selectCommandBarIndex.value = 0;
+                              themeController.selectCommandBarIndex.value = -1;
                               KPeriod fs = KPeriod(name: "分时", period: KTime.FS, cusType: 1, kpFlag: KPFlag.Minute);
                               if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
                                 if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
@@ -1044,11 +1225,14 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                                                     ? period.periodType
                                                     : period.name) ??
                                         "",
-                                    style: TextStyle(color: Common.commandTextColor))
+                                    style: TextStyle(
+                                        color: themeController.selectCommandBarIndex.value == kPeriodList.indexOf(period)
+                                            ? themeController.theme.inactiveColor
+                                            : Common.commandTextColor))
                                 .marginSymmetric(horizontal: 5),
                             onPressed: () {
                               if (ButtonUtil.checkClick()) {
-                                // themeController.selectCommandBarIndex.value = index + 1;
+                                themeController.selectCommandBarIndex.value = kPeriodList.indexOf(period);
                                 KPeriod fs = KPeriod(name: period.name, period: period.period, cusType: period.cusType, kpFlag: period.kpFlag);
                                 if (logic.viewIndexList[logic.selectedIndex.value] == 0) {
                                   if (logic.selectedContractList[logic.selectedIndex.value].code == null) {
@@ -1226,13 +1410,21 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         //   },
                         // ),
                         CommandBarButton(
-                          label: Text('自', style: TextStyle(color: Common.commandTextColor)).marginSymmetric(horizontal: 5),
+                          label: Text('自',
+                                  style: TextStyle(
+                                      color: themeController.selectCommandBarIndex.value == kPeriodList.length
+                                          ? themeController.theme.inactiveColor
+                                          : Common.commandTextColor))
+                              .marginSymmetric(horizontal: 5),
                           onPressed: () {
                             if (ButtonUtil.checkClick()) {
+                              themeController.selectCommandBarIndex.value = kPeriodList.length;
                               showDialog(
                                   context: context,
                                   builder: (BuildContext context) {
-                                    return CustomPeriodDialog().customPeriod(kPeriodList, (value) async {
+                                    List<KPeriod> tmp = [];
+                                    tmp.addAll(kPeriodList);
+                                    return CustomPeriodDialog().customPeriod(tmp, (value) async {
                                       kPeriodList.clear();
                                       kPeriodList.addAll(value);
                                       if (mounted) setState(() {});
@@ -1609,158 +1801,168 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                             ),
                           ),
                         ),
-                        child: GestureDetector(
-                          onHorizontalDragStart: (details) {
-                            _dragStartOffset = details.globalPosition.dx;
-                          },
-                          onHorizontalDragUpdate: (details) {
-                            _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
-                          },
-                          onHorizontalDragEnd: (details) {
-                            _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                            _currentOffset =
-                                min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
-                          },
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: themeController.selectIndex.value == 1 ? logic.mExchangeList.length : myPage.length + 1,
-                            controller: _scrollController,
-                            itemBuilder: (BuildContext context, int index) {
-                              if (themeController.selectIndex.value == 1) {
-                                return GestureDetector(
-                                  onTap: () {
-                                    logic.viewIndexList[0] = 0;
-                                    themeController.selectIndex.value = 1;
-                                    logic.switchExchange(index, 0);
-                                    if (mounted) setState(() {});
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                    margin: const EdgeInsets.all(5),
-                                    alignment: Alignment.center,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(25),
-                                      color: logic.mExchangeList[index] == logic.selectedExchange.value
-                                          ? themeController.theme.bottomNavigationTheme.backgroundColor
-                                          : Colors.transparent,
-                                    ),
-                                    child: Text(
-                                      logic.mExchangeList[index].exchangeName ?? "",
-                                      style: TextStyle(
-                                          fontSize: 14,
-                                          color: logic.mExchangeList[index] == logic.selectedExchange.value
-                                              ? themeController.theme.bottomNavigationTheme.selectedColor
-                                              : themeController.theme.bottomNavigationTheme.inactiveColor),
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                if (index == 0) {
-                                  return GestureDetector(
-                                    onTap: () {
-                                      selectedPage = null;
-                                      myContract = true;
-                                      themeController.multiScreen.value = 1;
-                                      logic.selectedIndex.value = 0;
-                                      logic.viewIndexList[0] = 0;
-                                      if (mounted) setState(() {});
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                      margin: const EdgeInsets.all(5),
-                                      alignment: Alignment.center,
-                                      // color: myContract ? themeController.theme.selectionColor : Colors.transparent,
-                                      child: Text(
-                                        "我的合约",
-                                        style: TextStyle(fontSize: 14, color: themeController.theme.selectionColor),
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  final flyoutTargetKey = GlobalKey();
-                                  return FlyoutTarget(
-                                    key: flyoutTargetKey,
-                                    controller: pageController,
-                                    child: GestureDetector(
-                                      onTap: () {
-                                        selectedPage = myPage[index - 1];
-                                        myContract = false;
-                                        themeController.multiScreen.value = selectedPage?.multiScreen ?? 1;
-                                        if (selectedPage?.selectedIndex != null) logic.selectedIndex.value = selectedPage!.selectedIndex!;
-                                        if (selectedPage?.viewIndexList != null) {
-                                          logic.viewIndexList.clear();
-                                          logic.viewIndexList.addAll(selectedPage!.viewIndexList!);
-                                        }
-                                        if (selectedPage?.showChartList != null) {
-                                          logic.showChartList.clear();
-                                          logic.showChartList.addAll(selectedPage!.showChartList!);
-                                        }
-                                        if (selectedPage?.contractList != null) {
-                                          logic.selectedContractList.clear();
-                                          logic.selectedContractList.addAll(selectedPage!.contractList!);
-                                        }
-                                        if (selectedPage?.kPeriodList != null) {
-                                          logic.kPeriodList.clear();
-                                          logic.kPeriodList.addAll(selectedPage!.kPeriodList!);
-                                        }
-                                        if (selectedPage?.selectedSector != null) {
-                                          logic.sectorList.clear();
-                                          logic.sectorList.addAll(selectedPage!.selectedSector!);
-                                        }
-                                        splitScreen(themeController.multiScreen.value);
-                                      },
-                                      onSecondaryTapDown: (d) {
-                                        final targetContext = flyoutTargetKey.currentContext;
-                                        if (targetContext == null) return;
-                                        final box = targetContext.findRenderObject() as RenderBox;
-                                        final position = box.localToGlobal(
-                                          d.localPosition,
-                                          ancestor: Navigator.of(context).context.findRenderObject(),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onHorizontalDragStart: (details) {
+                                  _dragStartOffset = details.globalPosition.dx;
+                                },
+                                onHorizontalDragUpdate: (details) {
+                                  _scrollController.jumpTo(_currentOffset + _dragStartOffset - details.globalPosition.dx);
+                                },
+                                onHorizontalDragEnd: (details) {
+                                  _currentOffset = max(0, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                                  _currentOffset =
+                                      min(_scrollController.position.maxScrollExtent, _currentOffset + _dragStartOffset - details.globalPosition.dx);
+                                },
+                                child: ListView.builder(
+                                  scrollDirection: Axis.horizontal,
+                                  itemCount: themeController.selectIndex.value == 1 ? logic.mExchangeList.length : myPage.length + 1,
+                                  controller: _scrollController,
+                                  itemBuilder: (BuildContext context, int index) {
+                                    if (themeController.selectIndex.value == 1) {
+                                      return GestureDetector(
+                                        onTap: () {
+                                          logic.viewIndexList[0] = 0;
+                                          themeController.selectIndex.value = 1;
+                                          logic.switchExchange(index, 0);
+                                          if (mounted) setState(() {});
+                                        },
+                                        child: Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                          margin: const EdgeInsets.all(5),
+                                          alignment: Alignment.center,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(25),
+                                            color: logic.mExchangeList[index] == logic.selectedExchange.value
+                                                ? themeController.theme.bottomNavigationTheme.backgroundColor
+                                                : Colors.transparent,
+                                          ),
+                                          child: Text(
+                                            logic.mExchangeList[index].exchangeName ?? "",
+                                            style: TextStyle(
+                                                fontSize: 14,
+                                                color: logic.mExchangeList[index] == logic.selectedExchange.value
+                                                    ? themeController.theme.bottomNavigationTheme.selectedColor
+                                                    : themeController.theme.bottomNavigationTheme.inactiveColor),
+                                          ),
+                                        ),
+                                      );
+                                    } else {
+                                      if (index == 0) {
+                                        return GestureDetector(
+                                          onTap: () {
+                                            selectedPage = null;
+                                            myContract = true;
+                                            themeController.multiScreen.value = 1;
+                                            logic.selectedIndex.value = 0;
+                                            logic.viewIndexList[0] = 0;
+                                            if (mounted) setState(() {});
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                            margin: const EdgeInsets.all(5),
+                                            alignment: Alignment.center,
+                                            // color: myContract ? themeController.theme.selectionColor : Colors.transparent,
+                                            child: Text(
+                                              "我的合约",
+                                              style: TextStyle(fontSize: 14, color: themeController.theme.selectionColor),
+                                            ),
+                                          ),
                                         );
-                                        pageController.showFlyout(
-                                            barrierDismissible: true,
-                                            dismissOnPointerMoveAway: false,
-                                            dismissWithEsc: true,
-                                            position: position,
-                                            builder: (context) {
-                                              return MenuFlyout(items: [
-                                                MenuFlyoutItem(
-                                                  text: const Text('删除'),
-                                                  onPressed: () async {
-                                                    myPage.removeAt(index - 1);
-                                                    var jsonString = jsonEncode(myPage.map((e) => e.toJson()).toList());
-                                                    await SpUtils.set(SpKey.myPage, jsonString);
-                                                    if (mounted) setState(() {});
-                                                  },
-                                                ),
-                                              ]);
-                                            });
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
-                                        margin: const EdgeInsets.all(5),
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(25),
-                                          color: myPage[index - 1] == selectedPage
-                                              ? themeController.theme.bottomNavigationTheme.backgroundColor
-                                              : Colors.transparent,
-                                        ),
-                                        child: Text(
-                                          myPage[index - 1].name ?? "",
-                                          style: TextStyle(
-                                              fontSize: 14,
-                                              color: myPage[index - 1] == selectedPage
-                                                  ? themeController.theme.bottomNavigationTheme.selectedColor
-                                                  : themeController.theme.bottomNavigationTheme.inactiveColor),
-                                        ),
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
+                                      } else {
+                                        final flyoutTargetKey = GlobalKey();
+                                        return FlyoutTarget(
+                                          key: flyoutTargetKey,
+                                          controller: pageController,
+                                          child: GestureDetector(
+                                            onTap: () {
+                                              selectedPage = myPage[index - 1];
+                                              myContract = false;
+                                              themeController.multiScreen.value = selectedPage?.multiScreen ?? 1;
+                                              if (selectedPage?.selectedIndex != null) logic.selectedIndex.value = selectedPage!.selectedIndex!;
+                                              if (selectedPage?.viewIndexList != null) {
+                                                logic.viewIndexList.clear();
+                                                logic.viewIndexList.addAll(selectedPage!.viewIndexList!);
+                                              }
+                                              if (selectedPage?.showChartList != null) {
+                                                logic.showChartList.clear();
+                                                logic.showChartList.addAll(selectedPage!.showChartList!);
+                                              }
+                                              if (selectedPage?.contractList != null) {
+                                                logic.selectedContractList.clear();
+                                                logic.selectedContractList.addAll(selectedPage!.contractList!);
+                                              }
+                                              if (selectedPage?.kPeriodList != null) {
+                                                logic.kPeriodList.clear();
+                                                logic.kPeriodList.addAll(selectedPage!.kPeriodList!);
+                                              }
+                                              if (selectedPage?.selectedSector != null) {
+                                                logic.sectorList.clear();
+                                                logic.sectorList.addAll(selectedPage!.selectedSector!);
+                                              }
+                                              splitScreen(themeController.multiScreen.value);
+                                            },
+                                            onSecondaryTapDown: (d) {
+                                              final targetContext = flyoutTargetKey.currentContext;
+                                              if (targetContext == null) return;
+                                              final box = targetContext.findRenderObject() as RenderBox;
+                                              final position = box.localToGlobal(
+                                                d.localPosition,
+                                                ancestor: Navigator.of(context).context.findRenderObject(),
+                                              );
+                                              pageController.showFlyout(
+                                                  barrierDismissible: true,
+                                                  dismissOnPointerMoveAway: false,
+                                                  dismissWithEsc: true,
+                                                  position: position,
+                                                  builder: (context) {
+                                                    return MenuFlyout(items: [
+                                                      MenuFlyoutItem(
+                                                        text: const Text('删除'),
+                                                        onPressed: () async {
+                                                          myPage.removeAt(index - 1);
+                                                          var jsonString = jsonEncode(myPage.map((e) => e.toJson()).toList());
+                                                          await SpUtils.set(SpKey.myPage, jsonString);
+                                                          if (mounted) setState(() {});
+                                                        },
+                                                      ),
+                                                    ]);
+                                                  });
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+                                              margin: const EdgeInsets.all(5),
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                borderRadius: BorderRadius.circular(25),
+                                                color: myPage[index - 1] == selectedPage
+                                                    ? themeController.theme.bottomNavigationTheme.backgroundColor
+                                                    : Colors.transparent,
+                                              ),
+                                              child: Text(
+                                                myPage[index - 1].name ?? "",
+                                                style: TextStyle(
+                                                    fontSize: 14,
+                                                    color: myPage[index - 1] == selectedPage
+                                                        ? themeController.theme.bottomNavigationTheme.selectedColor
+                                                        : themeController.theme.bottomNavigationTheme.inactiveColor),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }
+                                    }
+                                  },
+                                ),
+                              ),
+                            ),
+                            Text(
+                              _currentDateTime,
+                              style: TextStyle(color: themeController.theme.bottomNavigationTheme.inactiveColor, fontSize: 16),
+                            ).marginOnly(left: 10)
+                          ],
                         ),
                         // GestureDetector(
                         //   onTap: () {
@@ -1788,18 +1990,29 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     });
   }
 
-  Widget boxItem(String tip, TextEditingController controller, {bool? showPic, bool? isPwd, bool? readOnly, Function? refresh}) {
+  Widget boxItem(String tip, TextEditingController controller, FocusNode focusNode, {bool? showPic, bool? isPwd, bool? readOnly, Function? refresh}) {
     return Container(
         margin: const EdgeInsets.fromLTRB(50, 15, 50, 5),
+        decoration: BoxDecoration(
+          border: Border.all(
+              color: focusNode.hasFocus
+                  ? themeController.theme.sliderTheme.labelForegroundColor!
+                  : themeController.theme.sliderTheme.labelBackgroundColor!,
+              width: 1),
+          borderRadius: BorderRadius.circular(8),
+        ),
         child: TextBox(
           controller: controller,
-          obscureText: isPwd == true ? obscure : false,
+          obscureText: isPwd ?? false,
           readOnly: readOnly ?? false,
           placeholder: tip,
           placeholderStyle: TextStyle(color: Common.commandTextColor),
           style: TextStyle(color: themeController.theme.acrylicBackgroundColor, fontSize: 15),
+          focusNode: focusNode,
+          highlightColor: Colors.transparent,
+          unfocusedColor: Colors.transparent,
           decoration: WidgetStatePropertyAll(BoxDecoration(
-            border: Border.all(color: Colors.grey, width: 1),
+            border: Border.all(color: Colors.transparent),
             borderRadius: BorderRadius.circular(8),
           )),
           suffix: showPic == true && mVCodeUrl != null
@@ -1815,18 +2028,18 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                     ),
                   ),
                 )
-              : isPwd == true
-                  ? GestureDetector(
-                      onTap: () {
-                        obscure = !obscure;
-                        refresh!();
-                      },
-                      child: Icon(
-                        obscure ? material.Icons.visibility_off_outlined : material.Icons.visibility_outlined,
-                        color: themeController.theme.acrylicBackgroundColor,
-                      ),
-                    ).marginOnly(right: 10)
-                  : null,
+              // : isPwd == true
+              //     ? GestureDetector(
+              //         onTap: () {
+              //           obscure = !obscure;
+              //           refresh!();
+              //         },
+              //         child: Icon(
+              //           obscure ? material.Icons.visibility_off_outlined : material.Icons.visibility_outlined,
+              //           color: themeController.theme.acrylicBackgroundColor,
+              //         ),
+              //       ).marginOnly(right: 10)
+              : null,
         ));
   }
 

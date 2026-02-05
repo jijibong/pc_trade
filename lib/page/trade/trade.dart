@@ -1,9 +1,11 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
 import 'package:flutter/services.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart' hide Condition;
 import 'package:intl/intl.dart';
 import 'package:linked_scroll_controller/linked_scroll_controller.dart';
@@ -590,6 +592,63 @@ class _TradeState extends State<Trade> with MultiWindowListener {
     });
   }
 
+  void quit() async {
+    // bool isPreventClose = await windowManager.isPreventClose();
+    if (mounted) {
+      showDialog(
+        context: context,
+        builder: (_) {
+          return ContentDialog(
+            content: SizedBox(
+              width: 296,
+              height: 154,
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Text(
+                    '确定要退出${Common.appName}吗？',
+                    style: TextStyle(fontWeight: FontWeight.w500),
+                  ).marginOnly(bottom: 18),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      Button(
+                        style: ButtonStyle(
+                            backgroundColor: WidgetStatePropertyAll(Common.contentLightBgColor),
+                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 30)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20), side: BorderSide(color: Common.dialogContentBorderBgColor)))),
+                        onPressed: () {
+                          Navigator.pop(_);
+                        },
+                        child: Text('取消', style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.w500)),
+                      ),
+                      Button(
+                        style: ButtonStyle(
+                            backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                            padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10, horizontal: 30)),
+                            shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                        onPressed: () {
+                          exit(0);
+                        },
+                        child: Text(
+                          '确定',
+                          style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  )
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    } else {
+      exit(0);
+    }
+  }
+
   @override
   void onWindowClose() async {
     await WindowController.fromWindowId(kWindowId!).hide();
@@ -616,1587 +675,1556 @@ class _TradeState extends State<Trade> with MultiWindowListener {
   @override
   Widget build(BuildContext context) {
     UserUtils.appContext = context;
-    return Container(
-      width: 1.sw,
-      color: Common.lightBgColor,
-      child: Obx(() {
-        return tradeLogic.lock.value
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    return Obx(() {
+      return
+          // tradeLogic.lock.value
+          //   ? Container(
+          //       width: 1.sw,
+          //       color: Common.lightBgColor,
+          //       child: Column(
+          //         mainAxisAlignment: MainAxisAlignment.center,
+          //         children: [
+          //           Row(
+          //             mainAxisAlignment: MainAxisAlignment.center,
+          //             children: [
+          //               const Text("交易账号："),
+          //               SizedBox(
+          //                 width: 150,
+          //                 child: TextBox(
+          //                   controller: TextEditingController(text: UserUtils.currentUser?.account ?? ""),
+          //                 ),
+          //               )
+          //             ],
+          //           ),
+          //           const SizedBox(
+          //             height: 10,
+          //           ),
+          //           Row(
+          //             mainAxisAlignment: MainAxisAlignment.center,
+          //             children: [
+          //               const Text("交易密码："),
+          //               SizedBox(
+          //                   width: 150,
+          //                   child: TextBox(
+          //                     obscureText: true,
+          //                     controller: lockTextEditingController,
+          //                   ))
+          //             ],
+          //           ),
+          //           const SizedBox(
+          //             height: 15,
+          //           ),
+          //           Row(
+          //             mainAxisAlignment: MainAxisAlignment.center,
+          //             children: [
+          //               Button(
+          //                   style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
+          //                   child: const Text("解锁"),
+          //                   onPressed: () async {
+          //                     String? pwd = await SpUtils.getString(SpKey.password);
+          //                     if (lockTextEditingController.text == pwd) {
+          //                       tradeLogic.lock.value = false;
+          //                       lockTextEditingController.clear();
+          //                       if (mounted) setState(() {});
+          //                     } else {
+          //                       InfoBarUtils.showErrorBar("密码错误");
+          //                     }
+          //                   }),
+          //               const SizedBox(
+          //                 width: 30,
+          //               ),
+          //               Button(
+          //                   style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
+          //                   onPressed: () => loginOut(),
+          //                   child: const Text("退出")),
+          //             ],
+          //           )
+          //         ],
+          //       ))
+          //   :
+          NavigationView(
+        appBar: NavigationAppBar(
+          automaticallyImplyLeading: false,
+          backgroundColor: Common.lightBgColor,
+          title: GestureDetector(
+              onPanStart: (_) => startDragging(false),
+              onPanCancel: () {
+                if (isMacOS) {
+                  setMovable(false, false);
+                }
+              },
+              onPanEnd: (_) {
+                if (isMacOS) {
+                  setMovable(false, false);
+                }
+              },
+              child: Container(
+                height: 50,
+                alignment: Alignment.centerLeft,
+                color: Colors.transparent,
+                child: RichText(
+                  text: TextSpan(children: [
+                    TextSpan(text: UserUtils.currentUser?.nick ?? "", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: "您好，可用资金：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: tradeLogic.mineAvailFunds.value, style: TextStyle(color: Common.contentDarkBgColor)),
+                    TextSpan(text: "   用户权益：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: tradeLogic.mineAllAssets.value, style: TextStyle(color: Common.contentDarkBgColor)),
+                    TextSpan(text: "   平仓盈亏：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(
+                        text: "${tradeLogic.mineCloseProfit.value}",
+                        style: TextStyle(color: tradeLogic.mineCloseProfit.value < 0 ? Common.lightDownColor : Common.quoteHighColor)),
+                    TextSpan(text: "   手续费：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: tradeLogic.mineFee.value, style: TextStyle(color: Common.contentDarkBgColor)),
+                    TextSpan(text: "   浮动盈亏：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(
+                        text: "${tradeLogic.mineFloatPrice.value}",
+                        style: TextStyle(color: tradeLogic.mineFloatPrice.value < 0 ? Common.lightDownColor : Common.quoteHighColor)),
+                    TextSpan(text: "   占用保证金：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: tradeLogic.mineOccMargin.value, style: TextStyle(color: Common.contentDarkBgColor)),
+                    TextSpan(text: "   风险度：", style: TextStyle(color: Common.commandTextColor)),
+                    TextSpan(text: "${tradeLogic.mineRiskDegree.value}%", style: TextStyle(color: Common.contentDarkBgColor)),
+                  ]),
+                ),
+              )),
+          actions: Container(
+              height: 50,
+              alignment: Alignment.center,
+              child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
+                IconButton(
+                    icon: Image.asset(
+                      "assets/images/icon_refresh@3x.png",
+                      width: Common.iconImageWidth,
+                    ),
+                    style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
+                    onPressed: () {
+                      tradeLogic.requestHold();
+                      tradeLogic.requestDelOrder();
+                      tradeLogic.requestCancelDelOrder();
+                      tradeLogic.qryCondition();
+                      tradeLogic.requestComOrder();
+                      tradeLogic.queryPLRecord();
+                    }).marginOnly(right: 10),
+                // IconButton(
+                //     icon: Image.asset(
+                //       "assets/images/icon_lock@3x.png",
+                //       width: Common.iconImageWidth,
+                //     ),
+                //     onPressed: () {
+                //       tradeLogic.lock.value = true;
+                //     }).marginSymmetric(horizontal: 10),
+                IconButton(
+                  // icon: Image.asset(
+                  //   "assets/images/icon_vertical@3x.png",
+                  //   width: Common.iconImageWidth,
+                  // ),
+                  icon: const Icon(
+                    FluentIcons.chrome_minimize,
+                    // size: Common.iconImageWidth,
+                    // color: Common.commandTextColor,
+                  ),
+                  onPressed: () {
+                    WindowController.fromWindowId(widget.params["windowId"]).minimize();
+                  },
+                ),
+                IconButton(
+                  // icon: Image.asset(
+                  //   "assets/images/icon_close@3x.png",
+                  //   width: Common.iconImageWidth,
+                  // ),
+                  icon: const Icon(
+                    FluentIcons.chrome_close,
+                    // size: Common.iconImageWidth,
+                    // color: Common.commandTextColor,
+                  ),
+                  // onPressed: () => loginOut(),
+                  onPressed: () => quit(),
+                ).marginSymmetric(horizontal: 10),
+              ])),
+        ),
+        content: Row(
+          children: [
+            Container(
+              width: 0.32.sw,
+              decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              margin: const EdgeInsets.only(right: 5),
+              child: Column(
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("交易账号："),
-                      SizedBox(
-                        width: 150,
-                        child: TextBox(
-                          controller: TextEditingController(text: UserUtils.currentUser?.account ?? ""),
-                        ),
-                      )
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 10,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text("交易密码："),
-                      SizedBox(
-                          width: 150,
-                          child: TextBox(
-                            obscureText: true,
-                            controller: lockTextEditingController,
-                          ))
-                    ],
-                  ),
-                  const SizedBox(
-                    height: 15,
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Button(
-                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
-                          child: const Text("解锁"),
-                          onPressed: () async {
-                            String? pwd = await SpUtils.getString(SpKey.password);
-                            if (lockTextEditingController.text == pwd) {
-                              tradeLogic.lock.value = false;
-                              lockTextEditingController.clear();
-                              if (mounted) setState(() {});
-                            } else {
-                              InfoBarUtils.showErrorBar("密码错误");
-                            }
-                          }),
-                      const SizedBox(
-                        width: 30,
-                      ),
-                      Button(
-                          style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 30, vertical: 3))),
-                          onPressed: () => loginOut(),
-                          child: const Text("退出")),
-                    ],
-                  )
-                ],
-              )
-            : NavigationView(
-                appBar: NavigationAppBar(
-                  automaticallyImplyLeading: false,
-                  title: GestureDetector(
-                      onPanStart: (_) => startDragging(false),
-                      onPanCancel: () {
-                        if (isMacOS) {
-                          setMovable(false, false);
-                        }
-                      },
-                      onPanEnd: (_) {
-                        if (isMacOS) {
-                          setMovable(false, false);
-                        }
-                      },
-                      child: Container(
-                        height: 50,
-                        alignment: Alignment.centerLeft,
-                        color: Colors.transparent,
-                        child: RichText(
-                          text: TextSpan(children: [
-                            TextSpan(text: UserUtils.currentUser?.nick ?? "", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: "您好，可用资金：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: tradeLogic.mineAvailFunds.value, style: TextStyle(color: Common.contentDarkBgColor)),
-                            TextSpan(text: "   用户权益：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: tradeLogic.mineAllAssets.value, style: TextStyle(color: Common.contentDarkBgColor)),
-                            TextSpan(text: "   平仓盈亏：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(
-                                text: "${tradeLogic.mineCloseProfit.value}",
-                                style: TextStyle(color: tradeLogic.mineCloseProfit.value < 0 ? Common.lightDownColor : Common.quoteHighColor)),
-                            TextSpan(text: "   手续费：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: tradeLogic.mineFee.value, style: TextStyle(color: Common.contentDarkBgColor)),
-                            TextSpan(text: "   浮动盈亏：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(
-                                text: "${tradeLogic.mineFloatPrice.value}",
-                                style: TextStyle(color: tradeLogic.mineFloatPrice.value < 0 ? Common.lightDownColor : Common.quoteHighColor)),
-                            TextSpan(text: "   占用保证金：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: tradeLogic.mineOccMargin.value, style: TextStyle(color: Common.contentDarkBgColor)),
-                            TextSpan(text: "   风险度：", style: TextStyle(color: Common.commandTextColor)),
-                            TextSpan(text: "${tradeLogic.mineRiskDegree.value}%", style: TextStyle(color: Common.contentDarkBgColor)),
-                          ]),
-                        ),
-                      )),
-                  actions: Container(
-                      height: 50,
-                      alignment: Alignment.center,
-                      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: [
-                        IconButton(
-                            icon: Image.asset(
-                              "assets/images/icon_refresh@3x.png",
-                              width: Common.iconImageWidth,
-                            ),
-                            style: const ButtonStyle(padding: WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10))),
-                            onPressed: () {
-                              tradeLogic.requestHold();
-                              tradeLogic.requestDelOrder();
-                              tradeLogic.requestCancelDelOrder();
-                              tradeLogic.qryCondition();
-                              tradeLogic.requestComOrder();
-                              tradeLogic.queryPLRecord();
-                            }),
-                        IconButton(
-                            icon: Image.asset(
-                              "assets/images/icon_lock@3x.png",
-                              width: Common.iconImageWidth,
-                            ),
-                            onPressed: () {
-                              tradeLogic.lock.value = true;
-                            }).marginSymmetric(horizontal: 10),
-                        IconButton(
-                          icon: Image.asset(
-                            "assets/images/icon_vertical@3x.png",
-                            width: Common.iconImageWidth,
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 0 ? Common.tradeTypeButtonColor : Colors.transparent),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
+                              shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                          child: Text(
+                            "快捷",
+                            style: TextStyle(
+                                fontWeight: tradeLogic.tradeIndex.value == 0 ? FontWeight.w500 : FontWeight.w400,
+                                color: tradeLogic.tradeIndex.value == 0 ? Common.contentDarkBgColor : Common.commandTextColor),
                           ),
                           onPressed: () {
-                            WindowController.fromWindowId(widget.params["windowId"]).minimize();
-                          },
-                        ),
-                        IconButton(
-                          icon: Image.asset(
-                            "assets/images/icon_exit@3x.png",
-                            width: Common.iconImageWidth,
+                            tradeLogic.tradeIndex.value = 0;
+                          }),
+                      Button(
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 1 ? Common.tradeTypeButtonColor : Colors.transparent),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
+                              shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                          child: Text(
+                            "三键",
+                            style: TextStyle(
+                                fontWeight: tradeLogic.tradeIndex.value == 1 ? FontWeight.w500 : FontWeight.w400,
+                                color: tradeLogic.tradeIndex.value == 1 ? Common.contentDarkBgColor : Common.commandTextColor),
                           ),
-                          onPressed: () => loginOut(),
-                        ).marginSymmetric(horizontal: 10),
-                      ])),
-                ),
-                content: Row(
-                  children: [
+                          onPressed: () {
+                            tradeLogic.tradeIndex.value = 1;
+                          }).marginSymmetric(horizontal: 10),
+                      Button(
+                          style: ButtonStyle(
+                              backgroundColor:
+                                  WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 2 ? Common.tradeTypeButtonColor : Colors.transparent),
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
+                              shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
+                          child: Text(
+                            "传统",
+                            style: TextStyle(
+                                fontWeight: tradeLogic.tradeIndex.value == 2 ? FontWeight.w500 : FontWeight.w400,
+                                color: tradeLogic.tradeIndex.value == 2 ? Common.contentDarkBgColor : Common.commandTextColor),
+                          ),
+                          onPressed: () {
+                            tradeLogic.tradeIndex.value = 2;
+                          }),
+                      const Spacer(),
+                      GestureDetector(
+                        child: SvgPicture.asset(
+                          "assets/images/icon_fuwei.svg",
+                          width: Common.iconImageWidth,
+                        ).marginOnly(right: 5),
+                        onTap: () {
+                          tradeLogic.open.value = true;
+                          tradeLogic.auto.value = true;
+                          tradeLogic.num.value = 1;
+                          tradeLogic.price.value = "市价";
+                          tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
+                          tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
+                        },
+                      ).marginOnly(right: 5),
+                      GestureDetector(
+                        child: SvgPicture.asset(
+                          "assets/images/icon_setting.svg",
+                          width: Common.iconImageWidth,
+                        ).marginSymmetric(horizontal: 5),
+                        onTap: () {
+                          showDialog(
+                              context: context,
+                              builder: (BuildContext context) {
+                                return TradeSettingDialog().tradeSetting();
+                              });
+                        },
+                      ),
+                    ],
+                  ),
+                  Container(
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 18),
+                    child: FluentTheme(
+                      // 手动提供主题上下文
+                      data: FluentThemeData(), // 使用默认主题或自定义主题
+                      child: AutoSuggestBox(
+                        controller: contractController,
+                        decoration: WidgetStatePropertyAll(BoxDecoration(
+                            borderRadius: BorderRadius.circular(10), border: Border.all(color: Common.dialogContentBorderBgColor, width: 1))),
+                        leadingIcon: Text(
+                          "  合约",
+                          style: TextStyle(color: Common.commandTextColor),
+                        ),
+                        highlightColor: Colors.transparent,
+                        unfocusedColor: Colors.transparent,
+                        items: tradeLogic.allContracts.map((e) {
+                          return AutoSuggestBoxItem<Contract>(
+                            value: e,
+                            label: e.code ?? "--",
+                          );
+                        }).toList(),
+                        onSelected: (item) {
+                          if (item.value != null) {
+                            tradeLogic.contract.value = item.value!;
+                          }
+                        },
+                      ),
+                    ),
+                  ),
+                  if (tradeLogic.tradeIndex.value == 0)
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        Row(
+                          children: [
+                            RadioButton(
+                                checked: tradeLogic.open.value,
+                                style: RadioButtonThemeData(
+                                  checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                    return BoxDecoration(
+                                      border: Border.all(
+                                        color: Common.selectedRadioButtonColor,
+                                        width: !states.isDisabled
+                                            ? states.isHovered && !states.isPressed
+                                                ? 4.4
+                                                : 6.0
+                                            : 5.0,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    );
+                                  }),
+                                ),
+                                onChanged: (checked) {
+                                  if (checked) {
+                                    tradeLogic.open.value = checked;
+                                  }
+                                }),
+                            const Text("  开仓")
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            RadioButton(
+                                checked: !tradeLogic.open.value,
+                                style: RadioButtonThemeData(
+                                  checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                    return BoxDecoration(
+                                      border: Border.all(
+                                        color: Common.selectedRadioButtonColor,
+                                        width: !states.isDisabled
+                                            ? states.isHovered && !states.isPressed
+                                                ? 4.4
+                                                : 6.0
+                                            : 5.0,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    );
+                                  }),
+                                ),
+                                onChanged: (checked) {
+                                  if (checked) {
+                                    tradeLogic.open.value = !checked;
+                                  }
+                                }),
+                            const Text("  平仓")
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            // Checkbox(
+                            //   checked: auto,
+                            //   onChanged: (bool? value) => state(() => auto = value ?? true),
+                            // ),
+                            RadioButton(
+                                checked: !tradeLogic.auto.value,
+                                style: RadioButtonThemeData(
+                                  checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                    return BoxDecoration(
+                                      border: Border.all(
+                                        color: Common.selectedRadioButtonColor,
+                                        width: !states.isDisabled
+                                            ? states.isHovered && !states.isPressed
+                                                ? 4.4
+                                                : 6.0
+                                            : 5.0,
+                                      ),
+                                      shape: BoxShape.circle,
+                                    );
+                                  }),
+                                ),
+                                onChanged: (checked) {
+                                  if (checked) {
+                                    tradeLogic.auto.value = !checked;
+                                  }
+                                }),
+                            const Text("  自动"),
+                          ],
+                        ),
+                      ],
+                    ).marginOnly(bottom: 18),
+                  if (tradeLogic.tradeIndex.value == 2)
                     Container(
-                      width: 0.32.sw,
-                      decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                      margin: const EdgeInsets.only(right: 5),
+                      decoration:
+                          BoxDecoration(borderRadius: BorderRadius.circular(10), border: Border.all(color: Common.dialogContentBorderBgColor)),
+                      padding: const EdgeInsets.all(15),
+                      margin: const EdgeInsets.only(bottom: 18),
                       child: Column(
                         children: [
                           Row(
                             children: [
-                              Button(
-                                  style: ButtonStyle(
-                                      backgroundColor:
-                                          WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 0 ? Common.tradeTypeButtonColor : Colors.transparent),
-                                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
-                                  child: Text(
-                                    "快捷",
-                                    style: TextStyle(color: Common.contentDarkBgColor),
-                                  ),
-                                  onPressed: () {
-                                    tradeLogic.tradeIndex.value = 0;
-                                  }),
-                              Button(
-                                  style: ButtonStyle(
-                                      backgroundColor:
-                                          WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 1 ? Common.tradeTypeButtonColor : Colors.transparent),
-                                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
-                                  child: Text(
-                                    "三键",
-                                    style: TextStyle(color: Common.contentDarkBgColor),
-                                  ),
-                                  onPressed: () {
-                                    tradeLogic.tradeIndex.value = 1;
-                                  }).marginSymmetric(horizontal: 10),
-                              Button(
-                                  style: ButtonStyle(
-                                      backgroundColor:
-                                          WidgetStatePropertyAll(tradeLogic.tradeIndex.value == 2 ? Common.tradeTypeButtonColor : Colors.transparent),
-                                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 15, vertical: 5)),
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)))),
-                                  child: Text(
-                                    "传统",
-                                    style: TextStyle(color: Common.contentDarkBgColor),
-                                  ),
-                                  onPressed: () {
-                                    tradeLogic.tradeIndex.value = 2;
-                                  }),
-                              const Spacer(),
-                              GestureDetector(
-                                child: Image.asset(
-                                  "assets/images/icon_fuwei@3x.png",
-                                  width: Common.iconImageWidth,
-                                ).marginOnly(right: 5),
-                                onTap: () {
-                                  tradeLogic.open.value = true;
-                                  tradeLogic.auto.value = true;
-                                  tradeLogic.num.value = 1;
-                                  tradeLogic.price.value = "市价";
-                                  tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
-                                  tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
-                                },
-                              ).marginOnly(right: 5),
-                              GestureDetector(
-                                child: Image.asset(
-                                  "assets/images/icon_setting@3x.png",
-                                  width: Common.iconImageWidth,
-                                ).marginSymmetric(horizontal: 5),
-                                onTap: () {
-                                  showDialog(
-                                      context: context,
-                                      builder: (BuildContext context) {
-                                        return TradeSettingDialog().tradeSetting();
-                                      });
-                                },
-                              ),
-                            ],
-                          ),
-                          Container(
-                            height: 40,
-                            margin: const EdgeInsets.symmetric(vertical: 18),
-                            child: FluentTheme(
-                              // 手动提供主题上下文
-                              data: FluentThemeData(), // 使用默认主题或自定义主题
-                              child: AutoSuggestBox(
-                                controller: contractController,
-                                decoration: WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.circular(10))),
-                                leadingIcon: Text(
-                                  "  合约",
-                                  style: TextStyle(color: Common.commandTextColor),
-                                ),
-                                highlightColor: Colors.transparent,
-                                unfocusedColor: Colors.transparent,
-                                items: tradeLogic.allContracts.map((e) {
-                                  return AutoSuggestBoxItem<Contract>(
-                                    value: e,
-                                    label: e.code ?? "--",
-                                  );
-                                }).toList(),
-                                onSelected: (item) {
-                                  if (item.value != null) {
-                                    tradeLogic.contract.value = item.value!;
-                                  }
-                                },
-                              ),
-                            ),
-                          ),
-                          if (tradeLogic.tradeIndex.value == 0)
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: [
-                                Row(
-                                  children: [
-                                    RadioButton(
-                                        checked: tradeLogic.open.value,
-                                        style: RadioButtonThemeData(
-                                          checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                            return BoxDecoration(
-                                              border: Border.all(
-                                                color: Common.selectedRadioButtonColor,
-                                                width: !states.isDisabled
-                                                    ? states.isHovered && !states.isPressed
-                                                        ? 4.4
-                                                        : 6.0
-                                                    : 5.0,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            );
-                                          }),
-                                        ),
-                                        onChanged: (checked) {
-                                          if (checked) {
-                                            tradeLogic.open.value = checked;
-                                          }
-                                        }),
-                                    const Text("  开仓")
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    RadioButton(
-                                        checked: !tradeLogic.open.value,
-                                        style: RadioButtonThemeData(
-                                          checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                            return BoxDecoration(
-                                              border: Border.all(
-                                                color: Common.selectedRadioButtonColor,
-                                                width: !states.isDisabled
-                                                    ? states.isHovered && !states.isPressed
-                                                        ? 4.4
-                                                        : 6.0
-                                                    : 5.0,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            );
-                                          }),
-                                        ),
-                                        onChanged: (checked) {
-                                          if (checked) {
-                                            tradeLogic.open.value = !checked;
-                                          }
-                                        }),
-                                    const Text("  平仓")
-                                  ],
-                                ),
-                                Row(
-                                  children: [
-                                    // Checkbox(
-                                    //   checked: auto,
-                                    //   onChanged: (bool? value) => state(() => auto = value ?? true),
-                                    // ),
-                                    RadioButton(
-                                        checked: !tradeLogic.auto.value,
-                                        style: RadioButtonThemeData(
-                                          checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                            return BoxDecoration(
-                                              border: Border.all(
-                                                color: Common.selectedRadioButtonColor,
-                                                width: !states.isDisabled
-                                                    ? states.isHovered && !states.isPressed
-                                                        ? 4.4
-                                                        : 6.0
-                                                    : 5.0,
-                                              ),
-                                              shape: BoxShape.circle,
-                                            );
-                                          }),
-                                        ),
-                                        onChanged: (checked) {
-                                          if (checked) {
-                                            tradeLogic.auto.value = !checked;
-                                          }
-                                        }),
-                                    const Text("  自动"),
-                                  ],
-                                ),
-                              ],
-                            ).marginOnly(bottom: 18),
-                          if (tradeLogic.tradeIndex.value == 2)
-                            Container(
-                              decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10), border: Border.all(color: Common.dialogContentBorderBgColor)),
-                              padding: const EdgeInsets.all(15),
-                              margin: const EdgeInsets.only(bottom: 18),
-                              child: Column(
-                                children: [
-                                  Row(
-                                    children: [
-                                      Text(
-                                        "方向",
-                                        style: TextStyle(color: Common.commandTextColor),
-                                      ),
-                                      RadioButton(
-                                          checked: tradeLogic.dir.value,
-                                          style: RadioButtonThemeData(
-                                            checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                              return BoxDecoration(
-                                                border: Border.all(
-                                                  color: Common.selectedRadioButtonColor,
-                                                  width: !states.isDisabled
-                                                      ? states.isHovered && !states.isPressed
-                                                          ? 4.4
-                                                          : 6.0
-                                                      : 5.0,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              );
-                                            }),
-                                          ),
-                                          onChanged: (checked) {
-                                            if (checked) {
-                                              tradeLogic.dir.value = checked;
-                                            }
-                                          }).marginOnly(left: 30),
-                                      const Text("  买入"),
-                                      RadioButton(
-                                          checked: !tradeLogic.dir.value,
-                                          style: RadioButtonThemeData(
-                                            checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                              return BoxDecoration(
-                                                border: Border.all(
-                                                  color: Common.selectedRadioButtonColor,
-                                                  width: !states.isDisabled
-                                                      ? states.isHovered && !states.isPressed
-                                                          ? 4.4
-                                                          : 6.0
-                                                      : 5.0,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              );
-                                            }),
-                                          ),
-                                          onChanged: (checked) {
-                                            if (checked) {
-                                              tradeLogic.dir.value = !checked;
-                                            }
-                                          }).marginOnly(left: 30),
-                                      const Text("  卖出")
-                                    ],
-                                  ).marginOnly(bottom: 20),
-                                  Row(
-                                    children: [
-                                      Text(
-                                        "开平",
-                                        style: TextStyle(color: Common.commandTextColor),
-                                      ),
-                                      RadioButton(
-                                          checked: tradeLogic.open.value,
-                                          style: RadioButtonThemeData(
-                                            checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                              return BoxDecoration(
-                                                border: Border.all(
-                                                  color: Common.selectedRadioButtonColor,
-                                                  width: !states.isDisabled
-                                                      ? states.isHovered && !states.isPressed
-                                                          ? 4.4
-                                                          : 6.0
-                                                      : 5.0,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              );
-                                            }),
-                                          ),
-                                          onChanged: (checked) {
-                                            if (checked) {
-                                              tradeLogic.open.value = checked;
-                                            }
-                                          }).marginOnly(left: 30),
-                                      const Text("  开仓"),
-                                      RadioButton(
-                                          checked: !tradeLogic.open.value,
-                                          style: RadioButtonThemeData(
-                                            checkedDecoration: WidgetStateProperty.resolveWith((states) {
-                                              return BoxDecoration(
-                                                border: Border.all(
-                                                  color: Common.selectedRadioButtonColor,
-                                                  width: !states.isDisabled
-                                                      ? states.isHovered && !states.isPressed
-                                                          ? 4.4
-                                                          : 6.0
-                                                      : 5.0,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              );
-                                            }),
-                                          ),
-                                          onChanged: (checked) {
-                                            if (checked) {
-                                              tradeLogic.open.value = !checked;
-                                            }
-                                          }).marginOnly(left: 30),
-                                      const Text("  平仓")
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          Container(
-                            height: 40,
-                            margin: const EdgeInsets.only(bottom: 18),
-                            child: NumberBox(
-                              decoration: WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.circular(10))),
-                              leadingIcon: Text(
-                                "  数量",
+                              Text(
+                                "方向",
                                 style: TextStyle(color: Common.commandTextColor),
                               ),
-                              highlightColor: Colors.transparent,
-                              unfocusedColor: Colors.transparent,
-                              value: tradeLogic.num.value,
-                              min: 1,
-                              max: 10000000,
-                              clearButton: false,
-                              onChanged: (v) => tradeLogic.num.value = v ?? 1,
-                            ),
-                          ),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              RichText(
-                                  text: TextSpan(children: [
-                                TextSpan(text: "  买：", style: TextStyle(color: Colors.red)),
-                                TextSpan(text: "可开 ", style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: tradeLogic.tradeBuyCanOpen.value, style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: "  可平 ", style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: tradeLogic.tradeBuyCanClose.value, style: TextStyle(color: Common.commandTextColor))
-                              ])),
-                              RichText(
-                                  text: TextSpan(children: [
-                                TextSpan(text: "  卖：", style: TextStyle(color: Colors.green)),
-                                TextSpan(text: "可开 ", style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: tradeLogic.tradeSaleCanOpen.value, style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: "  可平 ", style: TextStyle(color: Common.commandTextColor)),
-                                TextSpan(text: tradeLogic.tradeSaleCanClose.value, style: TextStyle(color: Common.commandTextColor))
-                              ])),
-                            ],
-                          ),
-                          Container(
-                            height: 40,
-                            margin: const EdgeInsets.symmetric(vertical: 18),
-                            child: my_combo.EditableComboBox<String>(
-                              decoration: WidgetStatePropertyAll(BoxDecoration(borderRadius: BorderRadius.circular(10))),
-                              textController: textController,
-                              autofocus: false,
-                              prefix: Text(
-                                "  价格",
-                                style: TextStyle(color: Common.commandTextColor),
-                              ),
-                              value: tradeLogic.price.value,
-                              mathValue: double.tryParse(tradeLogic.price.value) ?? tradeLogic.contract.value?.lastPrice?.toDouble(),
-                              items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
-                                return my_combo.ComboBoxItem<String>(
-                                  value: e,
-                                  child: Text('$e'),
-                                );
-                              }).toList(),
-                              onChanged: (v) {
-                                tradeLogic.price.value = v!;
-                                tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
-                                tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
-                              },
-                              onTextChanged: (text) {
-                                tradeLogic.price.value = text;
-                                tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
-                                tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
-                              },
-                              updateChange: (v) {
-                                tradeLogic.price.value = v!;
-                                tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
-                                tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
-                              },
-                              onFieldSubmitted: (String text) {
-                                tradeLogic.price.value = text;
-                                tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
-                                tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
-                                return tradeLogic.price.value;
-                              },
-                            ),
-                          ),
-                          tradeLogic.tradeIndex.value != 2
-                              ? Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                                  children: [
-                                    GestureDetector(
-                                      child: Container(
-                                        decoration:
-                                            BoxDecoration(color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                        padding: EdgeInsets.symmetric(vertical: 15, horizontal: tradeLogic.tradeIndex.value == 1 ? 15 : 40),
-                                        child: Column(
-                                          children: [
-                                            AutoSizeText(
-                                              tradeLogic.tradeBuyPrice.value,
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                              maxLines: 1,
-                                            ),
-                                            Container(
-                                              decoration: BoxDecoration(color: Common.quoteHighColor, borderRadius: BorderRadius.circular(22)),
-                                              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
-                                              margin: const EdgeInsets.only(top: 10),
-                                              child: AutoSizeText(
-                                                "买入",
-                                                style: TextStyle(color: Common.contentLightBgColor),
-                                              ),
-                                            ),
-                                          ],
+                              RadioButton(
+                                  checked: tradeLogic.dir.value,
+                                  style: RadioButtonThemeData(
+                                    checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                      return BoxDecoration(
+                                        border: Border.all(
+                                          color: Common.selectedRadioButtonColor,
+                                          width: !states.isDisabled
+                                              ? states.isHovered && !states.isPressed
+                                                  ? 4.4
+                                                  : 6.0
+                                              : 5.0,
                                         ),
-                                      ),
-                                      onTap: () {
-                                        if (tradeLogic.contract.value?.code == null) {
-                                          InfoBarUtils.showErrorBar("请选择合约");
-                                          return;
-                                        }
-                                        AddOrder order = AddOrder(
-                                          name: tradeLogic.contract.value?.name,
-                                          code: tradeLogic.contract.value?.code,
-                                          ExchangeNo: tradeLogic.contract.value?.exCode,
-                                          CommodityNo: tradeLogic.contract.value?.subComCode,
-                                          ContractNo: tradeLogic.contract.value?.subConCode,
-                                          CommodityType: tradeLogic.contract.value?.comType,
-                                          OrderType: tradeLogic.getOrderType(),
-                                          TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
-                                          ExpireTime: "",
-                                          OrderSide: SideType.SIDE_BUY,
-                                          OrderPrice: tradeLogic.getLimitPrice(false),
-                                          StopPrice: 0,
-                                          OrderQty: tradeLogic.num.value,
-                                          PositionEffect: tradeLogic.open.value
-                                              ? PositionEffectType.PositionEffect_OPEN
-                                              : PositionEffectType.PositionEffect_COVER,
-                                        );
-                                        showDialog(
-                                            context: context,
-                                            builder: (BuildContext context) {
-                                              return TradeDialog().addOrderDialog(order);
-                                            });
-                                      },
-                                    ),
-                                    GestureDetector(
-                                      child: Container(
-                                        decoration:
-                                            BoxDecoration(color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                        padding: EdgeInsets.symmetric(vertical: 15, horizontal: tradeLogic.tradeIndex.value == 1 ? 15 : 40),
-                                        child: Column(
-                                          children: [
-                                            AutoSizeText(
-                                              tradeLogic.tradeSalePrice.value,
-                                              style: const TextStyle(fontWeight: FontWeight.bold),
-                                              maxLines: 1,
-                                            ),
-                                            Container(
-                                              decoration: BoxDecoration(color: Common.lightDownColor, borderRadius: BorderRadius.circular(22)),
-                                              padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
-                                              margin: const EdgeInsets.only(top: 10),
-                                              child: AutoSizeText(
-                                                "卖出",
-                                                style: TextStyle(color: Common.contentLightBgColor),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                      onTap: () {
-                                        if (tradeLogic.contract.value?.code == null) {
-                                          InfoBarUtils.showErrorBar("请选择合约");
-                                          return;
-                                        }
-                                        AddOrder order = AddOrder(
-                                          name: tradeLogic.contract.value?.name,
-                                          code: tradeLogic.contract.value?.code,
-                                          ExchangeNo: tradeLogic.contract.value?.exCode,
-                                          CommodityNo: tradeLogic.contract.value?.subComCode,
-                                          ContractNo: tradeLogic.contract.value?.subConCode,
-                                          CommodityType: tradeLogic.contract.value?.comType,
-                                          OrderType: tradeLogic.getOrderType(),
-                                          TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
-                                          ExpireTime: "",
-                                          OrderSide: SideType.SIDE_SELL,
-                                          OrderPrice: tradeLogic.getLimitPrice(true),
-                                          StopPrice: 0,
-                                          OrderQty: tradeLogic.num.value,
-                                          PositionEffect: tradeLogic.open.value
-                                              ? PositionEffectType.PositionEffect_OPEN
-                                              : PositionEffectType.PositionEffect_COVER,
-                                        );
-                                        showDialog(
-                                            context: context,
-                                            builder: (BuildContext context) {
-                                              return TradeDialog().addOrderDialog(order);
-                                            });
-                                      },
-                                    ),
-                                    if (tradeLogic.tradeIndex.value == 1)
-                                      GestureDetector(
-                                        child: Container(
-                                          decoration: BoxDecoration(
-                                              color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
-                                          padding: const EdgeInsets.all(15),
-                                          child: Column(
-                                            children: [
-                                              AutoSizeText(
-                                                tradeLogic.tradeClosePrice.value,
-                                                style: const TextStyle(fontWeight: FontWeight.bold),
-                                                maxLines: 1,
-                                              ),
-                                              Container(
-                                                decoration:
-                                                    BoxDecoration(color: Common.tradeCloseButtonColor, borderRadius: BorderRadius.circular(22)),
-                                                padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
-                                                margin: const EdgeInsets.only(top: 10),
-                                                child: AutoSizeText(
-                                                  "平仓",
-                                                  style: TextStyle(color: Common.contentDarkBgColor),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          if (tradeLogic.contract.value?.code == null) {
-                                            InfoBarUtils.showErrorBar("请选择合约");
-                                            return;
-                                          }
-                                          AddOrder order = AddOrder(
-                                            name: tradeLogic.contract.value?.name,
-                                            code: tradeLogic.contract.value?.code,
-                                            ExchangeNo: tradeLogic.contract.value?.exCode,
-                                            CommodityNo: tradeLogic.contract.value?.subComCode,
-                                            ContractNo: tradeLogic.contract.value?.subConCode,
-                                            CommodityType: tradeLogic.contract.value?.comType,
-                                            OrderType: tradeLogic.getOrderType(),
-                                            TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
-                                            ExpireTime: "",
-                                            OrderSide: SideType.SIDE_SELL,
-                                            OrderPrice: tradeLogic.getLimitPrice(true),
-                                            StopPrice: 0,
-                                            OrderQty: tradeLogic.num.value,
-                                            PositionEffect: tradeLogic.open.value
-                                                ? PositionEffectType.PositionEffect_OPEN
-                                                : PositionEffectType.PositionEffect_COVER,
-                                          );
-                                          showDialog(
-                                              context: context,
-                                              builder: (BuildContext context) {
-                                                return TradeDialog().addOrderDialog(order);
-                                              });
-                                        },
-                                      ),
-                                  ],
-                                ).marginOnly(top: 10)
-                              : SizedBox(
-                                  width: double.infinity,
-                                  child: Button(
-                                    style: ButtonStyle(
-                                        backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
-                                        shape:
-                                            const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(72)))),
-                                        padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10))),
-                                    onPressed: () {
-                                      if (tradeLogic.contract.value?.code == null) {
-                                        InfoBarUtils.showErrorBar("请选择合约");
-                                        return;
-                                      }
-                                      AddOrder order = AddOrder(
-                                        name: tradeLogic.contract.value?.name,
-                                        code: tradeLogic.contract.value?.code,
-                                        ExchangeNo: tradeLogic.contract.value?.exCode,
-                                        CommodityNo: tradeLogic.contract.value?.subComCode,
-                                        ContractNo: tradeLogic.contract.value?.subConCode,
-                                        CommodityType: tradeLogic.contract.value?.comType,
-                                        OrderType: tradeLogic.getOrderType(),
-                                        TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
-                                        ExpireTime: "",
-                                        OrderSide: tradeLogic.dir.value ? SideType.SIDE_BUY : SideType.SIDE_SELL,
-                                        OrderPrice: tradeLogic.getLimitPrice(!tradeLogic.dir.value),
-                                        StopPrice: 0,
-                                        OrderQty: tradeLogic.num.value,
-                                        PositionEffect:
-                                            tradeLogic.open.value ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
+                                        shape: BoxShape.circle,
                                       );
-                                      showDialog(
-                                          context: context,
-                                          builder: (BuildContext context) {
-                                            return TradeDialog().addOrderDialog(order);
-                                          });
-                                    },
-                                    child: Text(
-                                      "下单",
-                                      style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.bold),
-                                    ),
-                                  )).marginOnly(top: 10),
-                          Expanded(
-                              child: Center(
-                                  child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Button(
-                                  style: ButtonStyle(
-                                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(11),
-                                        side: BorderSide(color: Common.dialogContentBorderBgColor),
-                                      ))),
-                                  child: AutoSizeText(
-                                    "设置",
-                                    style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
+                                    }),
                                   ),
-                                  onPressed: () {}),
-                              Button(
-                                      style: ButtonStyle(
-                                          padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
-                                          shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(11),
-                                            side: BorderSide(color: Common.dialogContentBorderBgColor),
-                                          ))),
-                                      child: AutoSizeText(
-                                        "查询",
-                                        style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
-                                      ),
-                                      onPressed: () {})
-                                  .marginSymmetric(horizontal: 20),
-                              Button(
-                                  style: ButtonStyle(
-                                      padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
-                                      shape: WidgetStatePropertyAll(RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(11),
-                                        side: BorderSide(color: Common.dialogContentBorderBgColor),
-                                      ))),
-                                  child: AutoSizeText(
-                                    "高级下单",
-                                    style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
-                                  ),
-                                  onPressed: () async {
-                                    if (tradeLogic.contract.value?.code == null) {
-                                      InfoBarUtils.showErrorBar("请选择合约");
-                                      return;
+                                  onChanged: (checked) {
+                                    if (checked) {
+                                      tradeLogic.dir.value = checked;
                                     }
-                                    tradeLogic.contract.value?.canOpenBuy = tradeLogic.tradeBuyCanOpen.value;
-                                    tradeLogic.contract.value?.canOpenSale = tradeLogic.tradeSaleCanOpen.value;
-                                    await rustDeskWinManager.newAdvancedOrder("advancedOrder", hold: jsonEncode(tradeLogic.contract.value?.toJson()));
-                                    // Get.dialog(AdvancedOrderDialog().orderDialog(tradeLogic.contract.value), useSafeArea: false);
-                                  }),
+                                  }).marginOnly(left: 30),
+                              const Text("  买入"),
+                              RadioButton(
+                                  checked: !tradeLogic.dir.value,
+                                  style: RadioButtonThemeData(
+                                    checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                      return BoxDecoration(
+                                        border: Border.all(
+                                          color: Common.selectedRadioButtonColor,
+                                          width: !states.isDisabled
+                                              ? states.isHovered && !states.isPressed
+                                                  ? 4.4
+                                                  : 6.0
+                                              : 5.0,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      );
+                                    }),
+                                  ),
+                                  onChanged: (checked) {
+                                    if (checked) {
+                                      tradeLogic.dir.value = !checked;
+                                    }
+                                  }).marginOnly(left: 30),
+                              const Text("  卖出")
                             ],
-                          )))
+                          ).marginOnly(bottom: 20),
+                          Row(
+                            children: [
+                              Text(
+                                "开平",
+                                style: TextStyle(color: Common.commandTextColor),
+                              ),
+                              RadioButton(
+                                  checked: tradeLogic.open.value,
+                                  style: RadioButtonThemeData(
+                                    checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                      return BoxDecoration(
+                                        border: Border.all(
+                                          color: Common.selectedRadioButtonColor,
+                                          width: !states.isDisabled
+                                              ? states.isHovered && !states.isPressed
+                                                  ? 4.4
+                                                  : 6.0
+                                              : 5.0,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      );
+                                    }),
+                                  ),
+                                  onChanged: (checked) {
+                                    if (checked) {
+                                      tradeLogic.open.value = checked;
+                                    }
+                                  }).marginOnly(left: 30),
+                              const Text("  开仓"),
+                              RadioButton(
+                                  checked: !tradeLogic.open.value,
+                                  style: RadioButtonThemeData(
+                                    checkedDecoration: WidgetStateProperty.resolveWith((states) {
+                                      return BoxDecoration(
+                                        border: Border.all(
+                                          color: Common.selectedRadioButtonColor,
+                                          width: !states.isDisabled
+                                              ? states.isHovered && !states.isPressed
+                                                  ? 4.4
+                                                  : 6.0
+                                              : 5.0,
+                                        ),
+                                        shape: BoxShape.circle,
+                                      );
+                                    }),
+                                  ),
+                                  onChanged: (checked) {
+                                    if (checked) {
+                                      tradeLogic.open.value = !checked;
+                                    }
+                                  }).marginOnly(left: 30),
+                              const Text("  平仓")
+                            ],
+                          ),
                         ],
                       ),
                     ),
-                    Expanded(
-                        child: Column(
-                      children: [
-                        Expanded(
-                            child: Container(
-                          decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
-                          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                          margin: const EdgeInsets.only(bottom: 5),
-                          child: Column(
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  buttonWidget("持仓", tradeLogic.posIndex.value == 0, () {
-                                    tradeLogic.posIndex.value = 0;
-                                    tradeLogic.requestHold();
-                                  }),
-                                  buttonWidget("条件单", tradeLogic.posIndex.value == 1, () {
-                                    tradeLogic.posIndex.value = 1;
-                                    tradeLogic.qryCondition();
-                                  }),
-                                  buttonWidget("盈损单", tradeLogic.posIndex.value == 2, () {
-                                    tradeLogic.posIndex.value = 2;
-                                    tradeLogic.queryPLRecord();
-                                  }),
-                                  const Spacer(),
-                                  _buttonWidget("全平", () => tradeLogic.closeAllPos()),
-                                  _buttonWidget("快平", () => tradeLogic.quickClose()).marginSymmetric(horizontal: 10),
-                                  _buttonWidget("锁仓", () => tradeLogic.quickLock()),
-                                  _buttonWidget("反手", () => tradeLogic.quickBack()).marginSymmetric(horizontal: 10),
-                                  _buttonWidget("损盈", () {
-                                    if (tradeLogic.hold.value == null) {
-                                      InfoBarUtils.showInfoDialog("请选择需要设置损盈的单子");
-                                      return;
-                                    }
-                                    showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return PLDialog().setCloudPl(tradeLogic.hold.value);
-                                        });
-                                  }),
-                                ],
-                              ).marginOnly(bottom: 10),
-                              Expanded(
+                  Container(
+                    height: 40,
+                    margin: const EdgeInsets.only(bottom: 18),
+                    child: NumberBox(
+                      decoration: WidgetStatePropertyAll(BoxDecoration(
+                          borderRadius: BorderRadius.circular(10), border: Border.all(color: Common.dialogContentBorderBgColor, width: 1))),
+                      leadingIcon: Text(
+                        "  数量",
+                        style: TextStyle(color: Common.commandTextColor),
+                      ),
+                      highlightColor: Colors.transparent,
+                      unfocusedColor: Colors.transparent,
+                      value: tradeLogic.num.value,
+                      min: 1,
+                      max: 10000000,
+                      clearButton: false,
+                      onChanged: (v) => tradeLogic.num.value = v ?? 1,
+                    ),
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                    children: [
+                      RichText(
+                          text: TextSpan(children: [
+                        TextSpan(text: "  买：", style: TextStyle(color: Common.redTextColor)),
+                        TextSpan(text: "可开 ", style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: tradeLogic.tradeBuyCanOpen.value, style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: "  可平 ", style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: tradeLogic.tradeBuyCanClose.value, style: TextStyle(color: Common.commandTextColor))
+                      ])),
+                      RichText(
+                          text: TextSpan(children: [
+                        TextSpan(text: "  卖：", style: TextStyle(color: Common.lightDownColor)),
+                        TextSpan(text: "可开 ", style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: tradeLogic.tradeSaleCanOpen.value, style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: "  可平 ", style: TextStyle(color: Common.commandTextColor)),
+                        TextSpan(text: tradeLogic.tradeSaleCanClose.value, style: TextStyle(color: Common.commandTextColor))
+                      ])),
+                    ],
+                  ),
+                  Container(
+                    height: 40,
+                    margin: const EdgeInsets.symmetric(vertical: 18),
+                    child: my_combo.EditableComboBox<String>(
+                      decoration: WidgetStatePropertyAll(BoxDecoration(
+                          borderRadius: BorderRadius.circular(10), border: Border.all(color: Common.dialogContentBorderBgColor, width: 1))),
+                      textController: textController,
+                      autofocus: false,
+                      prefix: Text(
+                        "  价格",
+                        style: TextStyle(color: Common.commandTextColor),
+                      ),
+                      value: tradeLogic.price.value,
+                      mathValue: double.tryParse(tradeLogic.price.value) ?? tradeLogic.contract.value?.lastPrice?.toDouble(),
+                      items: priceList.map<my_combo.ComboBoxItem<String>>((e) {
+                        return my_combo.ComboBoxItem<String>(
+                          value: e,
+                          child: Text('$e'),
+                        );
+                      }).toList(),
+                      onChanged: (v) {
+                        tradeLogic.price.value = v!;
+                        tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
+                        tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
+                      },
+                      onTextChanged: (text) {
+                        tradeLogic.price.value = text;
+                        tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
+                        tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
+                      },
+                      updateChange: (v) {
+                        tradeLogic.price.value = v!;
+                        tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
+                        tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
+                      },
+                      onFieldSubmitted: (String text) {
+                        tradeLogic.price.value = text;
+                        tradeLogic.tradeSalePrice.value = tradeLogic.getLimitPrice(true).toString();
+                        tradeLogic.tradeBuyPrice.value = tradeLogic.getLimitPrice(false).toString();
+                        return tradeLogic.price.value;
+                      },
+                    ),
+                  ),
+                  tradeLogic.tradeIndex.value != 2
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          children: [
+                            GestureDetector(
+                              child: Container(
+                                decoration: BoxDecoration(color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
+                                padding: EdgeInsets.symmetric(vertical: 15, horizontal: tradeLogic.tradeIndex.value == 1 ? 15 : 40),
+                                child: Column(
+                                  children: [
+                                    AutoSizeText(
+                                      tradeLogic.tradeBuyPrice.value,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(color: Common.quoteHighColor, borderRadius: BorderRadius.circular(22)),
+                                      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
+                                      margin: const EdgeInsets.only(top: 10),
+                                      child: AutoSizeText(
+                                        "买入",
+                                        style: TextStyle(color: Common.contentLightBgColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              onTap: () {
+                                if (tradeLogic.contract.value?.code == null) {
+                                  InfoBarUtils.showErrorBar("请选择合约");
+                                  return;
+                                }
+                                AddOrder order = AddOrder(
+                                  name: tradeLogic.contract.value?.name,
+                                  code: tradeLogic.contract.value?.code,
+                                  ExchangeNo: tradeLogic.contract.value?.exCode,
+                                  CommodityNo: tradeLogic.contract.value?.subComCode,
+                                  ContractNo: tradeLogic.contract.value?.subConCode,
+                                  CommodityType: tradeLogic.contract.value?.comType,
+                                  OrderType: tradeLogic.getOrderType(),
+                                  TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
+                                  ExpireTime: "",
+                                  OrderSide: SideType.SIDE_BUY,
+                                  OrderPrice: tradeLogic.getLimitPrice(false),
+                                  StopPrice: 0,
+                                  OrderQty: tradeLogic.num.value,
+                                  PositionEffect:
+                                      tradeLogic.open.value ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
+                                );
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return TradeDialog().addOrderDialog(order);
+                                    });
+                              },
+                            ),
+                            GestureDetector(
+                              child: Container(
+                                decoration: BoxDecoration(color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
+                                padding: EdgeInsets.symmetric(vertical: 15, horizontal: tradeLogic.tradeIndex.value == 1 ? 15 : 40),
+                                child: Column(
+                                  children: [
+                                    AutoSizeText(
+                                      tradeLogic.tradeSalePrice.value,
+                                      style: const TextStyle(fontWeight: FontWeight.bold),
+                                      maxLines: 1,
+                                    ),
+                                    Container(
+                                      decoration: BoxDecoration(color: Common.lightDownColor, borderRadius: BorderRadius.circular(22)),
+                                      padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
+                                      margin: const EdgeInsets.only(top: 10),
+                                      child: AutoSizeText(
+                                        "卖出",
+                                        style: TextStyle(color: Common.contentLightBgColor),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              onTap: () {
+                                if (tradeLogic.contract.value?.code == null) {
+                                  InfoBarUtils.showErrorBar("请选择合约");
+                                  return;
+                                }
+                                AddOrder order = AddOrder(
+                                  name: tradeLogic.contract.value?.name,
+                                  code: tradeLogic.contract.value?.code,
+                                  ExchangeNo: tradeLogic.contract.value?.exCode,
+                                  CommodityNo: tradeLogic.contract.value?.subComCode,
+                                  ContractNo: tradeLogic.contract.value?.subConCode,
+                                  CommodityType: tradeLogic.contract.value?.comType,
+                                  OrderType: tradeLogic.getOrderType(),
+                                  TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
+                                  ExpireTime: "",
+                                  OrderSide: SideType.SIDE_SELL,
+                                  OrderPrice: tradeLogic.getLimitPrice(true),
+                                  StopPrice: 0,
+                                  OrderQty: tradeLogic.num.value,
+                                  PositionEffect:
+                                      tradeLogic.open.value ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
+                                );
+                                showDialog(
+                                    context: context,
+                                    builder: (BuildContext context) {
+                                      return TradeDialog().addOrderDialog(order);
+                                    });
+                              },
+                            ),
+                            if (tradeLogic.tradeIndex.value == 1)
+                              GestureDetector(
                                 child: Container(
-                                  decoration: BoxDecoration(
-                                      border: Border.all(color: Common.dialogContentBorderBgColor, width: 0.5),
-                                      borderRadius: BorderRadius.circular(10)),
+                                  decoration:
+                                      BoxDecoration(color: Common.tradeButtonColor, borderRadius: const BorderRadius.all(Radius.circular(10))),
+                                  padding: const EdgeInsets.all(15),
                                   child: Column(
                                     children: [
-                                      SingleChildScrollView(
-                                        scrollDirection: Axis.horizontal,
-                                        controller: posTitleController,
-                                        physics: const AlwaysScrollableScrollPhysics(),
-                                        child: Container(
-                                          width: tradeLogic.posIndex.value == 0 ? 0.7.sw : 1.sw,
-                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                          decoration:
-                                              BoxDecoration(border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 1))),
-                                          child: tradeLogic.posIndex.value == 0
-                                              ? Row(children: [
-                                                  Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                                  Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                                  Expanded(flex: 1, child: tableTitleItem("数量")),
-                                                  Expanded(flex: 1, child: tableTitleItem("可平")),
-                                                  Expanded(flex: 2, child: tableTitleItem("开仓均价")),
-                                                  Expanded(flex: 2, child: tableTitleItem("计算价格")),
-                                                  Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
-                                                  Expanded(flex: 2, child: tableTitleItem("保证金占用")),
-                                                  Expanded(flex: 1, child: tableTitleItem("币种")),
-                                                  Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                                ])
-                                              : tradeLogic.posIndex.value == 1
-                                                  ? Row(children: [
-                                                      Expanded(flex: 3, child: tableTitleItem("条件单编号")),
-                                                      Expanded(flex: 2, child: tableTitleItem("状态")),
-                                                      Expanded(flex: 5, child: tableTitleItem("条件")),
-                                                      Expanded(flex: 2, child: tableTitleItem("下单类型")),
-                                                      Expanded(flex: 2, child: tableTitleItem("下单价格")),
-                                                      Expanded(flex: 2, child: tableTitleItem("买卖")),
-                                                      Expanded(flex: 2, child: tableTitleItem("开平")),
-                                                      Expanded(flex: 2, child: tableTitleItem("数量")),
-                                                      Expanded(flex: 2, child: tableTitleItem("有效日期")),
-                                                      Expanded(flex: 3, child: tableTitleItem("备注")),
-                                                      Expanded(flex: 4, child: tableTitleItem("创建时间")),
-                                                      Expanded(flex: 4, child: tableTitleItem("触发时间")),
-                                                    ])
-                                                  : Row(children: [
-                                                      Expanded(flex: 3, child: tableTitleItem("创建时间")),
-                                                      Expanded(flex: 1, child: tableTitleItem("状态")),
-                                                      Expanded(flex: 1, child: tableTitleItem("品种")),
-                                                      Expanded(flex: 1, child: tableTitleItem("合约代码")),
-                                                      Expanded(flex: 1, child: tableTitleItem("类别")),
-                                                      Expanded(flex: 2, child: tableTitleItem("触发价")),
-                                                      Expanded(flex: 1, child: tableTitleItem("手数")),
-                                                      Expanded(flex: 1, child: tableTitleItem("下单方式")),
-                                                      Expanded(flex: 2, child: tableTitleItem("预计盈亏")),
-                                                      Expanded(flex: 1, child: tableTitleItem("说明")),
-                                                      Expanded(flex: 2, child: tableTitleItem("修改时间")),
-                                                      Expanded(flex: 2, child: tableTitleItem("有效期")),
-                                                      Expanded(flex: 2, child: tableTitleItem("编号")),
-                                                    ]),
+                                      AutoSizeText(
+                                        tradeLogic.tradeClosePrice.value,
+                                        style: const TextStyle(fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                      ),
+                                      Container(
+                                        decoration: BoxDecoration(color: Common.tradeCloseButtonColor, borderRadius: BorderRadius.circular(22)),
+                                        padding: const EdgeInsets.symmetric(vertical: 5, horizontal: 20),
+                                        margin: const EdgeInsets.only(top: 10),
+                                        child: AutoSizeText(
+                                          "平仓",
+                                          style: TextStyle(color: Common.contentDarkBgColor),
                                         ),
                                       ),
-                                      Expanded(
-                                        child: Scrollbar(
-                                          controller: posItemController,
-                                          key: UniqueKey(),
-                                          child: SingleChildScrollView(
-                                            scrollDirection: Axis.horizontal,
-                                            controller: posItemController,
-                                            child: SizedBox(
-                                                width: tradeLogic.posIndex.value == 0 ? 0.7.sw : 1.sw,
-                                                child: ListView.builder(
-                                                    shrinkWrap: true,
-                                                    controller: ScrollController(
-                                                      keepScrollOffset: true,
-                                                    ),
-                                                    itemCount: tradeLogic.posIndex.value == 0
-                                                        ? tradeLogic.mHoldDetailList.length
+                                    ],
+                                  ),
+                                ),
+                                onTap: () {
+                                  if (tradeLogic.contract.value?.code == null) {
+                                    InfoBarUtils.showErrorBar("请选择合约");
+                                    return;
+                                  }
+                                  AddOrder order = AddOrder(
+                                    name: tradeLogic.contract.value?.name,
+                                    code: tradeLogic.contract.value?.code,
+                                    ExchangeNo: tradeLogic.contract.value?.exCode,
+                                    CommodityNo: tradeLogic.contract.value?.subComCode,
+                                    ContractNo: tradeLogic.contract.value?.subConCode,
+                                    CommodityType: tradeLogic.contract.value?.comType,
+                                    OrderType: tradeLogic.getOrderType(),
+                                    TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
+                                    ExpireTime: "",
+                                    OrderSide: SideType.SIDE_SELL,
+                                    OrderPrice: tradeLogic.getLimitPrice(true),
+                                    StopPrice: 0,
+                                    OrderQty: tradeLogic.num.value,
+                                    PositionEffect:
+                                        tradeLogic.open.value ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
+                                  );
+                                  showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return TradeDialog().addOrderDialog(order);
+                                      });
+                                },
+                              ),
+                          ],
+                        ).marginOnly(top: 10)
+                      : SizedBox(
+                          width: double.infinity,
+                          child: Button(
+                            style: ButtonStyle(
+                                backgroundColor: WidgetStatePropertyAll(Common.tradeCloseButtonColor),
+                                shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(72)))),
+                                padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(vertical: 10))),
+                            onPressed: () {
+                              if (tradeLogic.contract.value?.code == null) {
+                                InfoBarUtils.showErrorBar("请选择合约");
+                                return;
+                              }
+                              AddOrder order = AddOrder(
+                                name: tradeLogic.contract.value?.name,
+                                code: tradeLogic.contract.value?.code,
+                                ExchangeNo: tradeLogic.contract.value?.exCode,
+                                CommodityNo: tradeLogic.contract.value?.subComCode,
+                                ContractNo: tradeLogic.contract.value?.subConCode,
+                                CommodityType: tradeLogic.contract.value?.comType,
+                                OrderType: tradeLogic.getOrderType(),
+                                TimeInForce: TimeInForceType.ORDER_TIMEINFORCE_GFD,
+                                ExpireTime: "",
+                                OrderSide: tradeLogic.dir.value ? SideType.SIDE_BUY : SideType.SIDE_SELL,
+                                OrderPrice: tradeLogic.getLimitPrice(!tradeLogic.dir.value),
+                                StopPrice: 0,
+                                OrderQty: tradeLogic.num.value,
+                                PositionEffect:
+                                    tradeLogic.open.value ? PositionEffectType.PositionEffect_OPEN : PositionEffectType.PositionEffect_COVER,
+                              );
+                              showDialog(
+                                  context: context,
+                                  builder: (BuildContext context) {
+                                    return TradeDialog().addOrderDialog(order);
+                                  });
+                            },
+                            child: Text(
+                              "下单",
+                              style: TextStyle(color: Common.contentDarkBgColor, fontWeight: FontWeight.bold),
+                            ),
+                          )).marginOnly(top: 10),
+                  Expanded(
+                      child: Center(
+                          child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Button(
+                          style: ButtonStyle(
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
+                              shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(11),
+                                side: BorderSide(color: Common.dialogContentBorderBgColor),
+                              ))),
+                          child: AutoSizeText(
+                            "设置",
+                            style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
+                          ),
+                          onPressed: () {}),
+                      Button(
+                              style: ButtonStyle(
+                                  padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
+                                  shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(11),
+                                    side: BorderSide(color: Common.dialogContentBorderBgColor),
+                                  ))),
+                              child: AutoSizeText(
+                                "查询",
+                                style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
+                              ),
+                              onPressed: () {})
+                          .marginSymmetric(horizontal: 20),
+                      Button(
+                          style: ButtonStyle(
+                              padding: const WidgetStatePropertyAll(EdgeInsets.symmetric(horizontal: 10, vertical: 3)),
+                              shape: WidgetStatePropertyAll(RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(11),
+                                side: BorderSide(color: Common.dialogContentBorderBgColor),
+                              ))),
+                          child: AutoSizeText(
+                            "高级下单",
+                            style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor),
+                          ),
+                          onPressed: () async {
+                            if (tradeLogic.contract.value?.code == null) {
+                              InfoBarUtils.showErrorBar("请选择合约");
+                              return;
+                            }
+                            tradeLogic.contract.value?.canOpenBuy = tradeLogic.tradeBuyCanOpen.value;
+                            tradeLogic.contract.value?.canOpenSale = tradeLogic.tradeSaleCanOpen.value;
+                            await rustDeskWinManager.newAdvancedOrder("advancedOrder", hold: jsonEncode(tradeLogic.contract.value?.toJson()));
+                            // Get.dialog(AdvancedOrderDialog().orderDialog(tradeLogic.contract.value), useSafeArea: false);
+                          }),
+                    ],
+                  )))
+                ],
+              ),
+            ),
+            Expanded(
+                child: Column(
+              children: [
+                Expanded(
+                    child: Container(
+                  decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                  margin: const EdgeInsets.only(bottom: 5),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          buttonWidget("持仓", tradeLogic.posIndex.value == 0, () {
+                            tradeLogic.posIndex.value = 0;
+                            tradeLogic.requestHold();
+                          }),
+                          buttonWidget("条件单", tradeLogic.posIndex.value == 1, () {
+                            tradeLogic.posIndex.value = 1;
+                            tradeLogic.qryCondition();
+                          }),
+                          buttonWidget("盈损单", tradeLogic.posIndex.value == 2, () {
+                            tradeLogic.posIndex.value = 2;
+                            tradeLogic.queryPLRecord();
+                          }),
+                          const Spacer(),
+                          _buttonWidget("全平", () => tradeLogic.closeAllPos()),
+                          _buttonWidget("快平", () => tradeLogic.quickClose()).marginSymmetric(horizontal: 10),
+                          _buttonWidget("锁仓", () => tradeLogic.quickLock()),
+                          _buttonWidget("反手", () => tradeLogic.quickBack()).marginSymmetric(horizontal: 10),
+                          _buttonWidget("损盈", () {
+                            if (tradeLogic.hold.value == null) {
+                              InfoBarUtils.showInfoDialog("请选择需要设置损盈的单子");
+                              return;
+                            }
+                            showDialog(
+                                context: context,
+                                builder: (BuildContext context) {
+                                  return PLDialog().setCloudPl(tradeLogic.hold.value);
+                                });
+                          }),
+                        ],
+                      ).marginOnly(bottom: 10),
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                              border: Border.all(color: Common.dialogContentBorderBgColor, width: 0.5), borderRadius: BorderRadius.circular(10)),
+                          child: Column(
+                            children: [
+                              SingleChildScrollView(
+                                scrollDirection: Axis.horizontal,
+                                controller: posTitleController,
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                child: Container(
+                                  width: tradeLogic.posIndex.value == 0 ? 0.7.sw : 1.sw,
+                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                  decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 1))),
+                                  child: tradeLogic.posIndex.value == 0
+                                      ? Row(children: [
+                                          Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                          Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                          Expanded(flex: 1, child: tableTitleItem("数量")),
+                                          Expanded(flex: 1, child: tableTitleItem("可平")),
+                                          Expanded(flex: 2, child: tableTitleItem("开仓均价")),
+                                          Expanded(flex: 2, child: tableTitleItem("计算价格")),
+                                          Expanded(flex: 2, child: tableTitleItem("浮动盈亏")),
+                                          Expanded(flex: 2, child: tableTitleItem("保证金占用")),
+                                          Expanded(flex: 1, child: tableTitleItem("币种")),
+                                          Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                        ])
+                                      : tradeLogic.posIndex.value == 1
+                                          ? Row(children: [
+                                              Expanded(flex: 3, child: tableTitleItem("条件单编号")),
+                                              Expanded(flex: 2, child: tableTitleItem("状态")),
+                                              Expanded(flex: 5, child: tableTitleItem("条件")),
+                                              Expanded(flex: 2, child: tableTitleItem("下单类型")),
+                                              Expanded(flex: 2, child: tableTitleItem("下单价格")),
+                                              Expanded(flex: 2, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 2, child: tableTitleItem("开平")),
+                                              Expanded(flex: 2, child: tableTitleItem("数量")),
+                                              Expanded(flex: 2, child: tableTitleItem("有效日期")),
+                                              Expanded(flex: 3, child: tableTitleItem("备注")),
+                                              Expanded(flex: 4, child: tableTitleItem("创建时间")),
+                                              Expanded(flex: 4, child: tableTitleItem("触发时间")),
+                                            ])
+                                          : Row(children: [
+                                              Expanded(flex: 3, child: tableTitleItem("创建时间")),
+                                              Expanded(flex: 1, child: tableTitleItem("状态")),
+                                              Expanded(flex: 1, child: tableTitleItem("品种")),
+                                              Expanded(flex: 1, child: tableTitleItem("合约代码")),
+                                              Expanded(flex: 1, child: tableTitleItem("类别")),
+                                              Expanded(flex: 2, child: tableTitleItem("触发价")),
+                                              Expanded(flex: 1, child: tableTitleItem("手数")),
+                                              Expanded(flex: 1, child: tableTitleItem("下单方式")),
+                                              Expanded(flex: 2, child: tableTitleItem("预计盈亏")),
+                                              Expanded(flex: 1, child: tableTitleItem("说明")),
+                                              Expanded(flex: 2, child: tableTitleItem("修改时间")),
+                                              Expanded(flex: 2, child: tableTitleItem("有效期")),
+                                              Expanded(flex: 2, child: tableTitleItem("编号")),
+                                            ]),
+                                ),
+                              ),
+                              Expanded(
+                                child: Scrollbar(
+                                  controller: posItemController,
+                                  // style: ScrollbarThemeData(
+                                  //   backgroundColor: Common.lightScrollBarColor.withOpacity(0.7),
+                                  // ),
+                                  key: UniqueKey(),
+                                  child: SingleChildScrollView(
+                                    scrollDirection: Axis.horizontal,
+                                    controller: posItemController,
+                                    child: SizedBox(
+                                        width: tradeLogic.posIndex.value == 0 ? 0.7.sw : 1.sw,
+                                        child: ListView.builder(
+                                            shrinkWrap: true,
+                                            controller: ScrollController(
+                                              keepScrollOffset: true,
+                                            ),
+                                            itemCount: tradeLogic.posIndex.value == 0
+                                                ? tradeLogic.mHoldDetailList.length
+                                                : tradeLogic.posIndex.value == 1
+                                                    ? tradeLogic.mConditionList.length
+                                                    : tradeLogic.mPlRecordList.length,
+                                            itemBuilder: (_, int index) {
+                                              String priceType = "";
+                                              String status = "";
+                                              String conStr = "";
+                                              if (tradeLogic.posIndex.value == 1) {
+                                                switch (tradeLogic.mConditionList[index].PriceType) {
+                                                  case 1:
+                                                    priceType = "最新价";
+                                                    break;
+                                                  case 2:
+                                                    priceType = "买价";
+                                                    break;
+                                                  case 3:
+                                                    priceType = "卖价";
+                                                    break;
+                                                }
+                                                switch (tradeLogic.mConditionList[index].ConditionType) {
+                                                  case 1:
+                                                    conStr = "$conStr $priceType>=${tradeLogic.mConditionList[index].ConditionPrice}";
+                                                    break;
+                                                  case 2:
+                                                    conStr = "$conStr $priceType<=${tradeLogic.mConditionList[index].ConditionPrice}";
+                                                    break;
+                                                  default:
+                                                    conStr =
+                                                        "${tradeLogic.mConditionList[index].ContractName}(${tradeLogic.mConditionList[index].CommodityNo}${tradeLogic.mConditionList[index].ContractNo})";
+                                                }
+                                                switch (tradeLogic.mConditionList[index].Status) {
+                                                  case 1:
+                                                    status = "未触发";
+                                                    break;
+                                                  case 2:
+                                                    status = "已删除";
+                                                    break;
+                                                  case 3:
+                                                    status = "到期删除";
+                                                    break;
+                                                  case 4:
+                                                    status = "已触发";
+                                                    break;
+                                                  case 5:
+                                                    status = "指令失败";
+                                                    break;
+                                                }
+                                              }
+                                              return GestureDetector(
+                                                child: Container(
+                                                  padding: const EdgeInsets.symmetric(vertical: 10),
+                                                  decoration: BoxDecoration(
+                                                    border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 0.5)),
+                                                  ),
+                                                  child: IntrinsicHeight(
+                                                    child: tradeLogic.posIndex.value == 0
+                                                        ? Row(
+                                                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                            children: [
+                                                              Expanded(flex: 2, child: tableContentItem(tradeLogic.mHoldDetailList[index].code)),
+                                                              Expanded(
+                                                                  flex: 1,
+                                                                  child: tableContentItem(
+                                                                      tradeLogic.mHoldDetailList[index].orderSide == SideType.SIDE_SELL
+                                                                          ? "卖出"
+                                                                          : "买入")),
+                                                              Expanded(
+                                                                  flex: 1,
+                                                                  child:
+                                                                      tableContentItem((tradeLogic.mHoldDetailList[index].quantity ?? 0).toString())),
+                                                              Expanded(
+                                                                  flex: 1,
+                                                                  child: tableContentItem(
+                                                                      (tradeLogic.mHoldDetailList[index].AvailableQty ?? 0).toString())),
+                                                              Expanded(
+                                                                  flex: 2,
+                                                                  child: tableContentItem(Utils.d2SBySrc(tradeLogic.mHoldDetailList[index].open,
+                                                                      tradeLogic.mHoldDetailList[index].FutureTickSize))),
+                                                              Expanded(
+                                                                  flex: 2,
+                                                                  child: tableContentItem(
+                                                                      (tradeLogic.mHoldDetailList[index].CalculatePrice ?? 0).toString())),
+                                                              Expanded(
+                                                                  flex: 2,
+                                                                  child: tableContentItem(
+                                                                      Utils.d2SBySrc(tradeLogic.mHoldDetailList[index].floatProfit, 2),
+                                                                      color: (tradeLogic.mHoldDetailList[index].floatProfit ?? 0) > 0
+                                                                          ? Common.quoteRedColor
+                                                                          : (tradeLogic.mHoldDetailList[index].floatProfit ?? 0) < 0
+                                                                              ? Common.quoteGreenColor
+                                                                              : null)),
+                                                              Expanded(
+                                                                  flex: 2,
+                                                                  child:
+                                                                      tableContentItem(Utils.d2SBySrc(tradeLogic.mHoldDetailList[index].margin, 2))),
+                                                              Expanded(
+                                                                  flex: 1, child: tableContentItem(tradeLogic.mHoldDetailList[index].CurrencyType)),
+                                                              Expanded(flex: 3, child: tableContentItem(tradeLogic.mHoldDetailList[index].name)),
+                                                            ],
+                                                          )
                                                         : tradeLogic.posIndex.value == 1
-                                                            ? tradeLogic.mConditionList.length
-                                                            : tradeLogic.mPlRecordList.length,
-                                                    itemBuilder: (_, int index) {
-                                                      String priceType = "";
-                                                      String status = "";
-                                                      String conStr = "";
-                                                      if (tradeLogic.posIndex.value == 1) {
-                                                        switch (tradeLogic.mConditionList[index].PriceType) {
-                                                          case 1:
-                                                            priceType = "最新价";
-                                                            break;
-                                                          case 2:
-                                                            priceType = "买价";
-                                                            break;
-                                                          case 3:
-                                                            priceType = "卖价";
-                                                            break;
-                                                        }
-                                                        switch (tradeLogic.mConditionList[index].ConditionType) {
-                                                          case 1:
-                                                            conStr = "$conStr $priceType>=${tradeLogic.mConditionList[index].ConditionPrice}";
-                                                            break;
-                                                          case 2:
-                                                            conStr = "$conStr $priceType<=${tradeLogic.mConditionList[index].ConditionPrice}";
-                                                            break;
-                                                          default:
-                                                            conStr =
-                                                                "${tradeLogic.mConditionList[index].ContractName}(${tradeLogic.mConditionList[index].CommodityNo}${tradeLogic.mConditionList[index].ContractNo})";
-                                                        }
-                                                        switch (tradeLogic.mConditionList[index].Status) {
-                                                          case 1:
-                                                            status = "未触发";
-                                                            break;
-                                                          case 2:
-                                                            status = "已删除";
-                                                            break;
-                                                          case 3:
-                                                            status = "到期删除";
-                                                            break;
-                                                          case 4:
-                                                            status = "已触发";
-                                                            break;
-                                                          case 5:
-                                                            status = "指令失败";
-                                                            break;
-                                                        }
-                                                      }
-                                                      return GestureDetector(
-                                                        child: Container(
-                                                          padding: const EdgeInsets.symmetric(vertical: 10),
-                                                          decoration: BoxDecoration(
-                                                            border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 0.5)),
-                                                          ),
-                                                          child: IntrinsicHeight(
-                                                            child: tradeLogic.posIndex.value == 0
+                                                            ? FlyoutTarget(
+                                                                controller: conditionFlyoutController,
+                                                                child: Row(
+                                                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                                  children: [
+                                                                    Expanded(
+                                                                        flex: 3,
+                                                                        child: tableContentItem(tradeLogic.mConditionList[index].ConditionOrderNo)),
+                                                                    Expanded(flex: 2, child: tableContentItem(status)),
+                                                                    Expanded(flex: 5, child: tableContentItem(conStr)),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child: tableContentItem(
+                                                                            tradeLogic.mConditionList[index].OrderType == Order_Type.ORDER_TYPE_MARKET
+                                                                                ? "市价"
+                                                                                : "限价")),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child:
+                                                                            tableContentItem("${tradeLogic.mConditionList[index].OrderPrice ?? 0}")),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child: tableContentItem(
+                                                                            tradeLogic.mConditionList[index].OrderSide == SideType.SIDE_SELL
+                                                                                ? "卖出"
+                                                                                : "买入")),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child: tableContentItem(PositionEffectType.getName(
+                                                                            tradeLogic.mConditionList[index].PositionEffect))),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child: tableContentItem("${tradeLogic.mConditionList[index].OrderQty ?? 0}")),
+                                                                    Expanded(
+                                                                        flex: 2,
+                                                                        child: tableContentItem(
+                                                                            tradeLogic.mConditionList[index].TimeInForce == 1 ? "当日有效" : "永久有效")),
+                                                                    Expanded(
+                                                                        flex: 3,
+                                                                        child: tableContentItem(tradeLogic.mConditionList[index].SubmitResultsMsg)),
+                                                                    Expanded(
+                                                                        flex: 4, child: tableContentItem(tradeLogic.mConditionList[index].CreateAt)),
+                                                                    Expanded(
+                                                                        flex: 4, child: tableContentItem(tradeLogic.mConditionList[index].UpdateAt)),
+                                                                  ],
+                                                                ))
+                                                            : FlyoutTarget(
+                                                                controller: flyoutController,
+                                                                child: Row(children: [
+                                                                  Expanded(
+                                                                      flex: 3, child: tableContentItem(tradeLogic.mPlRecordList[index].CreateAt)),
+                                                                  Expanded(
+                                                                      flex: 1,
+                                                                      child: tableContentItem(
+                                                                          tradeLogic.mPlRecordList[index].State == 0 ? "暂停" : "运行",
+                                                                          color: tradeLogic.mPlRecordList[index].State == 0
+                                                                              ? Common.contentDarkBgColor
+                                                                              : Common.lightDownColor)),
+                                                                  Expanded(flex: 1, child: tableContentItem(tradeLogic.hold.value?.subComCode)),
+                                                                  Expanded(flex: 1, child: tableContentItem(tradeLogic.hold.value?.subConCode)),
+                                                                  Expanded(flex: 1, child: tableContentItem("类别")),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem(
+                                                                          "${tradeLogic.mPlRecordList[index].StopWin != 0 ? tradeLogic.mPlRecordList[index].StopWin : tradeLogic.mPlRecordList[index].StopLoss != 0 ? tradeLogic.mPlRecordList[index].StopLoss : (tradeLogic.mPlRecordList[index].FloatLoss ?? 0)}")),
+                                                                  Expanded(
+                                                                      flex: 1,
+                                                                      child: tableContentItem("${tradeLogic.mPlRecordList[index].RealQty ?? "0"}")),
+                                                                  Expanded(flex: 1, child: tableContentItem("--")),
+                                                                  Expanded(flex: 2, child: tableContentItem("--")),
+                                                                  Expanded(flex: 1, child: tableContentItem("--")),
+                                                                  Expanded(flex: 2, child: tableContentItem("--")),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem(
+                                                                          tradeLogic.mPlRecordList[index].CloseType == PLCloseType.Today
+                                                                              ? "当日有效"
+                                                                              : "永久有效")),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem("${tradeLogic.mPlRecordList[index].Id ?? "0"}")),
+                                                                ])),
+                                                  ),
+                                                ),
+                                                onTap: () {
+                                                  if (tradeLogic.posIndex.value == 0) {
+                                                    if (tradeLogic.mHoldDetailList[index].selected == true) return;
+                                                    for (var element in tradeLogic.mHoldDetailList) {
+                                                      element.selected = false;
+                                                    }
+                                                    tradeLogic.mHoldDetailList[index].selected = true;
+                                                    tradeLogic.hold.value = tradeLogic.mHoldDetailList[index];
+                                                    tradeLogic.switchCon();
+                                                    tradeLogic.queryPLRecord();
+                                                  } else if (tradeLogic.posIndex.value == 1) {
+                                                    if (tradeLogic.mConditionList[index].selected == true) return;
+                                                    for (var element in tradeLogic.mConditionList) {
+                                                      element.selected = false;
+                                                    }
+                                                    tradeLogic.mConditionList[index].selected = true;
+                                                  } else if (tradeLogic.posIndex.value == 2) {
+                                                    if (tradeLogic.mPlRecordList[index].selected == true) return;
+                                                    for (var element in tradeLogic.mPlRecordList) {
+                                                      element.selected = false;
+                                                    }
+                                                    tradeLogic.mPlRecordList[index].selected = true;
+                                                  }
+                                                },
+                                                onSecondaryTapUp: (d) {
+                                                  if (tradeLogic.posIndex.value == 1) {
+                                                    conditionFlyoutController.showFlyout(
+                                                        position: d.globalPosition,
+                                                        builder: (flyoutContext) {
+                                                          return MenuFlyout(items: [
+                                                            MenuFlyoutItem(
+                                                              text: const Text('修改'),
+                                                              onPressed: () {
+                                                                showDialog(
+                                                                    context: context,
+                                                                    builder: (BuildContext context) {
+                                                                      return ModConditionDialog()
+                                                                          .modDialog(context, tradeLogic.mConditionList[index]);
+                                                                    });
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('删除'),
+                                                              onPressed: () async {
+                                                                await ConditionServer.delCondition(tradeLogic.mConditionList[index].Id ?? 0)
+                                                                    .then((value) {
+                                                                  if (value) {
+                                                                    tradeLogic.qryCondition();
+                                                                  }
+                                                                });
+                                                              },
+                                                            ),
+                                                          ]);
+                                                        });
+                                                  } else if (tradeLogic.posIndex.value == 2) {
+                                                    flyoutController.showFlyout(
+                                                        position: d.globalPosition,
+                                                        builder: (context) {
+                                                          return MenuFlyout(items: [
+                                                            MenuFlyoutItem(
+                                                              text: const Text('暂停'),
+                                                              onPressed: () {
+                                                                tradeLogic.enablePLRecord(tradeLogic.mPlRecordList[index], false);
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('启动'),
+                                                              onPressed: () {
+                                                                tradeLogic.enablePLRecord(tradeLogic.mPlRecordList[index], true);
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('修改'),
+                                                              onPressed: () {
+                                                                // tradeLogic.modifyPLRecord(tradeLogic.mPlRecordList[index]);
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('删除'),
+                                                              onPressed: () {
+                                                                tradeLogic.delPLRecord(tradeLogic.mPlRecordList[index].Id);
+                                                              },
+                                                            ),
+                                                            const MenuFlyoutSeparator(),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('刷新'),
+                                                              onPressed: () {
+                                                                tradeLogic.queryPLRecord();
+                                                              },
+                                                            ),
+                                                            const MenuFlyoutSeparator(),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('暂停全部'),
+                                                              onPressed: () {
+                                                                for (var element in tradeLogic.mPlRecordList) {
+                                                                  tradeLogic.enablePLRecord(element, false);
+                                                                }
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('启动全部'),
+                                                              onPressed: () {
+                                                                for (var element in tradeLogic.mPlRecordList) {
+                                                                  tradeLogic.enablePLRecord(element, true);
+                                                                }
+                                                              },
+                                                            ),
+                                                            MenuFlyoutItem(
+                                                              text: const Text('删除全部'),
+                                                              onPressed: () {
+                                                                for (var element in tradeLogic.mPlRecordList) {
+                                                                  tradeLogic.delPLRecord(element.Id);
+                                                                }
+                                                              },
+                                                            ),
+                                                          ]);
+                                                        });
+                                                  }
+                                                },
+                                              );
+                                            })),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                    ],
+                  ),
+                )),
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                    margin: const EdgeInsets.only(bottom: 5),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            buttonWidget("可撤", tradeLogic.delIndex.value == 0, () => tradeLogic.delIndex.value = 0),
+                            buttonWidget("委托", tradeLogic.delIndex.value == 1, () => tradeLogic.delIndex.value = 1),
+                            buttonWidget("成交", tradeLogic.delIndex.value == 2, () {
+                              tradeLogic.delIndex.value = 2;
+                              tradeLogic.requestComOrder();
+                            }),
+                            const Spacer(),
+                            _buttonWidget("全撤", delAllDialog).marginOnly(right: 10),
+                            _buttonWidget("撤单", tradeLogic.delHold),
+                          ],
+                        ).marginOnly(bottom: 10),
+                        Expanded(
+                          child: Container(
+                            decoration: BoxDecoration(
+                                border: Border.all(color: Common.dialogContentBorderBgColor, width: 1), borderRadius: BorderRadius.circular(10)),
+                            child: Column(
+                              children: [
+                                SingleChildScrollView(
+                                  scrollDirection: Axis.horizontal,
+                                  controller: delOrderTitleController,
+                                  physics: const AlwaysScrollableScrollPhysics(),
+                                  child: Container(
+                                    width: 1.sw,
+                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                    decoration: BoxDecoration(border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 1))),
+                                    child: tradeLogic.delIndex.value != 2
+                                        ? Row(children: [
+                                            Expanded(flex: 4, child: tableTitleItem("委托时间")),
+                                            Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                            Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                            Expanded(flex: 1, child: tableTitleItem("开平")),
+                                            Expanded(flex: 2, child: tableTitleItem("价格")),
+                                            Expanded(flex: 2, child: tableTitleItem("委托数量")),
+                                            Expanded(flex: 2, child: tableTitleItem("成交数量")),
+                                            Expanded(flex: 1, child: tableTitleItem("币种")),
+                                            Expanded(flex: 2, child: tableTitleItem("订单来源")),
+                                            Expanded(flex: 2, child: tableTitleItem("状态")),
+                                            Expanded(flex: 4, child: tableTitleItem("错误信息")),
+                                            Expanded(flex: 4, child: tableTitleItem("委托号")),
+                                            Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                          ])
+                                        : Row(
+                                            children: [
+                                              Expanded(flex: 3, child: tableTitleItem("合约名称")),
+                                              Expanded(flex: 2, child: tableTitleItem("合约代码")),
+                                              Expanded(flex: 4, child: tableTitleItem("成交编号")),
+                                              Expanded(flex: 4, child: tableTitleItem("委托编号")),
+                                              Expanded(flex: 1, child: tableTitleItem("买卖")),
+                                              Expanded(flex: 1, child: tableTitleItem("开平")),
+                                              Expanded(flex: 1, child: tableTitleItem("数量")),
+                                              Expanded(flex: 2, child: tableTitleItem("成交价")),
+                                              Expanded(flex: 2, child: tableTitleItem("手续费")),
+                                              Expanded(flex: 4, child: tableTitleItem("成交时间")),
+                                            ],
+                                          ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Scrollbar(
+                                    controller: delOrderItemController,
+                                    key: UniqueKey(),
+                                    // style: ScrollbarThemeData(
+                                    //   backgroundColor: Common.lightScrollBarColor.withOpacity(0.7),
+                                    // ),
+                                    child: SingleChildScrollView(
+                                      scrollDirection: Axis.horizontal,
+                                      controller: delOrderItemController,
+                                      child: SizedBox(
+                                          width: 1.sw,
+                                          child: ListView.builder(
+                                              shrinkWrap: true,
+                                              controller: ScrollController(
+                                                keepScrollOffset: true,
+                                              ),
+                                              itemCount: tradeLogic.delIndex.value == 0
+                                                  ? tradeLogic.mPendList.length
+                                                  : tradeLogic.delIndex.value == 1
+                                                      ? tradeLogic.mDelList.length
+                                                      : tradeLogic.mComList.length,
+                                              itemBuilder: (BuildContext context, int index) {
+                                                return GestureDetector(
+                                                  child: Container(
+                                                    padding: const EdgeInsets.symmetric(vertical: 10),
+                                                    decoration: BoxDecoration(
+                                                      border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 0.5)),
+                                                    ),
+                                                    child: IntrinsicHeight(
+                                                        child: tradeLogic.delIndex.value == 0
+                                                            ? Row(
+                                                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                                children: [
+                                                                  Expanded(
+                                                                      flex: 4,
+                                                                      child: tableContentItem(
+                                                                          "${tradeLogic.mPendList[index].date ?? ""} ${tradeLogic.mPendList[index].time ?? ""}")),
+                                                                  Expanded(flex: 2, child: tableContentItem(tradeLogic.mPendList[index].code)),
+                                                                  Expanded(
+                                                                      flex: 1,
+                                                                      child: tableContentItem(tradeLogic.mPendList[index].bs,
+                                                                          color: tradeLogic.mPendList[index].bs == "买入" ? Colors.red : Colors.green)),
+                                                                  Expanded(
+                                                                      flex: 1,
+                                                                      child: tableContentItem(
+                                                                          PositionEffectType.getName(tradeLogic.mPendList[index].OpenClose))),
+                                                                  Expanded(
+                                                                      flex: 2, child: tableContentItem("${tradeLogic.mPendList[index].price ?? ""}")),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem("${tradeLogic.mPendList[index].deleNum ?? "0"}")),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem("${tradeLogic.mPendList[index].comNum ?? "0"}")),
+                                                                  Expanded(
+                                                                      flex: 1, child: tableContentItem(tradeLogic.mPendList[index].CurrencyType)),
+                                                                  Expanded(
+                                                                      flex: 2,
+                                                                      child: tableContentItem(
+                                                                          OrderOpType.getName(tradeLogic.mPendList[index].orderOpType))),
+                                                                  Expanded(flex: 2, child: tableContentItem(tradeLogic.mPendList[index].state)),
+                                                                  Expanded(flex: 4, child: tableContentItem(tradeLogic.mPendList[index].ErrorText)),
+                                                                  Expanded(flex: 4, child: tableContentItem(tradeLogic.mPendList[index].deleNo)),
+                                                                  Expanded(flex: 3, child: tableContentItem(tradeLogic.mPendList[index].name)),
+                                                                ],
+                                                              )
+                                                            : tradeLogic.delIndex.value == 1
                                                                 ? Row(
                                                                     crossAxisAlignment: CrossAxisAlignment.stretch,
                                                                     children: [
                                                                       Expanded(
-                                                                          flex: 2, child: tableContentItem(tradeLogic.mHoldDetailList[index].code)),
+                                                                          flex: 4,
+                                                                          child: tableContentItem(
+                                                                              "${tradeLogic.mDelList[index].date ?? ""} ${tradeLogic.mDelList[index].time ?? ""}")),
+                                                                      Expanded(flex: 2, child: tableContentItem(tradeLogic.mDelList[index].code)),
+                                                                      Expanded(
+                                                                          flex: 1,
+                                                                          child: tableContentItem(tradeLogic.mDelList[index].bs,
+                                                                              color:
+                                                                                  tradeLogic.mDelList[index].bs == "买入" ? Colors.red : Colors.green)),
                                                                       Expanded(
                                                                           flex: 1,
                                                                           child: tableContentItem(
-                                                                              tradeLogic.mHoldDetailList[index].orderSide == SideType.SIDE_SELL
-                                                                                  ? "卖出"
-                                                                                  : "买入")),
-                                                                      Expanded(
-                                                                          flex: 1,
-                                                                          child: tableContentItem(
-                                                                              (tradeLogic.mHoldDetailList[index].quantity ?? 0).toString())),
-                                                                      Expanded(
-                                                                          flex: 1,
-                                                                          child: tableContentItem(
-                                                                              (tradeLogic.mHoldDetailList[index].AvailableQty ?? 0).toString())),
+                                                                              PositionEffectType.getName(tradeLogic.mDelList[index].OpenClose))),
                                                                       Expanded(
                                                                           flex: 2,
-                                                                          child: tableContentItem(Utils.d2SBySrc(
-                                                                              tradeLogic.mHoldDetailList[index].open,
-                                                                              tradeLogic.mHoldDetailList[index].FutureTickSize))),
+                                                                          child: tableContentItem("${tradeLogic.mDelList[index].price ?? ""}")),
+                                                                      Expanded(
+                                                                          flex: 2,
+                                                                          child: tableContentItem("${tradeLogic.mDelList[index].deleNum ?? "0"}")),
+                                                                      Expanded(
+                                                                          flex: 2,
+                                                                          child: tableContentItem("${tradeLogic.mDelList[index].comNum ?? "0"}")),
+                                                                      Expanded(
+                                                                          flex: 1, child: tableContentItem(tradeLogic.mDelList[index].CurrencyType)),
                                                                       Expanded(
                                                                           flex: 2,
                                                                           child: tableContentItem(
-                                                                              (tradeLogic.mHoldDetailList[index].CalculatePrice ?? 0).toString())),
+                                                                              OrderOpType.getName(tradeLogic.mDelList[index].orderOpType))),
+                                                                      Expanded(flex: 2, child: tableContentItem(tradeLogic.mDelList[index].state)),
                                                                       Expanded(
-                                                                          flex: 2,
-                                                                          child: tableContentItem(
-                                                                              Utils.d2SBySrc(tradeLogic.mHoldDetailList[index].floatProfit, 2),
-                                                                              color: (tradeLogic.mHoldDetailList[index].floatProfit ?? 0) > 0
-                                                                                  ? Common.quoteRedColor
-                                                                                  : (tradeLogic.mHoldDetailList[index].floatProfit ?? 0) < 0
-                                                                                      ? Common.quoteGreenColor
-                                                                                      : null)),
-                                                                      Expanded(
-                                                                          flex: 2,
-                                                                          child: tableContentItem(
-                                                                              Utils.d2SBySrc(tradeLogic.mHoldDetailList[index].margin, 2))),
-                                                                      Expanded(
-                                                                          flex: 1,
-                                                                          child: tableContentItem(tradeLogic.mHoldDetailList[index].CurrencyType)),
-                                                                      Expanded(
-                                                                          flex: 3, child: tableContentItem(tradeLogic.mHoldDetailList[index].name)),
+                                                                          flex: 4, child: tableContentItem(tradeLogic.mDelList[index].ErrorText)),
+                                                                      Expanded(flex: 4, child: tableContentItem(tradeLogic.mDelList[index].deleNo)),
+                                                                      Expanded(flex: 3, child: tableContentItem(tradeLogic.mDelList[index].name)),
                                                                     ],
                                                                   )
-                                                                : tradeLogic.posIndex.value == 1
-                                                                    ? FlyoutTarget(
-                                                                        controller: conditionFlyoutController,
-                                                                        child: Row(
-                                                                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                                          children: [
-                                                                            Expanded(
-                                                                                flex: 3,
-                                                                                child: tableContentItem(
-                                                                                    tradeLogic.mConditionList[index].ConditionOrderNo)),
-                                                                            Expanded(flex: 2, child: tableContentItem(status)),
-                                                                            Expanded(flex: 5, child: tableContentItem(conStr)),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(tradeLogic.mConditionList[index].OrderType ==
-                                                                                        Order_Type.ORDER_TYPE_MARKET
-                                                                                    ? "市价"
-                                                                                    : "限价")),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(
-                                                                                    "${tradeLogic.mConditionList[index].OrderPrice ?? 0}")),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(
-                                                                                    tradeLogic.mConditionList[index].OrderSide == SideType.SIDE_SELL
-                                                                                        ? "卖出"
-                                                                                        : "买入")),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(PositionEffectType.getName(
-                                                                                    tradeLogic.mConditionList[index].PositionEffect))),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(
-                                                                                    "${tradeLogic.mConditionList[index].OrderQty ?? 0}")),
-                                                                            Expanded(
-                                                                                flex: 2,
-                                                                                child: tableContentItem(
-                                                                                    tradeLogic.mConditionList[index].TimeInForce == 1
-                                                                                        ? "当日有效"
-                                                                                        : "永久有效")),
-                                                                            Expanded(
-                                                                                flex: 3,
-                                                                                child: tableContentItem(
-                                                                                    tradeLogic.mConditionList[index].SubmitResultsMsg)),
-                                                                            Expanded(
-                                                                                flex: 4,
-                                                                                child: tableContentItem(tradeLogic.mConditionList[index].CreateAt)),
-                                                                            Expanded(
-                                                                                flex: 4,
-                                                                                child: tableContentItem(tradeLogic.mConditionList[index].UpdateAt)),
-                                                                          ],
-                                                                        ))
-                                                                    : FlyoutTarget(
-                                                                        controller: flyoutController,
-                                                                        child: Row(children: [
-                                                                          Expanded(
-                                                                              flex: 3,
-                                                                              child: tableContentItem(tradeLogic.mPlRecordList[index].CreateAt)),
-                                                                          Expanded(
-                                                                              flex: 1,
-                                                                              child: tableContentItem(
-                                                                                  tradeLogic.mPlRecordList[index].State == 0 ? "暂停" : "运行",
-                                                                                  color: tradeLogic.mPlRecordList[index].State == 0
-                                                                                      ? Common.contentDarkBgColor
-                                                                                      : Common.lightDownColor)),
-                                                                          Expanded(
-                                                                              flex: 1, child: tableContentItem(tradeLogic.hold.value?.subComCode)),
-                                                                          Expanded(
-                                                                              flex: 1, child: tableContentItem(tradeLogic.hold.value?.subConCode)),
-                                                                          Expanded(flex: 1, child: tableContentItem("类别")),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child: tableContentItem(
-                                                                                  "${tradeLogic.mPlRecordList[index].StopWin != 0 ? tradeLogic.mPlRecordList[index].StopWin : tradeLogic.mPlRecordList[index].StopLoss != 0 ? tradeLogic.mPlRecordList[index].StopLoss : (tradeLogic.mPlRecordList[index].FloatLoss ?? 0)}")),
-                                                                          Expanded(
-                                                                              flex: 1,
-                                                                              child: tableContentItem(
-                                                                                  "${tradeLogic.mPlRecordList[index].RealQty ?? "0"}")),
-                                                                          Expanded(flex: 1, child: tableContentItem("--")),
-                                                                          Expanded(flex: 2, child: tableContentItem("--")),
-                                                                          Expanded(flex: 1, child: tableContentItem("--")),
-                                                                          Expanded(flex: 2, child: tableContentItem("--")),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child: tableContentItem(
-                                                                                  tradeLogic.mPlRecordList[index].CloseType == PLCloseType.Today
-                                                                                      ? "当日有效"
-                                                                                      : "永久有效")),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child:
-                                                                                  tableContentItem("${tradeLogic.mPlRecordList[index].Id ?? "0"}")),
-                                                                        ])),
-                                                          ),
-                                                        ),
-                                                        onTap: () {
-                                                          if (tradeLogic.posIndex.value == 0) {
-                                                            if (tradeLogic.mHoldDetailList[index].selected == true) return;
-                                                            for (var element in tradeLogic.mHoldDetailList) {
-                                                              element.selected = false;
-                                                            }
-                                                            tradeLogic.mHoldDetailList[index].selected = true;
-                                                            tradeLogic.hold.value = tradeLogic.mHoldDetailList[index];
-                                                            tradeLogic.switchCon();
-                                                            tradeLogic.queryPLRecord();
-                                                          } else if (tradeLogic.posIndex.value == 1) {
-                                                            if (tradeLogic.mConditionList[index].selected == true) return;
-                                                            for (var element in tradeLogic.mConditionList) {
-                                                              element.selected = false;
-                                                            }
-                                                            tradeLogic.mConditionList[index].selected = true;
-                                                          } else if (tradeLogic.posIndex.value == 2) {
-                                                            if (tradeLogic.mPlRecordList[index].selected == true) return;
-                                                            for (var element in tradeLogic.mPlRecordList) {
-                                                              element.selected = false;
-                                                            }
-                                                            tradeLogic.mPlRecordList[index].selected = true;
-                                                          }
-                                                        },
-                                                        onSecondaryTapUp: (d) {
-                                                          if (tradeLogic.posIndex.value == 1) {
-                                                            conditionFlyoutController.showFlyout(
-                                                                position: d.globalPosition,
-                                                                builder: (flyoutContext) {
-                                                                  return MenuFlyout(items: [
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('修改'),
-                                                                      onPressed: () {
-                                                                        showDialog(
-                                                                            context: context,
-                                                                            builder: (BuildContext context) {
-                                                                              return ModConditionDialog()
-                                                                                  .modDialog(context, tradeLogic.mConditionList[index]);
-                                                                            });
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('删除'),
-                                                                      onPressed: () async {
-                                                                        await ConditionServer.delCondition(tradeLogic.mConditionList[index].Id ?? 0)
-                                                                            .then((value) {
-                                                                          if (value) {
-                                                                            tradeLogic.qryCondition();
-                                                                          }
-                                                                        });
-                                                                      },
-                                                                    ),
-                                                                  ]);
-                                                                });
-                                                          } else if (tradeLogic.posIndex.value == 2) {
-                                                            flyoutController.showFlyout(
-                                                                position: d.globalPosition,
-                                                                builder: (context) {
-                                                                  return MenuFlyout(items: [
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('暂停'),
-                                                                      onPressed: () {
-                                                                        tradeLogic.enablePLRecord(tradeLogic.mPlRecordList[index], false);
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('启动'),
-                                                                      onPressed: () {
-                                                                        tradeLogic.enablePLRecord(tradeLogic.mPlRecordList[index], true);
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('修改'),
-                                                                      onPressed: () {
-                                                                        // tradeLogic.modifyPLRecord(tradeLogic.mPlRecordList[index]);
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('删除'),
-                                                                      onPressed: () {
-                                                                        tradeLogic.delPLRecord(tradeLogic.mPlRecordList[index].Id);
-                                                                      },
-                                                                    ),
-                                                                    const MenuFlyoutSeparator(),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('刷新'),
-                                                                      onPressed: () {
-                                                                        tradeLogic.queryPLRecord();
-                                                                      },
-                                                                    ),
-                                                                    const MenuFlyoutSeparator(),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('暂停全部'),
-                                                                      onPressed: () {
-                                                                        for (var element in tradeLogic.mPlRecordList) {
-                                                                          tradeLogic.enablePLRecord(element, false);
-                                                                        }
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('启动全部'),
-                                                                      onPressed: () {
-                                                                        for (var element in tradeLogic.mPlRecordList) {
-                                                                          tradeLogic.enablePLRecord(element, true);
-                                                                        }
-                                                                      },
-                                                                    ),
-                                                                    MenuFlyoutItem(
-                                                                      text: const Text('删除全部'),
-                                                                      onPressed: () {
-                                                                        for (var element in tradeLogic.mPlRecordList) {
-                                                                          tradeLogic.delPLRecord(element.Id);
-                                                                        }
-                                                                      },
-                                                                    ),
-                                                                  ]);
-                                                                });
-                                                          }
-                                                        },
-                                                      );
-                                                    })),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              )
-                            ],
-                          ),
-                        )),
-                        Expanded(
-                          child: Container(
-                            decoration: BoxDecoration(color: Common.contentLightBgColor, borderRadius: BorderRadius.circular(20)),
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-                            margin: const EdgeInsets.only(bottom: 5),
-                            child: Column(
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    buttonWidget("可撤", tradeLogic.delIndex.value == 0, () => tradeLogic.delIndex.value = 0),
-                                    buttonWidget("委托", tradeLogic.delIndex.value == 1, () => tradeLogic.delIndex.value = 1),
-                                    buttonWidget("成交", tradeLogic.delIndex.value == 2, () {
-                                      tradeLogic.delIndex.value = 2;
-                                      tradeLogic.requestComOrder();
-                                    }),
-                                    const Spacer(),
-                                    _buttonWidget("全撤", delAllDialog).marginOnly(right: 10),
-                                    _buttonWidget("撤单", tradeLogic.delHold),
-                                  ],
-                                ).marginOnly(bottom: 10),
-                                Expanded(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                        border: Border.all(color: Common.dialogContentBorderBgColor, width: 1),
-                                        borderRadius: BorderRadius.circular(10)),
-                                    child: Column(
-                                      children: [
-                                        SingleChildScrollView(
-                                          scrollDirection: Axis.horizontal,
-                                          controller: delOrderTitleController,
-                                          physics: const AlwaysScrollableScrollPhysics(),
-                                          child: Container(
-                                            width: 1.sw,
-                                            padding: const EdgeInsets.symmetric(vertical: 10),
-                                            decoration:
-                                                BoxDecoration(border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 1))),
-                                            child: tradeLogic.delIndex.value != 2
-                                                ? Row(children: [
-                                                    Expanded(flex: 4, child: tableTitleItem("委托时间")),
-                                                    Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                                    Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                                    Expanded(flex: 1, child: tableTitleItem("开平")),
-                                                    Expanded(flex: 2, child: tableTitleItem("价格")),
-                                                    Expanded(flex: 2, child: tableTitleItem("委托数量")),
-                                                    Expanded(flex: 2, child: tableTitleItem("成交数量")),
-                                                    Expanded(flex: 1, child: tableTitleItem("币种")),
-                                                    Expanded(flex: 2, child: tableTitleItem("订单来源")),
-                                                    Expanded(flex: 2, child: tableTitleItem("状态")),
-                                                    Expanded(flex: 4, child: tableTitleItem("错误信息")),
-                                                    Expanded(flex: 4, child: tableTitleItem("委托号")),
-                                                    Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                                  ])
-                                                : Row(
-                                                    children: [
-                                                      Expanded(flex: 3, child: tableTitleItem("合约名称")),
-                                                      Expanded(flex: 2, child: tableTitleItem("合约代码")),
-                                                      Expanded(flex: 4, child: tableTitleItem("成交编号")),
-                                                      Expanded(flex: 4, child: tableTitleItem("委托编号")),
-                                                      Expanded(flex: 1, child: tableTitleItem("买卖")),
-                                                      Expanded(flex: 1, child: tableTitleItem("开平")),
-                                                      Expanded(flex: 1, child: tableTitleItem("数量")),
-                                                      Expanded(flex: 2, child: tableTitleItem("成交价")),
-                                                      Expanded(flex: 2, child: tableTitleItem("手续费")),
-                                                      Expanded(flex: 4, child: tableTitleItem("成交时间")),
-                                                    ],
+                                                                : Row(
+                                                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                                                    children: [
+                                                                      Expanded(flex: 3, child: tableContentItem(tradeLogic.mComList[index].name)),
+                                                                      Expanded(flex: 2, child: tableContentItem(tradeLogic.mComList[index].code)),
+                                                                      Expanded(flex: 4, child: tableContentItem(tradeLogic.mComList[index].comNo)),
+                                                                      Expanded(flex: 4, child: tableContentItem(tradeLogic.mComList[index].deleNo)),
+                                                                      Expanded(flex: 1, child: tableContentItem(tradeLogic.mComList[index].bs)),
+                                                                      Expanded(
+                                                                          flex: 1,
+                                                                          child: tableContentItem(
+                                                                              PositionEffectType.getName(tradeLogic.mComList[index].OpenClose))),
+                                                                      Expanded(
+                                                                          flex: 1,
+                                                                          child: tableContentItem("${tradeLogic.mComList[index].comNum ?? 0}")),
+                                                                      Expanded(
+                                                                          flex: 2,
+                                                                          child: tableContentItem("${tradeLogic.mComList[index].price ?? 0.0}")),
+                                                                      Expanded(
+                                                                          flex: 2,
+                                                                          child: tableContentItem("${tradeLogic.mComList[index].FeeValue ?? 0.0}")),
+                                                                      Expanded(
+                                                                          flex: 4,
+                                                                          child: tableContentItem(
+                                                                              "${tradeLogic.mComList[index].date ?? ""} ${tradeLogic.mComList[index].time ?? ""}")),
+                                                                    ],
+                                                                  )),
                                                   ),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: Scrollbar(
-                                            controller: delOrderItemController,
-                                            key: UniqueKey(),
-                                            child: SingleChildScrollView(
-                                              scrollDirection: Axis.horizontal,
-                                              controller: delOrderItemController,
-                                              child: SizedBox(
-                                                  width: 1.sw,
-                                                  child: ListView.builder(
-                                                      shrinkWrap: true,
-                                                      controller: ScrollController(
-                                                        keepScrollOffset: true,
-                                                      ),
-                                                      itemCount: tradeLogic.delIndex.value == 0
-                                                          ? tradeLogic.mPendList.length
-                                                          : tradeLogic.delIndex.value == 1
-                                                              ? tradeLogic.mDelList.length
-                                                              : tradeLogic.mComList.length,
-                                                      itemBuilder: (BuildContext context, int index) {
-                                                        return GestureDetector(
-                                                          child: Container(
-                                                            padding: const EdgeInsets.symmetric(vertical: 10),
-                                                            decoration: BoxDecoration(
-                                                              border: Border(bottom: BorderSide(color: Common.checkBoxBorderLightColor, width: 0.5)),
-                                                            ),
-                                                            child: IntrinsicHeight(
-                                                                child: tradeLogic.delIndex.value == 0
-                                                                    ? Row(
-                                                                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                                        children: [
-                                                                          Expanded(
-                                                                              flex: 4,
-                                                                              child: tableContentItem(
-                                                                                  "${tradeLogic.mPendList[index].date ?? ""} ${tradeLogic.mPendList[index].time ?? ""}")),
-                                                                          Expanded(
-                                                                              flex: 2, child: tableContentItem(tradeLogic.mPendList[index].code)),
-                                                                          Expanded(
-                                                                              flex: 1,
-                                                                              child: tableContentItem(tradeLogic.mPendList[index].bs,
-                                                                                  color: tradeLogic.mPendList[index].bs == "买入"
-                                                                                      ? Colors.red
-                                                                                      : Colors.green)),
-                                                                          Expanded(
-                                                                              flex: 1,
-                                                                              child: tableContentItem(
-                                                                                  PositionEffectType.getName(tradeLogic.mPendList[index].OpenClose))),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child: tableContentItem("${tradeLogic.mPendList[index].price ?? ""}")),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child:
-                                                                                  tableContentItem("${tradeLogic.mPendList[index].deleNum ?? "0"}")),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child:
-                                                                                  tableContentItem("${tradeLogic.mPendList[index].comNum ?? "0"}")),
-                                                                          Expanded(
-                                                                              flex: 1,
-                                                                              child: tableContentItem(tradeLogic.mPendList[index].CurrencyType)),
-                                                                          Expanded(
-                                                                              flex: 2,
-                                                                              child: tableContentItem(
-                                                                                  OrderOpType.getName(tradeLogic.mPendList[index].orderOpType))),
-                                                                          Expanded(
-                                                                              flex: 2, child: tableContentItem(tradeLogic.mPendList[index].state)),
-                                                                          Expanded(
-                                                                              flex: 4,
-                                                                              child: tableContentItem(tradeLogic.mPendList[index].ErrorText)),
-                                                                          Expanded(
-                                                                              flex: 4, child: tableContentItem(tradeLogic.mPendList[index].deleNo)),
-                                                                          Expanded(
-                                                                              flex: 3, child: tableContentItem(tradeLogic.mPendList[index].name)),
-                                                                        ],
-                                                                      )
-                                                                    : tradeLogic.delIndex.value == 1
-                                                                        ? Row(
-                                                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                                            children: [
-                                                                              Expanded(
-                                                                                  flex: 4,
-                                                                                  child: tableContentItem(
-                                                                                      "${tradeLogic.mDelList[index].date ?? ""} ${tradeLogic.mDelList[index].time ?? ""}")),
-                                                                              Expanded(
-                                                                                  flex: 2, child: tableContentItem(tradeLogic.mDelList[index].code)),
-                                                                              Expanded(
-                                                                                  flex: 1,
-                                                                                  child: tableContentItem(tradeLogic.mDelList[index].bs,
-                                                                                      color: tradeLogic.mDelList[index].bs == "买入"
-                                                                                          ? Colors.red
-                                                                                          : Colors.green)),
-                                                                              Expanded(
-                                                                                  flex: 1,
-                                                                                  child: tableContentItem(PositionEffectType.getName(
-                                                                                      tradeLogic.mDelList[index].OpenClose))),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child:
-                                                                                      tableContentItem("${tradeLogic.mDelList[index].price ?? ""}")),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child: tableContentItem(
-                                                                                      "${tradeLogic.mDelList[index].deleNum ?? "0"}")),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child: tableContentItem(
-                                                                                      "${tradeLogic.mDelList[index].comNum ?? "0"}")),
-                                                                              Expanded(
-                                                                                  flex: 1,
-                                                                                  child: tableContentItem(tradeLogic.mDelList[index].CurrencyType)),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child: tableContentItem(
-                                                                                      OrderOpType.getName(tradeLogic.mDelList[index].orderOpType))),
-                                                                              Expanded(
-                                                                                  flex: 2, child: tableContentItem(tradeLogic.mDelList[index].state)),
-                                                                              Expanded(
-                                                                                  flex: 4,
-                                                                                  child: tableContentItem(tradeLogic.mDelList[index].ErrorText)),
-                                                                              Expanded(
-                                                                                  flex: 4,
-                                                                                  child: tableContentItem(tradeLogic.mDelList[index].deleNo)),
-                                                                              Expanded(
-                                                                                  flex: 3, child: tableContentItem(tradeLogic.mDelList[index].name)),
-                                                                            ],
-                                                                          )
-                                                                        : Row(
-                                                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                                                            children: [
-                                                                              Expanded(
-                                                                                  flex: 3, child: tableContentItem(tradeLogic.mComList[index].name)),
-                                                                              Expanded(
-                                                                                  flex: 2, child: tableContentItem(tradeLogic.mComList[index].code)),
-                                                                              Expanded(
-                                                                                  flex: 4, child: tableContentItem(tradeLogic.mComList[index].comNo)),
-                                                                              Expanded(
-                                                                                  flex: 4,
-                                                                                  child: tableContentItem(tradeLogic.mComList[index].deleNo)),
-                                                                              Expanded(
-                                                                                  flex: 1, child: tableContentItem(tradeLogic.mComList[index].bs)),
-                                                                              Expanded(
-                                                                                  flex: 1,
-                                                                                  child: tableContentItem(PositionEffectType.getName(
-                                                                                      tradeLogic.mComList[index].OpenClose))),
-                                                                              Expanded(
-                                                                                  flex: 1,
-                                                                                  child:
-                                                                                      tableContentItem("${tradeLogic.mComList[index].comNum ?? 0}")),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child:
-                                                                                      tableContentItem("${tradeLogic.mComList[index].price ?? 0.0}")),
-                                                                              Expanded(
-                                                                                  flex: 2,
-                                                                                  child: tableContentItem(
-                                                                                      "${tradeLogic.mComList[index].FeeValue ?? 0.0}")),
-                                                                              Expanded(
-                                                                                  flex: 4,
-                                                                                  child: tableContentItem(
-                                                                                      "${tradeLogic.mComList[index].date ?? ""} ${tradeLogic.mComList[index].time ?? ""}")),
-                                                                            ],
-                                                                          )),
-                                                          ),
-                                                          onTap: () {
-                                                            if (tradeLogic.delIndex.value == 0) {
-                                                              if (tradeLogic.mPendList[index].selected == true) return;
-                                                              for (var element in tradeLogic.mPendList) {
-                                                                element.selected = false;
-                                                              }
-                                                              tradeLogic.mPendList[index].selected = true;
-                                                            } else if (tradeLogic.delIndex.value == 1) {
-                                                              if (tradeLogic.mDelList[index].selected == true) return;
-                                                              for (var element in tradeLogic.mDelList) {
-                                                                element.selected = false;
-                                                              }
-                                                              tradeLogic.mDelList[index].selected = true;
-                                                            } else if (tradeLogic.delIndex.value == 2) {
-                                                              if (tradeLogic.mComList[index].selected == true) return;
-                                                              for (var element in tradeLogic.mComList) {
-                                                                element.selected = false;
-                                                              }
-                                                              tradeLogic.mComList[index].selected = true;
-                                                            }
-                                                          },
-                                                        );
-                                                      })),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                                  onTap: () {
+                                                    if (tradeLogic.delIndex.value == 0) {
+                                                      if (tradeLogic.mPendList[index].selected == true) return;
+                                                      for (var element in tradeLogic.mPendList) {
+                                                        element.selected = false;
+                                                      }
+                                                      tradeLogic.mPendList[index].selected = true;
+                                                    } else if (tradeLogic.delIndex.value == 1) {
+                                                      if (tradeLogic.mDelList[index].selected == true) return;
+                                                      for (var element in tradeLogic.mDelList) {
+                                                        element.selected = false;
+                                                      }
+                                                      tradeLogic.mDelList[index].selected = true;
+                                                    } else if (tradeLogic.delIndex.value == 2) {
+                                                      if (tradeLogic.mComList[index].selected == true) return;
+                                                      for (var element in tradeLogic.mComList) {
+                                                        element.selected = false;
+                                                      }
+                                                      tradeLogic.mComList[index].selected = true;
+                                                    }
+                                                  },
+                                                );
+                                              })),
                                     ),
                                   ),
-                                )
+                                ),
                               ],
                             ),
                           ),
-                        ), //可撤/委托/成交
+                        )
                       ],
-                    )),
-                    // Column(
-                    //   crossAxisAlignment: CrossAxisAlignment.start,
-                    //   children: [
-                    //     tabItem("交易", 0),
-                    //     tabItem("云条件单", 1),
-                    //     tabItem("当日委托", 2),
-                    //     tabItem("当日成交", 3),
-                    //     tabItem("持仓", 4),
-                    //     tabItem("结算单", 5),
-                    //     tabItem("交易设置", 6),
-                    //   ],
-                    // ),
-                    // Container(
-                    //   color: themeController.theme.cardColor,
-                    //   margin: const EdgeInsets.only(left: 5),
-                    //   child: selectedIndex == 0 || selectedIndex == 2 || selectedIndex == 3 || selectedIndex == 4
-                    //       ? tradeContent()
-                    //       : selectedIndex == 1
-                    //           ? cloudConditionContent()
-                    //           : null,
-                    // ),
-                    // selectedIndex == 0
-                    //     ? tradeDetails()
-                    //     : selectedIndex == 1
-                    //         ? cloudConditionDetails()
-                    //         : selectedIndex == 2
-                    //             ? orderDetails()
-                    //             : selectedIndex == 3
-                    //                 ? dealDetails()
-                    //                 : selectedIndex == 4
-                    //                     ? posDetails()
-                    //                     : selectedIndex == 5
-                    //                         ? queryWidget()
-                    //                         : selectedIndex == 6
-                    //                             ? settingWidget()
-                    //                             : Container()
-                  ],
-                ),
-              );
-      }),
-    );
+                    ),
+                  ),
+                ), //可撤/委托/成交
+              ],
+            )),
+            // Column(
+            //   crossAxisAlignment: CrossAxisAlignment.start,
+            //   children: [
+            //     tabItem("交易", 0),
+            //     tabItem("云条件单", 1),
+            //     tabItem("当日委托", 2),
+            //     tabItem("当日成交", 3),
+            //     tabItem("持仓", 4),
+            //     tabItem("结算单", 5),
+            //     tabItem("交易设置", 6),
+            //   ],
+            // ),
+            // Container(
+            //   color: themeController.theme.cardColor,
+            //   margin: const EdgeInsets.only(left: 5),
+            //   child: selectedIndex == 0 || selectedIndex == 2 || selectedIndex == 3 || selectedIndex == 4
+            //       ? tradeContent()
+            //       : selectedIndex == 1
+            //           ? cloudConditionContent()
+            //           : null,
+            // ),
+            // selectedIndex == 0
+            //     ? tradeDetails()
+            //     : selectedIndex == 1
+            //         ? cloudConditionDetails()
+            //         : selectedIndex == 2
+            //             ? orderDetails()
+            //             : selectedIndex == 3
+            //                 ? dealDetails()
+            //                 : selectedIndex == 4
+            //                     ? posDetails()
+            //                     : selectedIndex == 5
+            //                         ? queryWidget()
+            //                         : selectedIndex == 6
+            //                             ? settingWidget()
+            //                             : Container()
+          ],
+        ),
+      );
+    });
   }
 
   Widget buttonWidget(String text, bool selected, Function() fun) {
@@ -2208,7 +2236,8 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         onPressed: fun,
         child: Text(
           text,
-          style: TextStyle(color: selected ? Common.contentDarkBgColor : Common.commandTextColor, fontWeight: FontWeight.w800),
+          style: TextStyle(
+              color: selected ? Common.contentDarkBgColor : Common.commandTextColor, fontWeight: selected ? FontWeight.w500 : FontWeight.w400),
         ));
   }
 
@@ -2223,7 +2252,7 @@ class _TradeState extends State<Trade> with MultiWindowListener {
         onPressed: fun,
         child: AutoSizeText(
           text,
-          style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor, fontWeight: FontWeight.w800),
+          style: TextStyle(fontSize: 11.5, color: Common.contentDarkBgColor, fontWeight: FontWeight.w400),
         ));
   }
 

@@ -160,6 +160,7 @@ class TradeLogic extends GetxController {
 
   /// 查询合约初始保证金
   void queryInitMargin() async {
+    if (contract.value == null) return;
     mInitMargin.value = null;
     await DealServer.getInitMargin(contract.value?.exCode, contract.value?.subComCode, contract.value?.comType, contract.value?.code).then((value) {
       if (value != null) {

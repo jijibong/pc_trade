@@ -10,7 +10,7 @@ class ThemeController extends GetxController {
   var isDarkMode = false.obs;
   var multiScreen = 1.obs; // 当前分屏
   var selectIndex = 1.obs; // 首页/自选
-  var selectCommandBarIndex = 0.obs; // 工具栏
+  Rx<int> selectCommandBarIndex = (-1).obs; // 工具栏
 
   @override
   void onInit() {
@@ -61,6 +61,10 @@ class ThemeController extends GetxController {
         inactiveColor: Common.inActiveCommodityTextColor,
       ),
       scrollbarTheme: ScrollbarThemeData(thickness: 5, backgroundColor: Common.lightScrollBarColor),
+      sliderTheme: SliderThemeData(
+        labelBackgroundColor: Common.textBoxBorderLightColor,
+        labelForegroundColor: Common.textBoxBorderHighLightLightColor,
+      ),
       dialogTheme: ContentDialogThemeData(
           padding: EdgeInsets.all(Common.dialogPadding),
           barrierColor: Common.contentDarkBgColor,
@@ -91,6 +95,10 @@ class ThemeController extends GetxController {
         inactiveColor: Common.commandTextColor,
       ),
       scrollbarTheme: ScrollbarThemeData(thickness: 5, backgroundColor: Common.darkScrollBarColor),
+      sliderTheme: SliderThemeData(
+        labelBackgroundColor: Common.textBoxBorderDarkColor,
+        labelForegroundColor: Common.textBoxBorderHighLightDarkColor,
+      ),
       dialogTheme: ContentDialogThemeData(
           padding: EdgeInsets.all(Common.dialogPadding),
           barrierColor: Common.dialogContentBorderBgColor,

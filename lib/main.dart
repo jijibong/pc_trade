@@ -159,7 +159,7 @@ Future<void> main(List<String> args) async {
       runApp(const MyApp());
       rustDeskWinManager.registerActiveWindow(kWindowMainId);
       // SpUtils.clear();
-      // SpUtils.remove(SpKey.myPage);
+      // SpUtils.remove(SpKey.kPeriod);
     }
   }
 }

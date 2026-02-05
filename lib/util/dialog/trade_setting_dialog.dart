@@ -1,4 +1,5 @@
 import 'package:fluent_ui/fluent_ui.dart' hide NumberBox;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 
 import '../../config/common.dart';
@@ -226,8 +227,8 @@ class TradeSettingDialog {
                     }),
               )),
           IconButton(
-            icon: Image.asset(
-              "assets/images/icon_fuwei@3x.png",
+            icon: SvgPicture.asset(
+              "assets/images/icon_fuwei.svg",
               width: 16,
             ),
             onPressed: () {},
