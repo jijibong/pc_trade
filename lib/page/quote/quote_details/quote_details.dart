@@ -196,7 +196,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   int pathType = 0;
   int colorValue = 4294967295;
   int widthType = 1;
-  int lineType = 0;
+  int lineType = 1;
   List<CustomLine> drawOrderLines = []; //画线下单
   List<DrawToolLine> drawToolLines = []; //画线工具
   List<KPeriod> periodList = [];
@@ -292,7 +292,6 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   List<TradeTime> mTradeTimes = [];
   List<String> mFsTimes = [];
   int mFsCount = 0;
-  List<DrawToolObj> drawToolObjList = [];
 
   String pankouLastPrice = "--";
   String pankouChange = "--";
@@ -334,7 +333,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
   // StreamSubscription? streamSubscriptionH;
   StreamSubscription? streamSubscriptionI;
   StreamSubscription? streamSubscriptionJ;
-  StreamSubscription? streamSubscriptionK;
+  // StreamSubscription? streamSubscriptionK;
   StreamSubscription? streamSubscriptionL;
   StreamSubscription? streamSubscriptionM;
   StreamSubscription? streamSubscriptionN;
@@ -1153,6 +1152,14 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     qryCondition();
   }
 
+  getDrawTypes() async {
+    var typeList = jsonDecode(await SpUtils.getString(SpKey.drawToolLineTypes) ?? "[]").cast<int>();
+    logic.drawToolObjList.clear();
+    for (int e in typeList) {
+      logic.drawToolObjList.addAll(Common().drawToolTypes.where((element) => element.index == e));
+    }
+  }
+
   qryCondition() async {
     selectedLine = -1;
     drawOrderLines.clear();
@@ -1596,6 +1603,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     }
     getKPeriod();
     getDrawLines();
+    getDrawTypes();
     refreshData();
   }
 
@@ -1760,13 +1768,15 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     });
 
     ///画线工具箱
-    streamSubscriptionK = EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
-      var map = event.typeList;
-      for (int e in map) {
-        drawToolObjList.addAll(Common().drawToolTypes.where((element) => element.index == e));
-      }
-      if (mounted) setState(() {});
-    });
+    // streamSubscriptionK = EventBusUtil.getInstance().on<DrawEvent>().listen((event) async {
+    //   drawToolObjList.clear();
+    //   var map = event.typeList;
+    //   for (int e in map) {
+    //     drawToolObjList.addAll(Common().drawToolTypes.where((element) => element.index == e));
+    //   }
+    //   await SpUtils.set(SpKey.drawToolLineTypes, jsonEncode(map));
+    //   if (mounted) setState(() {});
+    // });
 
     ///画线下单
     streamSubscriptionL = EventBusUtil.getInstance().on<OrderEvent>().listen((event) async {
@@ -1782,7 +1792,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
           orderDrawing = true;
           if (startDrawTool) {
             startDrawTool = false;
-            await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
+            // await DesktopMultiWindow.invokeMethod(drawToolWindowId ?? 1, drawDoneEvent, "");
           }
           num = map['num'];
           price = map['priceType'];
@@ -1984,7 +1994,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
     // streamSubscriptionH?.cancel();
     streamSubscriptionI?.cancel();
     streamSubscriptionJ?.cancel();
-    streamSubscriptionK?.cancel();
+    // streamSubscriptionK?.cancel();
     streamSubscriptionL?.cancel();
     streamSubscriptionM?.cancel();
     streamSubscriptionN?.cancel();
@@ -2098,7 +2108,7 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                       length: Common.iconImageWidth,
                                       color: Common.dashDividerColor,
                                     ),
-                                    ...drawToolObjList.map(
+                                    ...logic.drawToolObjList.map(
                                       (e) => IconButton(
                                           icon: Image.asset(
                                             e.iconPath,
@@ -2106,6 +2116,9 @@ class _QuoteDetailsState extends State<QuoteDetails> with TickerProviderStateMix
                                           ),
                                           onPressed: () {
                                             startDrawTool = true;
+                                            if (orderDrawing) {
+                                              orderDrawing = false;
+                                            }
                                             pathType = e.index;
                                           }).marginOnly(left: 20),
                                     ),

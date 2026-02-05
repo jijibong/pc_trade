@@ -6,6 +6,7 @@ import 'package:trade/util/event_bus/events.dart';
 
 import '../../config/common.dart';
 import '../../main.dart';
+import '../../model/draw_tools/DrawTool.dart';
 import '../../model/k/k_preiod.dart';
 import '../../model/option/sector.dart';
 import '../../model/pb/quote/fill.pb.dart';
@@ -47,6 +48,7 @@ class QuoteLogic extends GetxController {
   var commodityList = <Commodity>[].obs;
   var mHoldList = <HoldOrder>[].obs;
   var mHoldToContractList = <Contract>[].obs;
+  var drawToolObjList = <DrawToolObj>[].obs; //画线工具类型
   var selectedCommodity = Commodity().obs;
   var quoteFilledList = <Map<String, List<FillData>>>[].obs;
   var sectorList = <Sector>[].obs; //自选板块列表

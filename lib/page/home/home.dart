@@ -292,7 +292,13 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
         var json = jsonDecode(call.arguments["line"]);
         EventBusUtil.getInstance().fire(SetLine(json: json));
       } else if (call.method == kDrawEvent) {
-        EventBusUtil.getInstance().fire(DrawEvent(typeList: call.arguments));
+        // EventBusUtil.getInstance().fire(DrawEvent(typeList: call.arguments));
+        logic.drawToolObjList.clear();
+        var map = call.arguments;
+        for (int e in map) {
+          logic.drawToolObjList.addAll(Common().drawToolTypes.where((element) => element.index == e));
+        }
+        await SpUtils.set(SpKey.drawToolLineTypes, jsonEncode(map));
       } else if (call.method == kOrderEvent) {
         if (!LoginServer.isLogin) {
           InfoBarUtils.showInfoDialog("当前用户未登录，请登录后重试");
@@ -368,7 +374,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
-                      "欢迎登录${Common.shortName}",
+                      "欢迎登录",
                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
                     ).marginOnly(bottom: 20),
                     boxItem('请输入服务商代码', severController, _focusNodes[0], readOnly: true),
@@ -411,7 +417,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                       Text(
                         errorMsg!,
                         style: TextStyle(color: Colors.red),
-                      ).marginOnly(top: 20),
+                      ).marginSymmetric(vertical: 10),
                     FilledButton(
                       style: ButtonStyle(
                           backgroundColor: WidgetStatePropertyAll(Common.loginButtonColor),
@@ -424,7 +430,11 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
                         '确认登录',
                         style: TextStyle(fontSize: 16, color: Colors.black),
                       ),
-                    ),
+                    ).marginSymmetric(vertical: 10),
+                    Text(
+                      '上海元泓软件科技有限公司荣誉出品',
+                      style: TextStyle(color: Colors.red),
+                    ).marginOnly(top: 35),
                   ],
                 )))
               ],
@@ -437,13 +447,8 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
 
   // 获取并格式化当前日期时间
   void _updateCurrentDateTime() {
-    // 获取当前时间
-    DateTime now = DateTime.now();
-    // 格式化日期时间（可自定义格式）
-    // 格式说明：yyyy=年，MM=月，dd=日，HH=时(24小时制)，mm=分，ss=秒
-    _currentDateTime = "日期：${dateFormatter.format(now)}（${weekdays[now.weekday % 7]}） 时间：${timeFormatter.format(now)}";
-    // 如果需要实时更新（每秒刷新），可以添加定时器
     timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      DateTime now = DateTime.now();
       setState(() {
         _currentDateTime = "日期：${dateFormatter.format(now)}（${weekdays[now.weekday % 7]}） 时间：${timeFormatter.format(now)}";
       });
@@ -744,7 +749,7 @@ class _HomepageState extends State<Homepage> with WindowListener, MultiWindowLis
     UserUtils.appContext = context;
     initInfo();
     initPage();
-    // tradeAccount();
+    tradeAccount();
     WebSocketServer().initSocket();
     requestNetIp();
     refreshBroker();

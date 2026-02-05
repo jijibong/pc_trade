@@ -25,6 +25,7 @@ class SpKey {
   static String defaultTradeNumber = "defaultTradeNumber";
   // static String drawLines = "drawLines";
   static String drawToolLines = "drawToolLines";
+  static String drawToolLineTypes = "drawToolLineTypes";
 
   ///合约搜索历史记录
   static String searchHistory = "searchHistory";

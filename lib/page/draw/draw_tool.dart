@@ -6,6 +6,8 @@ import 'package:get/get.dart';
 import 'package:trade/util/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 import '../../model/draw_tools/DrawTool.dart';
+import '../../util/shared_preferences/shared_preferences_key.dart';
+import '../../util/shared_preferences/shared_preferences_utils.dart';
 import '../../util/widget/combo_box.dart';
 
 import '../../config/common.dart';
@@ -66,6 +68,12 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
     await DesktopMultiWindow.invokeMethod(kMainWindowId, kDrawEvent, typeList);
   }
 
+  getData() async {
+    await SpUtils.getString(SpKey.drawToolLineTypes);
+    typeList = jsonDecode(await SpUtils.getString(SpKey.drawToolLineTypes) ?? "[]").cast<int>();
+    if (mounted) setState(() {});
+  }
+
   @override
   void onWindowClose() async {
     notMainWindowClose(WindowController windowController) async {
@@ -82,6 +90,7 @@ class _DrawToolState extends State<DrawTool> with MultiWindowListener {
     super.initState();
     DesktopMultiWindow.addListener(this);
     initData();
+    getData();
   }
 
   @override

@@ -72,6 +72,8 @@ class Common {
   static Color darkDownColor = HexColor('#00F4F2'); //青色
   static Color lightDownColor = HexColor('#00B06C'); //绿色
   static Color redTextColor = HexColor('#FF3333'); //红色
+  static Color contractNameLightColor = HexColor('#A67D31'); //金色
+  static Color contractNameDarkColor = HexColor('#FFDC99'); //金色
 
   static Color textBoxBorderDarkColor = HexColor('#393F4D'); //灰
   static Color textBoxBorderHighLightDarkColor = HexColor('#D5DAE7');

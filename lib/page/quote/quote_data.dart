@@ -44,7 +44,7 @@ class _QuoteDataState extends State<QuoteData> {
   List<Widget> getList(Contract contract, int index) {
     return [
       contentItem((index + 1).toString(), color: Common.commandTextColor),
-      contentItem(contract.name, flex: 1.5),
+      contentItem(contract.name, flex: 1.5, color: themeController.isDarkMode.value ? Common.contractNameDarkColor : Common.contractNameLightColor),
       contentItem(contract.lastPriceString, up: contract.lastPriceUp),
       contentItem(contract.buyPriceString, up: contract.lastPriceUp),
       contentItem(contract.salePriceString, up: contract.lastPriceUp),
